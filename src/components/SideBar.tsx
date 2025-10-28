@@ -26,8 +26,8 @@ import Image from "next/image";
 
 const supervisorNavItems = [
   { label: "Company", icon: Building2, href: "/company" },
-  { label: "Po", icon: ShoppingCart, href: "/po-card" },
   { label: "Eois", icon: ShoppingBasket, href: "/eois-card" },
+  { label: "Po", icon: ShoppingCart, href: "/po-card" },
 ];
 
 const Sidebar: React.FC = () => {

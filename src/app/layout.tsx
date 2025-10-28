@@ -39,7 +39,7 @@ export default function RootLayout({
             <TopBar />
 
             {/* Page content */}
-            <main className="flex-1  p-3 overflow-y-auto bg-gray-800">
+            <main className="flex-1  p-3 overflow-y-auto bg-gradient-to-b from-gray-50 to-gray-100">
               {children}
             </main>
           </div>
