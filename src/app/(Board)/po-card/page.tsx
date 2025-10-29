@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { MapPin, Pencil, CircleUser, MoreVertical } from "lucide-react";
+import { MapPin, Pencil, CircleUser, MoreVertical, Plus } from "lucide-react";
+import POForm from "@/src/components/form/POForm";
+// 👈 import the form component
 
 interface CompanyCardProps {
   id: number;
@@ -36,103 +38,28 @@ const companies: CompanyCardProps[] = [
     price: "₹68.00",
     status: "In Progress",
   },
-  {
-    id: 2,
-    name: "GreenGrow Traders",
-    location: "Hassan, Karnataka",
-    crop: "Turmeric",
-    moisture: "Curcumin %",
-    quantity: "15 Tons",
-    price: "₹68.00",
-    status: "In Progress",
-  },
-  {
-    id: 2,
-    name: "GreenGrow Traders",
-    location: "Hassan, Karnataka",
-    crop: "Turmeric",
-    moisture: "Curcumin %",
-    quantity: "15 Tons",
-    price: "₹68.00",
-    status: "In Progress",
-  },
-  {
-    id: 2,
-    name: "GreenGrow Traders",
-    location: "Hassan, Karnataka",
-    crop: "Turmeric",
-    moisture: "Curcumin %",
-    quantity: "15 Tons",
-    price: "₹68.00",
-    status: "In Progress",
-  },
-  {
-    id: 2,
-    name: "GreenGrow Traders",
-    location: "Hassan, Karnataka",
-    crop: "Turmeric",
-    moisture: "Curcumin %",
-    quantity: "15 Tons",
-    price: "₹68.00",
-    status: "In Progress",
-  },
-  {
-    id: 2,
-    name: "GreenGrow Traders",
-    location: "Hassan, Karnataka",
-    crop: "Turmeric",
-    moisture: "Curcumin %",
-    quantity: "15 Tons",
-    price: "₹68.00",
-    status: "In Progress",
-  },
-  {
-    id: 2,
-    name: "GreenGrow Traders",
-    location: "Hassan, Karnataka",
-    crop: "Turmeric",
-    moisture: "Curcumin %",
-    quantity: "15 Tons",
-    price: "₹68.00",
-    status: "In Progress",
-  },
-  {
-    id: 2,
-    name: "GreenGrow Traders",
-    location: "Hassan, Karnataka",
-    crop: "Turmeric",
-    moisture: "Curcumin %",
-    quantity: "15 Tons",
-    price: "₹68.00",
-    status: "In Progress",
-  },
-  {
-    id: 2,
-    name: "GreenGrow Traders",
-    location: "Hassan, Karnataka",
-    crop: "Turmeric",
-    moisture: "Curcumin %",
-    quantity: "15 Tons",
-    price: "₹68.00",
-    status: "In Progress",
-  },
-  {
-    id: 2,
-    name: "GreenGrow Traders",
-    location: "Hassan, Karnataka",
-    crop: "Turmeric",
-    moisture: "Curcumin %",
-    quantity: "15 Tons",
-    price: "₹68.00",
-    status: "In Progress",
-  },
+  // ... rest of your data
 ];
 
 const CompaniesPage = () => {
+  const [showForm, setShowForm] = useState(false); // 👈 added state
+
   return (
     <div>
-      <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-purple-50 py-10 px-12">
-        <div className="flex flex-wrap  gap-12">
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-purple-50 py-10 px-12 relative">
+        {/* 👇 Floating Add PO Button */}
+        <button
+          onClick={() => setShowForm(true)}
+          className="fixed bottom-8 right-8 bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-full shadow-lg transition-all"
+        >
+          <Plus size={24} />
+        </button>
+
+        {/* 👇 Popup Form */}
+        {showForm && <POForm onClose={() => setShowForm(false)} />}
+
+        {/* Existing Code Below */}
+        <div className="flex flex-wrap gap-12">
           {companies.map((company) => (
             <Link
               href={`/po/${company.id}`}
@@ -144,8 +71,6 @@ const CompaniesPage = () => {
                 <span className="absolute top-3 right-3 text-xs font-medium bg-purple-600 text-white px-3 py-1 rounded-full shadow">
                   {company.status}
                 </span>
-                {/* <MoreVertical className="text-gray-400 absolute top-3 left-3 w-4 h-4" /> */}
-
                 <div className="absolute left-1/2 -bottom-8 transform -translate-x-1/2 w-20 h-20 rounded-full bg-gradient-to-tr from-gray-100 to-gray-50 flex items-center justify-center ring-4 ring-white shadow-inner">
                   <CircleUser className="w-10 h-10 text-gray-500" />
                 </div>
@@ -172,7 +97,6 @@ const CompaniesPage = () => {
                         {company.moisture}
                       </p>
                     </div>
-                    {/* <Pencil className="w-4 h-4 text-gray-400 hover:text-purple-600 cursor-pointer transition" /> */}
                   </div>
 
                   <div className="flex justify-between items-center mt-4 text-gray-700 text-sm">

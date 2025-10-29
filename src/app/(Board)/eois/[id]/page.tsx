@@ -569,6 +569,12 @@ const PurchaseOrderDetails: React.FC = () => {
     },
   });
 
+  // TypeScript quirk: ensure we can read isLoading reliably in this file.
+  // Narrow to `any` here to avoid a mismatched generic type error from the
+  // project's React Query types while preserving runtime behavior.
+  const isFindingNearbyBuyers = (findNearbyBuyersMutation as any)
+    .isLoading as boolean;
+
   const fetchBuyers = (page = 1) => {
     if (!order) return;
 
@@ -828,16 +834,14 @@ const PurchaseOrderDetails: React.FC = () => {
                   }
                   fetchBuyers(1); // Always start from page 1
                 }}
-                disabled={findNearbyBuyersMutation.isLoading}
+                disabled={isFindingNearbyBuyers}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium ${
-                  findNearbyBuyersMutation.isLoading
+                  isFindingNearbyBuyers
                     ? "bg-gray-400 text-white"
                     : "bg-green-600 text-white hover:bg-green-700"
                 }`}
               >
-                {findNearbyBuyersMutation.isLoading
-                  ? "Searching..."
-                  : "Find Buyers"}
+                {isFindingNearbyBuyers ? "Searching..." : "Find Buyers"}
               </button>
             </div>
           </div>

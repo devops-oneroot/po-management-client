@@ -1,21 +1,15 @@
-// src/app/layout.tsx
+// (Board) layout: this is a nested layout — it must NOT render <html> or <body>.
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactNode } from "react";
 
-// Create a QueryClient instance
+// Create a QueryClient instance (can be module-scoped)
 const queryClient = new QueryClient();
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function BoardLayout({ children }: { children: ReactNode }) {
+  // Return only the layout content — no <html> or <body> tags here.
   return (
-    <html lang="en">
-      <body>
-        {/* Wrap your app with QueryClientProvider */}
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
-      </body>
-    </html>
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
 }

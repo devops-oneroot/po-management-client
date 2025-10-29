@@ -182,6 +182,7 @@ const TextAreaField = React.memo(
     placeholder,
     rows = 4,
     language,
+    error: fieldError,
   }: {
     label: string;
     name: string;
@@ -190,6 +191,7 @@ const TextAreaField = React.memo(
     placeholder?: string;
     rows?: number;
     language?: Language;
+    error?: string;
   }) => (
     <div className="space-y-2" key={name}>
       <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
@@ -209,8 +211,18 @@ const TextAreaField = React.memo(
         onChange={onChange}
         rows={rows}
         placeholder={placeholder}
-        className="w-full p-3 bg-white border-2 rounded-xl resize-vertical transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 border-gray-200 hover:border-gray-300 placeholder-gray-400 min-h-[100px]"
+        className={`w-full p-3 bg-white border-2 rounded-xl resize-vertical transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+          fieldError
+            ? "border-red-300 bg-red-50"
+            : "border-gray-200 hover:border-gray-300"
+        } placeholder-gray-400 min-h-[100px]`}
       />
+      {fieldError && (
+        <p className="flex items-center space-x-1 text-sm text-red-600 mt-1">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{fieldError}</span>
+        </p>
+      )}
     </div>
   )
 );
@@ -312,12 +324,14 @@ const FileUpload = React.memo(
   )
 );
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+
 const OrderForm = ({
   order,
   isEditMode = false,
   onSuccess,
 }: {
-  order?: PurchaseOrder | null;
+  order?: any | null; // accept a looser order shape to interop with other modules
   isEditMode?: boolean;
   onSuccess?: () => void;
 }) => {
@@ -325,6 +339,9 @@ const OrderForm = ({
   const [districts, setDistricts] = useState<string[]>([]);
   const [talukas, setTalukas] = useState<string[]>([]);
   const [villages, setVillages] = useState<string[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loading, setLoading] = useState({
     states: false,
     districts: false,
@@ -362,438 +379,533 @@ const OrderForm = ({
     availablePoExpiry: "", // New field
   });
 
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  // Base API URL (stable) — declare before any effects that use it to avoid
+  // "Cannot access 'API_BASE_URL' before initialization" runtime errors.
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      setLoadingCompanies(true);
+      try {
+        const response = await axios.get(
+          "https://markhet-internal-dev.onrender.com/po-companies"
+        );
+        // Support multiple API shapes:
+        // - response.data is an array (API returns raw array)
+        // - response.data.data is an array (API wraps payload)
+        const payload = response.data;
+        const companyList = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data)
+          ? payload.data
+          : [];
+        setCompanies(companyList);
+        // Debug: log a sample to help diagnose dropdown mapping issues
+        // (remove or disable in production)
+        console.debug(
+          "Fetched companies (normalized):",
+          companyList.slice(0, 5)
+        );
+      } catch (error) {
+        console.error("Error fetching companies:", error);
+        setError({ message: "Failed to load companies" });
+      } finally {
+        setLoadingCompanies(false);
+      }
+    };
+    fetchCompanies();
+  }, [API_BASE_URL]);
+
+  // Company Options for Dropdown
+  const companyOptions = companies.map((comp: any) => {
+    // Some APIs return different id or name keys (_id, id) or companyName/company_name/name
+    const id = String(comp?.id ?? comp?._id ?? comp?.companyId ?? "");
+    const label =
+      (comp?.companyName ?? comp?.company_name ?? comp?.name ?? id) ||
+      "Unknown";
+    return { value: id, label };
+  });
+
+  // Debug: print options to verify what will render in the dropdown
+  console.debug("Company dropdown options:", companyOptions.slice(0, 10));
+
+  // Handle Company Selection
+  const handleCompanyChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const companyId = e.target.value;
+      setSelectedCompanyId(companyId);
+      // Match by id or _id coerced to string
+      const selected = companies.find(
+        (c: any) => String(c?.id ?? c?._id ?? c?.companyId ?? "") === companyId
+      );
+      if (selected) {
+        // Support different coordinate shapes: { coordinates: [lon, lat] } or { lon, lat }
+        const coordsArray = selected.coordinates?.coordinates;
+        const lon = coordsArray ? coordsArray[0] : selected.coordinates?.lon;
+        const lat = coordsArray ? coordsArray[1] : selected.coordinates?.lat;
+
+        setFormData((prev) => ({
+          ...prev,
+          companyName:
+            selected.companyName ?? selected.name ?? selected.company_name ?? "",
+          state: selected.state || "",
+          district: selected.district || "",
+          taluk: selected.taluk || "",
+          village: selected.village || "",
+          coordinates: {
+            lat: lat?.toString?.() || "",
+            lon: lon?.toString?.() || "",
+          },
+          company_logo: selected.company_logo || "",
+        }));
+      } else {
+        // Reset if no company selected
+        setFormData((prev) => ({
+          ...prev,
+          companyName: "",
+          state: "",
+          district: "",
+          taluk: "",
+          village: "",
+          coordinates: { lat: "", lon: "" },
+          company_logo: "",
+        }));
+      }
+
+      if (error?.field === "companyId") setError(null);
+    },
+    [companies]
+  );
+  // API_BASE_URL is now declared at the top of the file
 
   // Fetch states on mount
   // Fetch districts on mount (state is fixed to Karnataka)
   // Fetch states on mount
-  useEffect(() => {
-    const fetchStates = async () => {
-      setLoading((prev) => ({ ...prev, states: true }));
-      try {
-        const response = await axios.get(`${API_BASE_URL}/newlocations/states`);
-        setStates(Array.isArray(response.data.data) ? response.data.data : []);
-      } catch (error) {
-        console.error("Error fetching states:", error);
-        setStates([]);
-        setError({ message: "Failed to fetch states" });
-      } finally {
-        setLoading((prev) => ({ ...prev, states: false }));
-      }
-    };
-    fetchStates();
-  }, [API_BASE_URL]);
+  // useEffect(() => {
+  //   const fetchStates = async () => {
+  //     setLoading((prev) => ({ ...prev, states: true }));
+  //     try {
+  //       const response = await axios.get(`${API_BASE_URL}/newlocations/states`);
+  //       setStates(Array.isArray(response.data.data) ? response.data.data : []);
+  //     } catch (error) {
+  //       console.error("Error fetching states:", error);
+  //       setStates([]);
+  //       setError({ message: "Failed to fetch states" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, states: false }));
+  //     }
+  //   };
+  //   fetchStates();
+  // }, [API_BASE_URL]);
 
   // Fetch districts when state changes
-  useEffect(() => {
-    if (!formData.state) {
-      setDistricts([]);
-      setTalukas([]);
-      setVillages([]);
-      return;
-    }
-    const fetchDistricts = async () => {
-      setLoading((prev) => ({ ...prev, districts: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/districts`,
-          {
-            params: { state: formData.state },
-          }
-        );
-        setDistricts(
-          Array.isArray(response.data.data) ? response.data.data : []
-        );
-      } catch (error) {
-        console.error("Error fetching districts:", error);
-        setDistricts([]);
-        setError({ message: "Failed to fetch districts" });
-      } finally {
-        setLoading((prev) => ({ ...prev, districts: false }));
-      }
-    };
-    fetchDistricts();
-  }, [formData.state, API_BASE_URL]);
+  // useEffect(() => {
+  //   if (!formData.state) {
+  //     setDistricts([]);
+  //     setTalukas([]);
+  //     setVillages([]);
+  //     return;
+  //   }
+  //   const fetchDistricts = async () => {
+  //     setLoading((prev) => ({ ...prev, districts: true }));
+  //     try {
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/districts`,
+  //         {
+  //           params: { state: formData.state },
+  //         }
+  //       );
+  //       setDistricts(
+  //         Array.isArray(response.data.data) ? response.data.data : []
+  //       );
+  //     } catch (error) {
+  //       console.error("Error fetching districts:", error);
+  //       setDistricts([]);
+  //       setError({ message: "Failed to fetch districts" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, districts: false }));
+  //     }
+  //   };
+  //   fetchDistricts();
+  // }, [formData.state, API_BASE_URL]);
 
   // Fetch talukas when district changes
-  useEffect(() => {
-    if (!formData.district) {
-      setTalukas([]);
-      setVillages([]);
-      return;
-    }
-    const fetchTalukas = async () => {
-      setLoading((prev) => ({ ...prev, talukas: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/taluks`,
-          {
-            params: { state: formData.state, district: formData.district },
-          }
-        );
-        setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
-      } catch (error) {
-        console.error("Error fetching talukas:", error);
-        setTalukas([]);
-        setError({ message: "Failed to fetch talukas" });
-      } finally {
-        setLoading((prev) => ({ ...prev, talukas: false }));
-      }
-    };
-    fetchTalukas();
-  }, [formData.state, formData.district, API_BASE_URL]);
+  // useEffect(() => {
+  //   if (!formData.district) {
+  //     setTalukas([]);
+  //     setVillages([]);
+  //     return;
+  //   }
+  //   const fetchTalukas = async () => {
+  //     setLoading((prev) => ({ ...prev, talukas: true }));
+  //     try {
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/taluks`,
+  //         {
+  //           params: { state: formData.state, district: formData.district },
+  //         }
+  //       );
+  //       setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
+  //     } catch (error) {
+  //       console.error("Error fetching talukas:", error);
+  //       setTalukas([]);
+  //       setError({ message: "Failed to fetch talukas" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, talukas: false }));
+  //     }
+  //   };
+  //   fetchTalukas();
+  // }, [formData.state, formData.district, API_BASE_URL]);
 
   // Fetch villages when taluk changes
-  useEffect(() => {
-    if (!formData.taluk) {
-      setVillages([]);
-      return;
-    }
-    const fetchVillages = async () => {
-      setLoading((prev) => ({ ...prev, villages: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/villages`,
-          {
-            params: {
-              state: formData.state,
-              district: formData.district,
-              taluk: formData.taluk,
-            },
-          }
-        );
-        setVillages(
-          Array.isArray(response.data.data) ? response.data.data : []
-        );
-      } catch (error) {
-        console.error("Error fetching villages:", error);
-        setVillages([]);
-        setError({ message: "Failed to fetch villages" });
-      } finally {
-        setLoading((prev) => ({ ...prev, villages: false }));
-      }
-    };
-    fetchVillages();
-  }, [formData.state, formData.district, formData.taluk, API_BASE_URL]);
+  // useEffect(() => {
+  //   if (!formData.taluk) {
+  //     setVillages([]);
+  //     return;
+  //   }
+  //   const fetchVillages = async () => {
+  //     setLoading((prev) => ({ ...prev, villages: true }));
+  //     try {
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/villages`,
+  //         {
+  //           params: {
+  //             state: formData.state,
+  //             district: formData.district,
+  //             taluk: formData.taluk,
+  //           },
+  //         }
+  //       );
+  //       setVillages(
+  //         Array.isArray(response.data.data) ? response.data.data : []
+  //       );
+  //     } catch (error) {
+  //       console.error("Error fetching villages:", error);
+  //       setVillages([]);
+  //       setError({ message: "Failed to fetch villages" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, villages: false }));
+  //     }
+  //   };
+  //   fetchVillages();
+  // }, [formData.state, formData.district, formData.taluk, API_BASE_URL]);
 
   // Fetch coordinates when district, taluk, and village are selected
-  useEffect(() => {
-    const { district, taluk, village } = formData;
-    if (!district || !taluk || !village) {
-      setFormData((prev) => ({
-        ...prev,
-        coordinates: { lat: "", lon: "" },
-      }));
-      return;
-    }
-    const fetchCoordinates = async () => {
-      setLoading((prev) => ({ ...prev, coordinates: true }));
-      try {
-        const address = `${district},${taluk},${village}`;
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/coordinates`,
-          {
-            params: { address },
-          }
-        );
-        const coords = response?.data?.data;
-        if (
-          coords &&
-          typeof coords.latitude !== "undefined" &&
-          typeof coords.longitude !== "undefined"
-        ) {
-          setFormData((prev) => ({
-            ...prev,
-            coordinates: {
-              lat: String(coords.latitude),
-              lon: String(coords.longitude),
-            },
-          }));
-        } else {
-          console.warn("Coordinates response missing data:", response.data);
-          setFormData((prev) => ({
-            ...prev,
-            coordinates: { lat: "", lon: "" },
-          }));
-          setError({ message: "Failed to fetch valid coordinates" });
-        }
-      } catch (err) {
-        console.error("Error fetching coordinates:", err);
-        setFormData((prev) => ({
-          ...prev,
-          coordinates: { lat: "", lon: "" },
-        }));
-        setError({ message: "Failed to fetch coordinates" });
-      } finally {
-        setLoading((prev) => ({ ...prev, coordinates: false }));
-      }
-    };
-    fetchCoordinates();
-  }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
+  // useEffect(() => {
+  //   const { district, taluk, village } = formData;
+  //   if (!district || !taluk || !village) {
+  //     setFormData((prev) => ({
+  //       ...prev,
+  //       coordinates: { lat: "", lon: "" },
+  //     }));
+  //     return;
+  //   }
+  //   const fetchCoordinates = async () => {
+  //     setLoading((prev) => ({ ...prev, coordinates: true }));
+  //     try {
+  //       const address = `${district},${taluk},${village}`;
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/coordinates`,
+  //         {
+  //           params: { address },
+  //         }
+  //       );
+  //       const coords = response?.data?.data;
+  //       if (
+  //         coords &&
+  //         typeof coords.latitude !== "undefined" &&
+  //         typeof coords.longitude !== "undefined"
+  //       ) {
+  //         setFormData((prev) => ({
+  //           ...prev,
+  //           coordinates: {
+  //             lat: String(coords.latitude),
+  //             lon: String(coords.longitude),
+  //           },
+  //         }));
+  //       } else {
+  //         console.warn("Coordinates response missing data:", response.data);
+  //         setFormData((prev) => ({
+  //           ...prev,
+  //           coordinates: { lat: "", lon: "" },
+  //         }));
+  //         setError({ message: "Failed to fetch valid coordinates" });
+  //       }
+  //     } catch (err) {
+  //       console.error("Error fetching coordinates:", err);
+  //       setFormData((prev) => ({
+  //         ...prev,
+  //         coordinates: { lat: "", lon: "" },
+  //       }));
+  //       setError({ message: "Failed to fetch coordinates" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, coordinates: false }));
+  //     }
+  //   };
+  //   fetchCoordinates();
+  // }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
 
   // Fetch talukas when district changes
-  useEffect(() => {
-    if (!formData.district) {
-      setTalukas([]);
-      setVillages([]);
-      return;
-    }
-    const fetchTalukas = async () => {
-      setLoading((prev) => ({ ...prev, talukas: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/taluks`,
-          {
-            params: { state: "Karnataka", district: formData.district },
-          }
-        );
-        setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
-      } catch (error) {
-        console.error("Error fetching talukas:", error);
-        setTalukas([]);
-        setError({ message: "Failed to fetch talukas" });
-      } finally {
-        setLoading((prev) => ({ ...prev, talukas: false }));
-      }
-    };
-    fetchTalukas();
-  }, [formData.district, API_BASE_URL]);
+  // useEffect(() => {
+  //   if (!formData.district) {
+  //     setTalukas([]);
+  //     setVillages([]);
+  //     return;
+  //   }
+  //   const fetchTalukas = async () => {
+  //     setLoading((prev) => ({ ...prev, talukas: true }));
+  //     try {
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/taluks`,
+  //         {
+  //           params: { state: "Karnataka", district: formData.district },
+  //         }
+  //       );
+  //       setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
+  //     } catch (error) {
+  //       console.error("Error fetching talukas:", error);
+  //       setTalukas([]);
+  //       setError({ message: "Failed to fetch talukas" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, talukas: false }));
+  //     }
+  //   };
+  //   fetchTalukas();
+  // }, [formData.district, API_BASE_URL]);
 
   // Fetch villages when taluk changes
-  useEffect(() => {
-    if (!formData.taluk) {
-      setVillages([]);
-      return;
-    }
-    const fetchVillages = async () => {
-      setLoading((prev) => ({ ...prev, villages: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/villages`,
-          {
-            params: {
-              state: "Karnataka",
-              district: formData.district,
-              taluk: formData.taluk,
-            },
-          }
-        );
-        setVillages(
-          Array.isArray(response.data.data) ? response.data.data : []
-        );
-      } catch (error) {
-        console.error("Error fetching villages:", error);
-        setVillages([]);
-        setError({ message: "Failed to fetch villages" });
-      } finally {
-        setLoading((prev) => ({ ...prev, villages: false }));
-      }
-    };
-    fetchVillages();
-  }, [formData.district, formData.taluk, API_BASE_URL]);
+  // useEffect(() => {
+  //   if (!formData.taluk) {
+  //     setVillages([]);
+  //     return;
+  //   }
+  //   const fetchVillages = async () => {
+  //     setLoading((prev) => ({ ...prev, villages: true }));
+  //     try {
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/villages`,
+  //         {
+  //           params: {
+  //             state: "Karnataka",
+  //             district: formData.district,
+  //             taluk: formData.taluk,
+  //           },
+  //         }
+  //       );
+  //       setVillages(
+  //         Array.isArray(response.data.data) ? response.data.data : []
+  //       );
+  //     } catch (error) {
+  //       console.error("Error fetching villages:", error);
+  //       setVillages([]);
+  //       setError({ message: "Failed to fetch villages" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, villages: false }));
+  //     }
+  //   };
+  //   fetchVillages();
+  // }, [formData.district, formData.taluk, API_BASE_URL]);
 
   // Fetch coordinates when district, taluk, and village are selected
-  useEffect(() => {
-    const { district, taluk, village } = formData;
-    if (!district || !taluk || !village) {
-      setFormData((prev) => ({
-        ...prev,
-        coordinates: { lat: "", lon: "" },
-      }));
-      return;
-    }
-    const fetchCoordinates = async () => {
-      setLoading((prev) => ({ ...prev, coordinates: true }));
-      try {
-        const address = `${district},${taluk},${village}`;
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/coordinates`,
-          {
-            params: { address },
-          }
-        );
-        const coords = response?.data?.data;
-        if (
-          coords &&
-          typeof coords.latitude !== "undefined" &&
-          typeof coords.longitude !== "undefined"
-        ) {
-          setFormData((prev) => ({
-            ...prev,
-            coordinates: {
-              lat: String(coords.latitude),
-              lon: String(coords.longitude),
-            },
-          }));
-        } else {
-          console.warn("Coordinates response missing data:", response.data);
-          setFormData((prev) => ({
-            ...prev,
-            coordinates: { lat: "", lon: "" },
-          }));
-          setError({ message: "Failed to fetch valid coordinates" });
-        }
-      } catch (err) {
-        console.error("Error fetching coordinates:", err);
-        setFormData((prev) => ({
-          ...prev,
-          coordinates: { lat: "", lon: "" },
-        }));
-        setError({ message: "Failed to fetch coordinates" });
-      } finally {
-        setLoading((prev) => ({ ...prev, coordinates: false }));
-      }
-    };
-    fetchCoordinates();
-  }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
+  // useEffect(() => {
+  //   const { district, taluk, village } = formData;
+  //   if (!district || !taluk || !village) {
+  //     setFormData((prev) => ({
+  //       ...prev,
+  //       coordinates: { lat: "", lon: "" },
+  //     }));
+  //     return;
+  //   }
+  //   const fetchCoordinates = async () => {
+  //     setLoading((prev) => ({ ...prev, coordinates: true }));
+  //     try {
+  //       const address = `${district},${taluk},${village}`;
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/coordinates`,
+  //         {
+  //           params: { address },
+  //         }
+  //       );
+  //       const coords = response?.data?.data;
+  //       if (
+  //         coords &&
+  //         typeof coords.latitude !== "undefined" &&
+  //         typeof coords.longitude !== "undefined"
+  //       ) {
+  //         setFormData((prev) => ({
+  //           ...prev,
+  //           coordinates: {
+  //             lat: String(coords.latitude),
+  //             lon: String(coords.longitude),
+  //           },
+  //         }));
+  //       } else {
+  //         console.warn("Coordinates response missing data:", response.data);
+  //         setFormData((prev) => ({
+  //           ...prev,
+  //           coordinates: { lat: "", lon: "" },
+  //         }));
+  //         setError({ message: "Failed to fetch valid coordinates" });
+  //       }
+  //     } catch (err) {
+  //       console.error("Error fetching coordinates:", err);
+  //       setFormData((prev) => ({
+  //         ...prev,
+  //         coordinates: { lat: "", lon: "" },
+  //       }));
+  //       setError({ message: "Failed to fetch coordinates" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, coordinates: false }));
+  //     }
+  //   };
+  //   fetchCoordinates();
+  // }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
 
   // Fetch districts when state changes
-  useEffect(() => {
-    if (!formData.state) {
-      setDistricts([]);
-      setTalukas([]);
-      setVillages([]);
-      return;
-    }
-    const fetchDistricts = async () => {
-      setLoading((prev) => ({ ...prev, districts: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/districts`,
-          {
-            params: { state: formData.state },
-          }
-        );
-        setDistricts(
-          Array.isArray(response.data.data) ? response.data.data : []
-        );
-      } catch (error) {
-        console.error("Error fetching districts:", error);
-        setDistricts([]);
-        setError({ message: "Failed to fetch districts" });
-      } finally {
-        setLoading((prev) => ({ ...prev, districts: false }));
-      }
-    };
-    fetchDistricts();
-  }, [formData.state, API_BASE_URL]);
+  // useEffect(() => {
+  //   if (!formData.state) {
+  //     setDistricts([]);
+  //     setTalukas([]);
+  //     setVillages([]);
+  //     return;
+  //   }
+  //   const fetchDistricts = async () => {
+  //     setLoading((prev) => ({ ...prev, districts: true }));
+  //     try {
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/districts`,
+  //         {
+  //           params: { state: formData.state },
+  //         }
+  //       );
+  //       setDistricts(
+  //         Array.isArray(response.data.data) ? response.data.data : []
+  //       );
+  //     } catch (error) {
+  //       console.error("Error fetching districts:", error);
+  //       setDistricts([]);
+  //       setError({ message: "Failed to fetch districts" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, districts: false }));
+  //     }
+  //   };
+  //   fetchDistricts();
+  // }, [formData.state, API_BASE_URL]);
 
-  // Fetch talukas when district changes
-  useEffect(() => {
-    if (!formData.district) {
-      setTalukas([]);
-      setVillages([]);
-      return;
-    }
-    const fetchTalukas = async () => {
-      setLoading((prev) => ({ ...prev, talukas: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/taluks`,
-          {
-            params: { state: formData.state, district: formData.district },
-          }
-        );
-        setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
-      } catch (error) {
-        console.error("Error fetching talukas:", error);
-        setTalukas([]);
-        setError({ message: "Failed to fetch talukas" });
-      } finally {
-        setLoading((prev) => ({ ...prev, talukas: false }));
-      }
-    };
-    fetchTalukas();
-  }, [formData.state, formData.district, API_BASE_URL]);
+  // // Fetch talukas when district changes
+  // useEffect(() => {
+  //   if (!formData.district) {
+  //     setTalukas([]);
+  //     setVillages([]);
+  //     return;
+  //   }
+  //   const fetchTalukas = async () => {
+  //     setLoading((prev) => ({ ...prev, talukas: true }));
+  //     try {
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/taluks`,
+  //         {
+  //           params: { state: formData.state, district: formData.district },
+  //         }
+  //       );
+  //       setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
+  //     } catch (error) {
+  //       console.error("Error fetching talukas:", error);
+  //       setTalukas([]);
+  //       setError({ message: "Failed to fetch talukas" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, talukas: false }));
+  //     }
+  //   };
+  //   fetchTalukas();
+  // }, [formData.state, formData.district, API_BASE_URL]);
 
-  // Fetch villages when taluk changes
-  useEffect(() => {
-    if (!formData.taluk) {
-      setVillages([]);
-      return;
-    }
-    const fetchVillages = async () => {
-      setLoading((prev) => ({ ...prev, villages: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/villages`,
-          {
-            params: {
-              state: formData.state,
-              district: formData.district,
-              taluk: formData.taluk,
-            },
-          }
-        );
-        setVillages(
-          Array.isArray(response.data.data) ? response.data.data : []
-        );
-      } catch (error) {
-        console.error("Error fetching villages:", error);
-        setVillages([]);
-        setError({ message: "Failed to fetch villages" });
-      } finally {
-        setLoading((prev) => ({ ...prev, villages: false }));
-      }
-    };
-    fetchVillages();
-  }, [formData.state, formData.district, formData.taluk, API_BASE_URL]);
+  // // Fetch villages when taluk changes
+  // useEffect(() => {
+  //   if (!formData.taluk) {
+  //     setVillages([]);
+  //     return;
+  //   }
+  //   const fetchVillages = async () => {
+  //     setLoading((prev) => ({ ...prev, villages: true }));
+  //     try {
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/villages`,
+  //         {
+  //           params: {
+  //             state: formData.state,
+  //             district: formData.district,
+  //             taluk: formData.taluk,
+  //           },
+  //         }
+  //       );
+  //       setVillages(
+  //         Array.isArray(response.data.data) ? response.data.data : []
+  //       );
+  //     } catch (error) {
+  //       console.error("Error fetching villages:", error);
+  //       setVillages([]);
+  //       setError({ message: "Failed to fetch villages" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, villages: false }));
+  //     }
+  //   };
+  //   fetchVillages();
+  // }, [formData.state, formData.district, formData.taluk, API_BASE_URL]);
 
-  // Fetch coordinates when district, taluk, and village are selected
-  useEffect(() => {
-    const { district, taluk, village } = formData;
-    if (!district || !taluk || !village) {
-      setFormData((prev) => ({
-        ...prev,
-        coordinates: { lat: "", lon: "" },
-      }));
-      return;
-    }
-    const fetchCoordinates = async () => {
-      setLoading((prev) => ({ ...prev, coordinates: true }));
-      try {
-        const address = `${district},${taluk},${village}`;
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/coordinates`,
-          {
-            params: { address },
-          }
-        );
-        const coords = response?.data?.data;
-        if (
-          coords &&
-          typeof coords.latitude !== "undefined" &&
-          typeof coords.longitude !== "undefined"
-        ) {
-          setFormData((prev) => ({
-            ...prev,
-            coordinates: {
-              lat: String(coords.latitude),
-              lon: String(coords.longitude),
-            },
-          }));
-        } else {
-          console.warn("Coordinates response missing data:", response.data);
-          setFormData((prev) => ({
-            ...prev,
-            coordinates: { lat: "", lon: "" },
-          }));
-          setError({ message: "Failed to fetch valid coordinates" });
-        }
-      } catch (err) {
-        console.error("Error fetching coordinates:", err);
-        setFormData((prev) => ({
-          ...prev,
-          coordinates: { lat: "", lon: "" },
-        }));
-        setError({ message: "Failed to fetch coordinates" });
-      } finally {
-        setLoading((prev) => ({ ...prev, coordinates: false }));
-      }
-    };
-    fetchCoordinates();
-  }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
+  // // Fetch coordinates when district, taluk, and village are selected
+  // useEffect(() => {
+  //   const { district, taluk, village } = formData;
+  //   if (!district || !taluk || !village) {
+  //     setFormData((prev) => ({
+  //       ...prev,
+  //       coordinates: { lat: "", lon: "" },
+  //     }));
+  //     return;
+  //   }
+  //   const fetchCoordinates = async () => {
+  //     setLoading((prev) => ({ ...prev, coordinates: true }));
+  //     try {
+  //       const address = `${district},${taluk},${village}`;
+  //       const response = await axios.get(
+  //         `${API_BASE_URL}/newlocations/coordinates`,
+  //         {
+  //           params: { address },
+  //         }
+  //       );
+  //       const coords = response?.data?.data;
+  //       if (
+  //         coords &&
+  //         typeof coords.latitude !== "undefined" &&
+  //         typeof coords.longitude !== "undefined"
+  //       ) {
+  //         setFormData((prev) => ({
+  //           ...prev,
+  //           coordinates: {
+  //             lat: String(coords.latitude),
+  //             lon: String(coords.longitude),
+  //           },
+  //         }));
+  //       } else {
+  //         console.warn("Coordinates response missing data:", response.data);
+  //         setFormData((prev) => ({
+  //           ...prev,
+  //           coordinates: { lat: "", lon: "" },
+  //         }));
+  //         setError({ message: "Failed to fetch valid coordinates" });
+  //       }
+  //     } catch (err) {
+  //       console.error("Error fetching coordinates:", err);
+  //       setFormData((prev) => ({
+  //         ...prev,
+  //         coordinates: { lat: "", lon: "" },
+  //       }));
+  //       setError({ message: "Failed to fetch coordinates" });
+  //     } finally {
+  //       setLoading((prev) => ({ ...prev, coordinates: false }));
+  //     }
+  //   };
+  //   fetchCoordinates();
+  // }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
 
   // Language selection state
   const [selectedSpecificationLanguage, setSelectedSpecificationLanguage] =
@@ -812,58 +924,61 @@ const OrderForm = ({
 
   useEffect(() => {
     if (isEditMode && order) {
-      const { coordinates, ...rest } = order;
-      const [lon, lat] = coordinates.coordinates;
+      // Normalize order fields (API may use `name` instead of `companyName`, etc.)
+      const coords =
+        order?.coordinates?.coordinates || order?.coordinates || [];
+      const lon = coords[0] ?? "";
+      const lat = coords[1] ?? "";
 
-      const specLang = rest.specification_en
+      const specLang = order?.specification_en
         ? "en"
-        : rest.specification_kn
+        : order?.specification_kn
         ? "kn"
-        : rest.specification_te
+        : order?.specification_te
         ? "te"
         : "en";
 
-      const termsLang = rest.termsAndConditions_en
+      const termsLang = order?.termsAndConditions_en
         ? "en"
-        : rest.termsAndConditions_kn
+        : order?.termsAndConditions_kn
         ? "kn"
-        : rest.termsAndConditions_te
+        : order?.termsAndConditions_te
         ? "te"
         : "en";
 
       setFormData({
-        companyName: rest.companyName || "",
-        state: rest.state || "",
-        village: rest.village || "",
-        taluk: rest.taluk || "",
-        district: rest.district || "",
+        companyName: order?.companyName ?? order?.name ?? "",
+        state: order?.state || "",
+        village: order?.village || "",
+        taluk: order?.taluk || "",
+        district: order?.district || "",
         coordinates: {
-          lat: lat.toString(),
-          lon: lon.toString(),
+          lat: lat?.toString() || "",
+          lon: lon?.toString() || "",
         },
-        company_logo: rest.company_logo || "",
-        cropName: rest.cropName || "",
-        cropVariety: rest.cropVariety || "",
-        quality: rest.quality || "",
-        measure: rest.measure || "",
-        unit: rest.unit?.toString() || "",
-        minQuantity: rest.minQuantity?.toString() || "",
-        price_rate: rest.price_rate?.toString() || "",
-        price_measure: rest.price_measure || "",
-        moisturePercent: rest.moisturePercent?.toString() || "",
-        expiresAt: rest.expiresAt
-          ? new Date(rest.expiresAt).toISOString().split("T")[0]
+        company_logo: order?.company_logo || "",
+        cropName: order?.cropName || "",
+        cropVariety: order?.cropVariety || "",
+        quality: order?.quality || "",
+        measure: order?.measure || "",
+        unit: order?.unit?.toString() || "",
+        minQuantity: order?.minQuantity?.toString() || "",
+        price_rate: order?.price_rate?.toString() || "",
+        price_measure: order?.price_measure || "",
+        moisturePercent: order?.moisturePercent?.toString() || "",
+        expiresAt: order?.expiresAt
+          ? new Date(order.expiresAt).toISOString().split("T")[0]
           : "",
-        specification_en: rest.specification_en || "",
-        specification_kn: rest.specification_kn || "",
-        specification_te: rest.specification_te || "",
-        termsAndConditions_en: rest.termsAndConditions_en || "",
-        termsAndConditions_kn: rest.termsAndConditions_kn || "",
-        termsAndConditions_te: rest.termsAndConditions_te || "",
-        isActive: rest.isActive,
-        isPoAvailable: rest.isPoAvailable || false, // Ensure this is set
-        availablePoExpiry: rest.availablePoExpiry
-          ? new Date(rest.availablePoExpiry).toISOString().split("T")[0]
+        specification_en: order?.specification_en || "",
+        specification_kn: order?.specification_kn || "",
+        specification_te: order?.specification_te || "",
+        termsAndConditions_en: order?.termsAndConditions_en || "",
+        termsAndConditions_kn: order?.termsAndConditions_kn || "",
+        termsAndConditions_te: order?.termsAndConditions_te || "",
+        isActive: order?.isActive ?? true,
+        isPoAvailable: order?.isPoAvailable ?? false,
+        availablePoExpiry: order?.availablePoExpiry
+          ? new Date(order.availablePoExpiry).toISOString().split("T")[0]
           : "",
       });
 
@@ -902,6 +1017,47 @@ const OrderForm = ({
       setSelectedTermsLanguage("en");
     }
   }, [isEditMode, order]);
+
+  // Auto-select company in edit mode
+  useEffect(() => {
+    if (isEditMode && order && companies.length > 0) {
+      // Try to match company by id (order.id / order.companyId) or by name
+      const orderCompanyId = String(order?.companyId ?? order?.id ?? "");
+      const orderCompanyName = order?.companyName ?? order?.name ?? "";
+
+      const matchedCompany = companies.find((c: any) => {
+        const cid = String(c?.id ?? c?._id ?? c?.companyId ?? "");
+        if (orderCompanyId && cid && orderCompanyId === cid) return true;
+        const cname = c?.companyName ?? c?.name ?? c?.company_name ?? "";
+        return cname && orderCompanyName && cname === orderCompanyName;
+      });
+
+      if (matchedCompany) {
+        const cid = String(
+          matchedCompany?.id ??
+            matchedCompany?._id ??
+            matchedCompany?.companyId ??
+            ""
+        );
+        setSelectedCompanyId(cid);
+        // Optional: Re-fill formData to ensure sync (use normalized fields)
+        const [lon, lat] = matchedCompany.coordinates?.coordinates || [0, 0];
+        setFormData((prev) => ({
+          ...prev,
+          companyName: matchedCompany.companyName ?? matchedCompany.name ?? "",
+          state: matchedCompany.state || "",
+          district: matchedCompany.district || "",
+          taluk: matchedCompany.taluk || "",
+          village: matchedCompany.village || "",
+          coordinates: {
+            lat: lat?.toString() || "",
+            lon: lon?.toString() || "",
+          },
+          company_logo: matchedCompany.company_logo || "",
+        }));
+      }
+    }
+  }, [isEditMode, order, companies]);
 
   // Memoize handleChange to prevent unnecessary re-renders
 
@@ -1003,13 +1159,7 @@ const OrderForm = ({
     // Validate mandatory fields with specific error messages
 
     const requiredFields = [
-      { field: "companyName", label: "Company Name" },
-      { field: "state", label: "State" },
-      { field: "village", label: "Village" },
-      { field: "taluk", label: "Taluk" },
-      { field: "district", label: "District" },
-      { field: "coordinates.lat", label: "Latitude" },
-      { field: "coordinates.lon", label: "Longitude" },
+      { field: "companyId", label: "Company" },
       { field: "cropName", label: "Crop Name" },
       { field: "cropVariety", label: "Crop Variety" },
       { field: "measure", label: "Measure" },
@@ -1065,21 +1215,31 @@ const OrderForm = ({
           return;
         }
       } else {
-        const value = field.includes("coordinates.")
-          ? formData.coordinates[
-              field.split(".")[1] as keyof typeof formData.coordinates
-            ]
-          : formData[field as keyof typeof formData];
+        // Special handling for companyId
+        if (field === "companyId") {
+          if (!selectedCompanyId) {
+            setError({ field, message: `${label} is required` });
+            setIsSubmitting(false);
+            return;
+          }
+        } else {
+          const value = field.includes("coordinates.")
+            ? formData.coordinates[
+                field.split(".")[1] as keyof typeof formData.coordinates
+              ]
+            : formData[field as keyof typeof formData];
 
-        if (!value || (typeof value === "string" && value.trim() === "")) {
-          setError({ field, message: `${label} is required` });
-          setIsSubmitting(false);
-          return;
+          if (!value || (typeof value === "string" && value.trim() === "")) {
+            setError({ field, message: `${label} is required` });
+            setIsSubmitting(false);
+            return;
+          }
         }
       }
     }
 
     const formattedData = {
+      companyId: selectedCompanyId,
       companyName: formData.companyName,
       state: formData.state,
       village: formData.village,
@@ -1191,6 +1351,8 @@ const OrderForm = ({
           isPoAvailable: false,
           isActive: true,
         });
+        // reset selected company
+        setSelectedCompanyId("");
         setSelectedSpecificationLanguage("en");
         setSelectedTermsLanguage("en");
 
@@ -1435,7 +1597,7 @@ const OrderForm = ({
             </div>
           )}
 
-          {/* Company Information Section */}
+          {/* Company Selection & Auto-filled Info */}
           <div className="bg-gray-50/50 rounded-xl p-6 border border-emerald-100">
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
@@ -1444,162 +1606,101 @@ const OrderForm = ({
               </h3>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <InputField
-                label="Company Name"
-                name="companyName"
-                value={formData.companyName}
-                onChange={handleChange}
-                required
-                placeholder="Enter company name"
-                icon={Building2}
-                error={
-                  error?.field === "companyName" ? error.message : undefined
-                }
-              />
+            {/* Company Dropdown */}
+            <InputField
+              label="Select Company"
+              name="companyId"
+              value={selectedCompanyId}
+              onChange={handleCompanyChange}
+              required
+              isSelect
+              options={companyOptions}
+              disabled={loadingCompanies}
+              error={error?.field === "companyId" ? error.message : undefined}
+            />
 
-              <FileUpload
-                label="Company Logo (Optional)"
-                onChange={handleFileChange}
-                preview={formData.company_logo}
-              />
-
-              <div className="lg:col-span-2">
-                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-4">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  <span>Location Details</span>
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Auto-filled Fields Grid */}
+            {selectedCompanyId && (
+              <div className="mt-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Company Name"
+                    name="companyName"
+                    value={formData.companyName}
+                    onChange={handleChange}
+                    disabled
+                  />
                   <InputField
                     label="State"
                     name="state"
                     value={formData.state}
                     onChange={handleChange}
-                    required
-                    isSelect
-                    options={[
-                      { value: "", label: "Select State" },
-                      ...states.map((state) => ({
-                        value: state,
-                        label: state,
-                      })),
-                    ]}
-                    disabled={loading.states}
-                    error={error?.field === "state" ? error.message : undefined}
+                    disabled
                   />
                   <InputField
                     label="District"
                     name="district"
                     value={formData.district}
                     onChange={handleChange}
-                    required
-                    isSelect
-                    options={[
-                      { value: "", label: "Select District" },
-                      ...districts.map((district) => ({
-                        value: district,
-                        label: district,
-                      })),
-                    ]}
-                    disabled={!formData.state || loading.districts}
-                    error={
-                      error?.field === "district" ? error.message : undefined
-                    }
+                    disabled
                   />
                   <InputField
                     label="Taluk"
                     name="taluk"
                     value={formData.taluk}
                     onChange={handleChange}
-                    required
-                    isSelect
-                    options={[
-                      { value: "", label: "Select Taluk" },
-                      ...talukas.map((taluka) => ({
-                        value: taluka,
-                        label: taluka,
-                      })),
-                    ]}
-                    disabled={!formData.district || loading.talukas}
-                    error={error?.field === "taluk" ? error.message : undefined}
+                    disabled
                   />
                   <InputField
                     label="Village"
                     name="village"
                     value={formData.village}
                     onChange={handleChange}
-                    required
-                    isSelect
-                    options={[
-                      { value: "", label: "Select Village" },
-                      ...villages.map((village) => ({
-                        value: village,
-                        label: village,
-                      })),
-                    ]}
-                    disabled={!formData.taluk || loading.villages}
-                    error={
-                      error?.field === "village" ? error.message : undefined
-                    }
+                    disabled
                   />
-                </div>
-              </div>
-
-              <div className="lg:col-span-2">
-                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-4">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  <span>Geographic Coordinates</span>
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <InputField
                     label="Latitude"
                     name="coordinates.lat"
                     value={formData.coordinates.lat}
                     onChange={handleChange}
-                    type="text"
-                    required
                     disabled
                     placeholder="Auto-filled"
-                    error={
-                      error?.field === "coordinates.lat"
-                        ? error.message
-                        : undefined
-                    }
                   />
                   <InputField
                     label="Longitude"
                     name="coordinates.lon"
                     value={formData.coordinates.lon}
                     onChange={handleChange}
-                    type="text"
-                    required
                     disabled
                     placeholder="Auto-filled"
-                    error={
-                      error?.field === "coordinates.lon"
-                        ? error.message
-                        : undefined
-                    }
                   />
                 </div>
-                <div className="mt-2">
-                  {loading.coordinates ? (
-                    <p className="text-sm text-gray-500">
-                      Fetching coordinates...
-                    </p>
-                  ) : formData.coordinates.lat && formData.coordinates.lon ? (
-                    <p className="text-sm text-gray-500">
-                      Coordinates auto-filled from address.
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      Coordinates will be filled automatically after selecting
-                      State, District, Taluk, and Village.
-                    </p>
-                  )}
-                </div>
+
+                {/* Logo Preview */}
+                {formData.company_logo && (
+                  <div className="mt-4">
+                    <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                      Company Logo
+                    </label>
+                    <img
+                      src={formData.company_logo}
+                      alt="Company Logo"
+                      className="w-24 h-24 object-cover rounded-xl border shadow-sm"
+                    />
+                  </div>
+                )}
               </div>
-            </div>
+            )}
+
+            {/* Loading or Empty State */}
+            {loadingCompanies && (
+              <p className="text-sm text-gray-500 mt-4">Loading companies...</p>
+            )}
+            {!loadingCompanies && companyOptions.length === 0 && (
+              <p className="text-sm text-gray-500 mt-4">
+                No companies available.
+              </p>
+            )}
           </div>
 
           {/* Crop Information Section */}
