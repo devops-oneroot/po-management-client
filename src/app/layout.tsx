@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Saira } from "next/font/google";
 import "./globals.css";
 import Sidebar from "../components/SideBar";
 import TopBar from "../components/TopBar";
 // <-- make sure you have Sidebar component
 
-const geistSans = Geist({
+const geistSans = Saira({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
@@ -26,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-50 dark:bg-black`}
+        className={`${geistSans.variable} antialiased bg-zinc-50 dark:bg-black`}
       >
         {/* Layout wrapper */}
         <div className="flex h-screen">

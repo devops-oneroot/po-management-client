@@ -46,17 +46,19 @@ const CompaniesPage = () => {
 
   return (
     <div>
-      <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-purple-50 py-10 px-12 relative">
-        {/* 👇 Floating Add PO Button */}
+      <div className="flex  justify-end px-4 ">
         <button
           onClick={() => setShowForm(true)}
-          className="fixed bottom-8 right-8 bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-full shadow-lg transition-all"
+          className="flex bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-full shadow-lg transition-all"
         >
           <Plus size={24} />
         </button>
 
         {/* 👇 Popup Form */}
         {showForm && <POForm onClose={() => setShowForm(false)} />}
+      </div>
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-purple-50  px-12 relative">
+        {/* 👇 Floating Add PO Button */}
 
         {/* Existing Code Below */}
         <div className="flex flex-wrap gap-12">

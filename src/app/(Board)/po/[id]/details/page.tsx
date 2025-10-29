@@ -15,6 +15,10 @@ import {
   ClipboardCheck,
   CreditCard,
   Image as ImageIcon,
+  MapPin,
+  CalendarDays,
+  IndianRupee,
+  Package,
 } from "lucide-react";
 
 import PaymentDetails from "@/src/components/details/PaymentDetails";
@@ -23,6 +27,7 @@ import TruckDetails from "@/src/components/details/TruckDetails";
 import UploadReports from "@/src/components/details/UploadReports";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function BuyerDetails() {
   const [status, setStatus] = useState("Ongoing");
@@ -70,14 +75,14 @@ export default function BuyerDetails() {
   return (
     <div>
       {/* ---- Status selector (kept in the page) ---- */}
-      <div className="flex justify-end px-2">
+      <div className="flex justify-between px-5 mt-3">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex w-20 h-10 items-center gap-1 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all text-white text-xs px-3 py-1.5 rounded-lg shadow-sm"
+        >
+          Back
+        </button>
         <div className="flex justify-end px-2 items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="inline-flex w-10 h-10 items-center gap-1 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] transition-all text-white text-xs px-3 py-1.5 rounded-lg shadow-sm"
-          >
-            Back
-          </button>
           <div className="flex flex-col items-start">
             <label className="text-sm font-semibold text-gray-700">
               Status
@@ -144,6 +149,81 @@ export default function BuyerDetails() {
                 <p className="text-xl font-bold text-gray-800">23rd Dec</p>
               </div>
             </div>
+          </div>
+
+          <div className="bg-gradient-to-br mt-10 from-indigo-50 via-white to-purple-50 shadow-lg rounded-2xl border border-gray-100 p-8 mb-10 mx-auto hover:shadow-xl transition-all duration-300">
+            {/* Top Info */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div className="flex items-center gap-4">
+                <Image
+                  src="/images/sahyadri-logo.png"
+                  alt="Sahyadri Farms Logo"
+                  width={60}
+                  height={60}
+                  className="rounded-full border border-gray-200 shadow-sm"
+                />
+                <div>
+                  <h2 className="text-4xl md:text-5xl font-bold text-gray-800 tracking-tight flex items-center gap-2">
+                    Sahyadri Farms
+                  </h2>
+                  <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
+                    <MapPin className="w-4 h-4 text-indigo-500" />
+                    Maddur, Mandya
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-center items-center text-center">
+                <div className="flex items-center gap-2 text-sm text-gray-700 border border-gray-200 bg-gradient-to-br from-white to-indigo-50 shadow-sm px-5 py-2 rounded-lg">
+                  <CalendarDays className="w-4 h-4 text-indigo-600" />
+                  <span>
+                    To be fulfilled by{" "}
+                    <span className="font-semibold text-2xl md:text-3xl text-indigo-600">
+                      23rd Dec
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="flex flex-col md:flex-row justify-between mt-12 gap-10 md:gap-0 text-center md:text-left px-10">
+              <div className="flex flex-col items-center md:items-start gap-2">
+                <div className="flex items-center gap-2 text-indigo-600">
+                  <IndianRupee className="w-5 h-5" />
+                  <p className="text-sm font-medium text-gray-600">Our Price</p>
+                </div>
+                <p className="text-3xl md:text-4xl font-semibold text-gray-800">
+                  ₹20.25
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center md:items-start gap-2">
+                <div className="flex items-center gap-2 text-green-600">
+                  <Package className="w-5 h-5" />
+                  <p className="text-sm font-medium text-gray-600">
+                    Total Quantity
+                  </p>
+                </div>
+                <p className="text-5xl md:text-6xl font-semibold text-gray-800">
+                  25 Tons
+                </p>
+              </div>
+
+              <div className="flex flex-col items-center md:items-start gap-2">
+                <div className="flex items-center gap-2 text-purple-600">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <p className="text-sm font-medium text-gray-600">
+                    Fulfilled Quantity
+                  </p>
+                </div>
+                <p className="text-3xl md:text-4xl font-semibold text-gray-800">
+                  25 Tons
+                </p>
+              </div>
+            </div>
+
+            {/* CTA Button */}
           </div>
 
           {/* Stages */}
@@ -245,7 +325,7 @@ export default function BuyerDetails() {
         </div>
 
         <div className="mt-3">
-          <div className="flex gap-2">
+          <div className="flex gap-4 ">
             <div>
               <TruckDetails />
             </div>
