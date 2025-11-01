@@ -5,9 +5,11 @@ import Sidebar from "../components/SideBar";
 import TopBar from "../components/TopBar";
 // <-- make sure you have Sidebar component
 
-const geistSans = Saira({
+const saira = Saira({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -21,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} antialiased bg-zinc-50 dark:bg-black`}
+        className={`${saira.variable} antialiased bg-zinc-50 dark:bg-black`}
       >
         {/* Layout wrapper */}
         <div className="flex h-screen">
@@ -34,7 +36,7 @@ export default function RootLayout({
             <TopBar />
 
             {/* Page content */}
-            <main className="flex-1  p-3 overflow-y-auto bg-gradient-to-b from-gray-50 to-gray-100">
+            <main className="flex-1 p-3 overflow-y-auto bg-gradient-to-b from-gray-50 to-gray-100">
               {children}
             </main>
           </div>

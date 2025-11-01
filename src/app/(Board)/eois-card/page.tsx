@@ -222,37 +222,37 @@ const OrderCard: React.FC = () => {
       <Header orders={orders || []} isLoading={false} onOpenForm={openForm} />
 
       {/* Main Content */}
-      <div className="max-w-8xl mx-auto px-6 py-12">
+      <div className="max-w-8xl mx-auto px-3 py-3">
         {orders && orders.length === 0 && <EmptyState />}
 
         {orders && orders.length > 0 && (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {/* Orders Summary */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 border border-white/30 shadow-2xl">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                <div className="flex items-center space-x-6">
-                  <div className="flex items-center space-x-2 text-gray-600">
-                    <Calendar className="w-6 h-6 text-purple-700" />
-                    <span className="text-xl font-semibold text-gray-900">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-white/30 shadow-lg">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-1.5 text-gray-600">
+                    <Calendar className="w-4 h-4 text-purple-700" />
+                    <span className="text-sm font-semibold text-gray-900">
                       {orders.length} Total Orders
                     </span>
                   </div>
-                  <div className="hidden md:flex items-center space-x-6 text-sm">
-                    <div className="flex items-center space-x-1 text-purple-600">
-                      <Users className="w-4 h-4" />
+                  <div className="hidden md:flex items-center space-x-3 text-[10px]">
+                    <div className="flex items-center space-x-1 text-purple-600 font-medium">
+                      <Users className="w-3 h-3" />
                       <span>
                         {orders.filter((o) => o.isActive).length} Active
                       </span>
                     </div>
-                    <div className="flex items-center space-x-1 text-gray-500">
-                      <TrendingUp className="w-4 h-4" />
+                    <div className="flex items-center space-x-1 text-gray-500 font-medium">
+                      <TrendingUp className="w-3 h-3" />
                       <span>
                         {orders.filter((o) => !o.isActive).length} Inactive
                       </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <div className="flex items-center space-x-2 text-[10px] text-gray-500">
                   <span>
                     Last updated: {formatDate(new Date().toISOString())}
                   </span>
@@ -262,18 +262,18 @@ const OrderCard: React.FC = () => {
 
             {/* Active Orders Section */}
             {activeOrders.length > 0 && (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-gray-900">
+              <div className="space-y-2">
+                <h2 className="text-base font-bold text-gray-900">
                   Active Orders
                 </h2>
-                <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   {activeOrders.map((order) => (
                     <Link
                       key={order.id}
                       href={`/eois/${order.id}`}
                       className="group block transform transition-all duration-300"
                     >
-                      <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 border border-white/40 shadow-lg hover:shadow-2xl hover:-translate-y-2 hover:border-green-200/60 overflow-hidden relative h-full">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 border border-white/40 shadow-lg hover:shadow-2xl hover:-translate-y-2 hover:border-purple-200/60 overflow-hidden relative h-full">
                         {/* Active Status Indicator */}
                         {order.isActive && (
                           <div className="absolute top-4 right-4 z-10">
@@ -314,28 +314,28 @@ const OrderCard: React.FC = () => {
                         </div>
 
                         {/* Company Name */}
-                        <div className="relative z-10 text-center mb-4">
-                          <h3 className="font-bold text-gray-900 text-xl mb-1 truncate group-hover:text-emerald-700 transition-colors duration-300">
+                        <div className="relative z-10 text-center mb-5">
+                          <h3 className="font-bold text-gray-900 text-xl mb-2 truncate group-hover:text-purple-700 transition-colors duration-300 tracking-tight">
                             {order.companyName}
                           </h3>
-                          <div className="flex items-center justify-center space-x-2 mb-3">
-                            <MapPin className="w-4 h-4 text-gray-500" />
-                            <span className="text-xs text-gray-600">
+                          <div className="flex items-center justify-center space-x-2">
+                            <MapPin className="w-4 h-4 text-purple-500" />
+                            <span className="text-sm text-gray-600 font-medium">
                               {order.village}
                             </span>
                           </div>
                         </div>
 
                         {/* Crop Information */}
-                        <div className="relative z-10 space-y-3 mb-5">
-                          <div className="flex items-center justify-center space-x-2">
+                        <div className="relative z-10 space-y-3 mb-6">
+                          <div className="flex items-center justify-center space-x-2 px-4 py-2 bg-purple-50 rounded-xl">
                             <Package className="w-5 h-5 text-purple-600 flex-shrink-0" />
                             <div className="text-center flex-1">
-                              <p className="text-sm font-semibold text-gray-900">
+                              <p className="text-base font-bold text-gray-900">
                                 {order.cropName}
                               </p>
                               {order.cropVariety && (
-                                <p className="text-xs text-emerald-600 font-medium">
+                                <p className="text-sm text-emerald-600 font-semibold">
                                   {order.cropVariety}
                                 </p>
                               )}
@@ -384,16 +384,16 @@ const OrderCard: React.FC = () => {
                         {/* Status & Date Footer */}
                         <div className="relative z-10 pt-4 border-t border-gray-100 flex items-center justify-between">
                           <span
-                            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
                               order.isActive
-                                ? "bg-purple-100 text-purple-800 hover:bg-purple-200 shadow-md"
-                                : "bg-red-100 text-red-800 hover:bg-red-200 shadow-md"
+                                ? "bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 hover:shadow-md"
+                                : "bg-gradient-to-r from-red-100 to-red-200 text-red-800 hover:shadow-md"
                             }`}
                           >
                             {order.isActive ? "Active" : "Inactive"}
                           </span>
-                          <div className="flex items-center space-x-1 text-xs text-gray-500">
-                            <Calendar className="w-3 h-3" />
+                          <div className="flex items-center space-x-1.5 text-xs text-gray-600 font-medium">
+                            <Calendar className="w-3.5 h-3.5 text-gray-500" />
                             <span>{formatDate(order.createdAt)}</span>
                           </div>
                         </div>
@@ -414,18 +414,18 @@ const OrderCard: React.FC = () => {
 
             {/* Inactive Orders Section */}
             {inactiveOrders.length > 0 && (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-gray-900">
+              <div className="space-y-2">
+                <h2 className="text-base font-bold text-gray-900">
                   Inactive Orders
                 </h2>
-                <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   {inactiveOrders.map((order) => (
                     <Link
                       key={order.id}
                       href={`/order/${order.id}`}
                       className="group block transform transition-all duration-300"
                     >
-                      <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 border border-white/40 shadow-lg hover:shadow-2xl hover:-translate-y-2 hover:border-purple-200/60 overflow-hidden relative h-full">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 border border-white/40 shadow-lg hover:shadow-2xl hover:-translate-y-2 hover:border-purple-200/60 overflow-hidden relative h-full">
                         {/* Active Status Indicator */}
                         {order.isActive && (
                           <div className="absolute top-4 right-4 z-10">
@@ -564,44 +564,44 @@ const OrderCard: React.FC = () => {
             )}
 
             {/* Enhanced Stats Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-3xl p-6 shadow-2xl">
-                <div className="flex items-center justify-center space-x-3 mb-2">
-                  <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium">Active</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-3 shadow-lg">
+                <div className="flex items-center justify-center space-x-2 mb-1">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  <span className="text-[10px] font-medium">Active</span>
                 </div>
-                <div className="text-4xl font-bold text-center mb-1">
+                <div className="text-2xl font-bold text-center mb-0.5">
                   {orders.filter((o) => o.isActive).length}
                 </div>
-                <p className="text-emerald-100 text-center text-sm opacity-90">
+                <p className="text-emerald-100 text-center text-[10px] opacity-90">
                   Live Orders
                 </p>
               </div>
 
-              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-3xl p-6 shadow-2xl">
-                <div className="flex items-center justify-center space-x-3 mb-2">
-                  <Users className="w-5 h-5 opacity-80" />
-                  <span className="text-sm font-medium">Total</span>
+              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-xl p-3 shadow-lg">
+                <div className="flex items-center justify-center space-x-2 mb-1">
+                  <Users className="w-3.5 h-3.5 opacity-80" />
+                  <span className="text-[10px] font-medium">Total</span>
                 </div>
-                <div className="text-4xl font-bold text-center mb-1">
+                <div className="text-2xl font-bold text-center mb-0.5">
                   {orders.length}
                 </div>
-                <p className="text-blue-100 text-center text-sm opacity-90">
+                <p className="text-blue-100 text-center text-[10px] opacity-90">
                   Purchase Orders
                 </p>
               </div>
 
-              <div className="bg-gradient-to-br from-purple-500 to-violet-600 text-white rounded-3xl p-6 shadow-2xl">
-                <div className="flex items-center justify-center space-x-3 mb-2">
-                  <Package className="w-5 h-5 opacity-80" />
-                  <span className="text-sm font-medium">Quantity</span>
+              <div className="bg-gradient-to-br from-purple-500 to-violet-600 text-white rounded-xl p-3 shadow-lg">
+                <div className="flex items-center justify-center space-x-2 mb-1">
+                  <Package className="w-3.5 h-3.5 opacity-80" />
+                  <span className="text-[10px] font-medium">Quantity</span>
                 </div>
-                <div className="text-4xl font-bold text-center mb-1">
+                <div className="text-2xl font-bold text-center mb-0.5">
                   {orders
                     .reduce((sum, order) => sum + order.minQuantity, 0)
                     .toLocaleString()}
                 </div>
-                <p className="text-purple-100 text-center text-sm opacity-90">
+                <p className="text-purple-100 text-center text-[10px] opacity-90">
                   Total Units
                 </p>
               </div>
@@ -706,7 +706,7 @@ const Header: React.FC<{
   isLoading: boolean;
   onOpenForm: () => void;
 }> = ({ orders, isLoading, onOpenForm }) => (
-  <header className="bg-gradient-to-r from-purple-950 via-purple-850 to-teal-950 text-white py-12 shadow-2xl relative overflow-hidden">
+  <header className="bg-gradient-to-r from-purple-950 via-purple-850 to-teal-950 text-white py-6 shadow-2xl relative overflow-hidden">
     {/* Background Pattern */}
     <div className="absolute inset-0 opacity-10">
       <div
@@ -720,33 +720,33 @@ const Header: React.FC<{
       ></div>
     </div>
 
-    <div className="relative z-10 max-w-7xl mx-auto px-6">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0">
-        <div className="flex-1 space-y-4">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-white via-gray-100 to-transparent bg-clip-text text-transparent">
-            Markhet-place Orders
+    <div className="relative z-10 max-w-7xl mx-auto px-4">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
+        <div className="flex-1 space-y-2">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-emerald-100 to-transparent bg-clip-text text-transparent tracking-tight leading-tight">
+            Marketplace Orders
           </h1>
-          <p className="text-xl text-emerald-100/90 max-w-2xl leading-relaxed">
+          <p className="text-sm text-purple-100 max-w-2xl leading-relaxed font-medium">
             Seamlessly manage your agricultural purchase orders with precision
             and elegance
           </p>
-          <div className="flex items-center space-x-6 pt-2">
-            <div className="flex items-center space-x-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-2xl text-sm font-medium">
-              <Users className="w-4 h-4" />
+          <div className="flex items-center space-x-2 pt-1">
+            <div className="flex items-center space-x-2 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs font-semibold shadow-lg border border-white/10">
+              <Users className="w-3.5 h-3.5" />
               <span>{orders.length} Orders</span>
             </div>
             <div
-              className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium ${
+              className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-lg border ${
                 orders.filter((o) => o.isActive).length === orders.length
-                  ? "bg-green-500/20"
-                  : "bg-yellow-500/20"
+                  ? "bg-emerald-500/30 border-emerald-400/30"
+                  : "bg-yellow-500/30 border-yellow-400/30"
               }`}
             >
               <div
-                className={`w-2 h-2 rounded-full ${
+                className={`w-1.5 h-1.5 rounded-full ${
                   orders.filter((o) => o.isActive).length === orders.length
-                    ? "bg-green-400"
-                    : "bg-yellow-400"
+                    ? "bg-emerald-300 animate-pulse"
+                    : "bg-yellow-300 animate-pulse"
                 }`}
               ></div>
               <span>{orders.filter((o) => o.isActive).length} Active</span>
@@ -754,15 +754,15 @@ const Header: React.FC<{
           </div>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           <button
             onClick={onOpenForm}
             disabled={isLoading}
-            className="group relative inline-flex items-center space-x-3 px-8 py-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-3xl font-semibold shadow-2xl border border-white/20 transition-all duration-300 hover:shadow-3xl hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+            className="group relative inline-flex items-center space-x-2 px-5 py-2.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg font-bold shadow-2xl border border-white/20 transition-all duration-200 hover:shadow-3xl hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <Plus className="w-6 h-6 group-hover:scale-110 transition-transform duration-300 relative z-10" />
-            <span className="relative z-10 text-white font-semibold text-lg">
+            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300 relative z-10" />
+            <span className="relative z-10 text-white font-bold text-xs tracking-wide">
               Create New Order
             </span>
           </button>
