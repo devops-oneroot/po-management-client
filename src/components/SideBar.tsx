@@ -39,54 +39,62 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`z-40 h-screen shadow-2xl bg-purple-950 text-white transition-all duration-300 ease-in-out ${
-        isOpen ? "w-48" : "w-14"
+      className={`z-40 h-screen shadow-xl bg-purple-950 text-white transition-all duration-300 ease-in-out ${
+        isOpen ? "w-52" : "w-20"
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-14 px-2 bg-gradient-to-br from-purple-950 via-purple-900 to-purple-950 shadow-lg border-b border-purple-800/30">
+      <div className="flex items-center justify-between h-16 px-2 bg-gradient-to-r from-purple-950 to-purple-900 shadow-md">
         <Image
           src="/marKhet  Logo white.png"
-          width={isOpen ? 110 : 32}
-          height={18}
+          width={isOpen ? 140 : 40}
+          height={20}
           alt="markhet logo"
-          className="rounded-md transition-all duration-300"
+          className="rounded-md"
         />
         <button
           onClick={toggleSidebar}
-          className="p-1 rounded-md bg-purple-800/50 hover:bg-purple-700 transition-all duration-200 hover:scale-105 active:scale-95"
-          aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+          className="p-1 rounded-full bg-purple-700 hover:bg-purple-800"
         >
-          {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          {isOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
         </button>
       </div>
 
       {/* Navigation */}
-      <nav className="mt-3 space-y-0.5 px-1.5">
+      <nav className="mt-6 space-y-2 px-3">
         {supervisorNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className={`group flex items-center gap-2 px-2.5 py-2 rounded-md transition-all duration-200 hover:scale-[1.01] ${
+            className={`flex items-center p-2 rounded-md transition-all duration-200 hover:scale-105 ${
               pathname === item.href
-                ? "bg-purple-700 text-white shadow-md shadow-purple-900/50 font-semibold"
-                : "text-purple-100 hover:bg-purple-800/60 hover:text-white"
+                ? "bg-purple-800 text-white shadow-md"
+                : "text-purple-100 hover:bg-purple-700"
             }`}
           >
-            <item.icon className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
-              pathname === item.href ? "text-purple-200" : "text-purple-300"
-            }`} />
+            <item.icon className="w-5 h-5 mr-3" />
             {isOpen && (
-              <span className="text-[11px] font-medium tracking-wide">{item.label}</span>
-            )}
-            {pathname === item.href && isOpen && (
-              <div className="ml-auto w-0.5 h-0.5 rounded-full bg-purple-300 animate-pulse"></div>
+              <span className="text-sm font-medium">{item.label}</span>
             )}
           </Link>
         ))}
       </nav>
 
-      {/* Footer - Hidden */}
+      {/* Footer */}
+      {isOpen && (
+        <div className=" p-3 bg-gradient-to-r from-purple-950 to-purple-900 mt-[600px]">
+          {/* <a
+            href="https://oneroot.vercel.app/regions"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block mb-2 px-4 py-2 bg-green-100 text-green-700 rounded hover:bg-green-200 text-sm font-medium text-center"
+          >
+            View All Regions Prices
+          </a> */}
+          <p className="text-sm font-semibold">Order Dashboard</p>
+          <p className="text-xs text-purple-200">markhet.farm</p>
+        </div>
+      )}
     </aside>
   );
 };
