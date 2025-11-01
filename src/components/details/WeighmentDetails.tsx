@@ -63,7 +63,7 @@ export default function WeighmentDetails({
     const fetchData = async () => {
       try {
         const res = await axios.get(
-          `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`
+          `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`
         );
         const data = res.data.data;
         setFormData({
@@ -143,7 +143,7 @@ export default function WeighmentDetails({
       };
 
       await axios.patch(
-        `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
         payload
       );
 

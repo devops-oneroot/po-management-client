@@ -46,7 +46,7 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
-        const res = await fetch("https://markhet-internal-dev.onrender.com/po");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/po`);
         const data = await res.json();
         setCompanies(data);
         setFiltered(data);
@@ -146,7 +146,7 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
     try {
       setLoading(true);
       const res = await fetch(
-        "https://markhet-internal-dev.onrender.com/master-po",
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

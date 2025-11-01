@@ -123,7 +123,7 @@ export default function GRNDetails({
       };
 
       await axios.patch(
-        `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
         payload
       );
 

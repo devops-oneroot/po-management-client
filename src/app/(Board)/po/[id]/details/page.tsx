@@ -74,27 +74,11 @@ export default function BuyerDetails() {
   // --- Fetch Buyer Assignment Details ---
   useEffect(() => {
     if (!id) return;
-
-    // const fetchBuyer = async () => {
-    //   try {
-    //     setLoading(true);
-    //     const res = await axios.get(
-    //       `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`
-    //     );
-    //     setBuyer(res.data.data);
-    //     setAdditionalNotes(res.data.data?.additionalNotes || "");
-    //     setDeductionNotes(res.data.data?.deductionNotes || "");
-    //   } catch (error) {
-    //     console.error("Error fetching buyer details:", error);
-    //   } finally {
-    //     setLoading(false);
-    //   }
-    // };
     const fetchBuyer = async () => {
       try {
         setLoading(true);
         const res = await axios.get(
-          `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`
+          `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`
         );
         setBuyer(res.data.data);
         setStatus(res.data.data?.status || "");
@@ -125,7 +109,7 @@ export default function BuyerDetails() {
     setSavingNoteType("additional");
     try {
       await axios.patch(
-        `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
         {
           additionalNotes,
         }
@@ -145,7 +129,7 @@ export default function BuyerDetails() {
     setSavingNoteType("deduction");
     try {
       await axios.patch(
-        `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
         {
           deductionNotes,
         }
@@ -209,7 +193,7 @@ export default function BuyerDetails() {
 
                 try {
                   await axios.patch(
-                    `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`,
+                    `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
                     { status: newStatus }
                   );
                   alert(`Status updated to ${newStatus} ✅`);

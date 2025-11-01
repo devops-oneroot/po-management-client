@@ -49,7 +49,7 @@ export default function TruckDetails({
     setMessage(null);
     try {
       const response = await axios.patch(
-        `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
         {
           truckNo: form.truckNo,
           driverName: form.driverName,

@@ -48,7 +48,7 @@ const BuyerDetails = () => {
     const fetchData = async () => {
       try {
         const res = await fetch(
-          `https://markhet-internal-dev.onrender.com/master-po/${id}`
+          `${process.env.NEXT_PUBLIC_API_URL}/master-po/${id}`
         );
         const json = await res.json();
 
@@ -70,7 +70,7 @@ const BuyerDetails = () => {
   const handleStatusChange = async (newStatus: POStatus) => {
     try {
       setPoStatus(newStatus);
-      await fetch(`https://markhet-internal-dev.onrender.com/master-po/${id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/master-po/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

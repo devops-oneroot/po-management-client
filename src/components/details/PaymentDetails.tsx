@@ -42,7 +42,7 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
     const fetchPayments = async () => {
       try {
         const res = await axios.get(
-          `https://markhet-internal-dev.onrender.com/master-po-assignees/${assigneeId}`
+          `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${assigneeId}`
         );
         const data = res.data?.data?.payments || [];
         setPayments(
@@ -101,7 +101,7 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
       };
 
       const res = await axios.post(
-        `https://markhet-internal-dev.onrender.com/master-po-assignees/${assigneeId}/payments`,
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${assigneeId}/payments`,
         payload
       );
 
@@ -136,7 +136,7 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
       formData.append("paymentSlipImages", paymentSlipFile);
 
       await axios.post(
-        `https://markhet-internal-dev.onrender.com/master-po-assignees/${assigneeId}/payments`,
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${assigneeId}/payments`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },

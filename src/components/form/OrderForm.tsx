@@ -385,7 +385,7 @@ const OrderForm = ({
       setLoadingCompanies(true);
       try {
         const response = await axios.get(
-          "https://markhet-internal-dev.onrender.com/po-companies"
+          `${process.env.NEXT_PUBLIC_API_URL}/po-companies`
         );
         // Support multiple API shapes:
         // - response.data is an array (API returns raw array)

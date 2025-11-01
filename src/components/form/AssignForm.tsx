@@ -49,7 +49,7 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
         : `name=${encodeURIComponent(search.trim())}`;
 
       const res = await axios.get(
-        `https://markhet-internal-dev.onrender.com/users/buyer?page=1&limit=20&${queryParam}`
+        `${process.env.NEXT_PUBLIC_API_URL}/users/buyer?page=1&limit=20&${queryParam}`
       );
 
       setBuyers(res.data.data || []);
@@ -85,7 +85,7 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
     setSubmitting(true);
     try {
       const res = await axios.post(
-        "https://markhet-internal-dev.onrender.com/master-po-assignees",
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees`,
         payload
       );
       console.log("Submitted:", res.data);

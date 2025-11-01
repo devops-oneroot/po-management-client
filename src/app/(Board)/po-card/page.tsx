@@ -33,7 +33,7 @@ const CompaniesPage = () => {
     const fetchData = async () => {
       try {
         const res = await fetch(
-          "https://markhet-internal-dev.onrender.com/master-po"
+          `${process.env.NEXT_PUBLIC_API_URL}/master-po`
         );
         const result = await res.json();
         setPoData(result?.data || []);

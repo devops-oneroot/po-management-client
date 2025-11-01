@@ -68,7 +68,7 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
       // ✅ Send Cloudinary URLs to backend
       const payload = { [reportKey]: uploadedUrls };
       await axios.patch(
-        `https://markhet-internal-dev.onrender.com/master-po-assignees/${id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
         payload,
         { headers: { "Content-Type": "application/json" } }
       );
