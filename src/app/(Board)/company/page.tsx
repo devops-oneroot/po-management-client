@@ -34,9 +34,6 @@ interface Company {
   updatedAt: string;
 }
 
-
-
-
 const OrderCard: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -65,11 +62,14 @@ const OrderCard: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     if (!confirm("Are you sure you want to delete this company?")) return;
-    
+
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/po-companies/${companyId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/po-companies/${companyId}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (!res.ok) throw new Error("Failed to delete company");
       setReloadKey((k) => k + 1);
       setOpenMenuId(null);
@@ -108,10 +108,16 @@ const OrderCard: React.FC = () => {
         setIsLoading(true);
         setError(null);
         const qs = params.toString();
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/po-companies${qs ? `?${qs}` : ""}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error(`Failed to load companies (${res.status})`);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/po-companies${
+            qs ? `?${qs}` : ""
+          }`,
+          {
+            signal: controller.signal,
+          }
+        );
+        if (!res.ok)
+          throw new Error(`Failed to load companies (${res.status})`);
         const data: Company[] = await res.json();
         setCompanies(Array.isArray(data) ? data : []);
       } catch (e: any) {
@@ -183,11 +189,23 @@ const OrderCard: React.FC = () => {
         {error && !isLoading && (
           <div className="bg-white rounded-3xl p-12 text-center max-w-2xl mx-auto border border-red-100">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="w-8 h-8 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Failed to Load Companies</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              Failed to Load Companies
+            </h3>
             <p className="text-gray-600 mb-6">{error}</p>
             <button
               onClick={() => window.location.reload()}
@@ -205,8 +223,12 @@ const OrderCard: React.FC = () => {
             <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Package className="w-10 h-10 text-gray-400" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No Companies Yet</h3>
-            <p className="text-gray-600 mb-6">Get started by onboarding your first company partner.</p>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              No Companies Yet
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Get started by onboarding your first company partner.
+            </p>
             <button
               onClick={openForm}
               className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-colors"
@@ -219,13 +241,13 @@ const OrderCard: React.FC = () => {
 
         {/* Companies Grid */}
         {!isLoading && !error && companies.length > 0 && (
-            <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {companies.map((company) => (
-                <div
-                  key={company.id}
-                  className="relative group block transform transition-all duration-300"
-                >
-                  <Link href="#" className="block">
+          <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {companies.map((company) => (
+              <div
+                key={company.id}
+                className="relative group block transform transition-all duration-300"
+              >
+                <Link href="#" className="block">
                   <div className="bg-white rounded-3xl border border-gray-100 hover:border-gray-200 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 overflow-hidden">
                     {/* Banner / Logo */}
                     {company.company_logo ? (
@@ -236,13 +258,16 @@ const OrderCard: React.FC = () => {
                         onError={(e) => {
                           const img = e.target as HTMLImageElement;
                           img.style.display = "none";
-                          const fallback = img.nextElementSibling as HTMLElement | null;
+                          const fallback =
+                            img.nextElementSibling as HTMLElement | null;
                           if (fallback) fallback.classList.remove("hidden");
                         }}
                       />
                     ) : null}
                     <div className="w-full h-40 bg-gradient-to-br from-gray-100 to-gray-200 hidden items-center justify-center">
-                      <span className="text-3xl font-bold text-gray-400">{company.name.charAt(0).toUpperCase()}</span>
+                      <span className="text-3xl font-bold text-gray-400">
+                        {company.name.charAt(0).toUpperCase()}
+                      </span>
                     </div>
 
                     <div className="p-6">
@@ -282,7 +307,9 @@ const OrderCard: React.FC = () => {
                       <div className="mt-2 flex items-center text-xs text-gray-500">
                         <MapPin className="w-3.5 h-3.5 mr-1.5" />
                         <span className="truncate">
-                          {[company.village, company.taluk, company.district].filter(Boolean).join(", ")}
+                          {[company.village, company.taluk, company.district]
+                            .filter(Boolean)
+                            .join(", ")}
                         </span>
                       </div>
 
@@ -291,10 +318,10 @@ const OrderCard: React.FC = () => {
                       {/* Crops */}
                       {company.cropNames && company.cropNames.length > 0 && (
                         <div className="mt-4 flex flex-wrap gap-2">
-                          {company.cropNames.slice(0,8).map((crop, i) => (
+                          {company.cropNames.slice(0, 8).map((crop, i) => (
                             <span
                               key={i}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)]"
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.25)]"
                             >
                               <Sprout className="w-3.5 h-3.5" />
                               {crop}
@@ -312,9 +339,9 @@ const OrderCard: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  </Link>
-                </div>
-              ))}
+                </Link>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -329,7 +356,9 @@ const OrderCard: React.FC = () => {
                 <div className="flex items-center space-x-3">
                   <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Onboard Company</h2>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      Onboard Company
+                    </h2>
                     <p className="text-sm text-gray-600">
                       Fill in the details below
                     </p>
@@ -357,9 +386,12 @@ const OrderCard: React.FC = () => {
             </div>
 
             <div className="p-0">
-              <CompanyForm 
-                company={editingCompany} 
-                onSuccess={() => { setReloadKey((k) => k + 1); closeForm(); }} 
+              <CompanyForm
+                company={editingCompany}
+                onSuccess={() => {
+                  setReloadKey((k) => k + 1);
+                  closeForm();
+                }}
               />
             </div>
           </div>

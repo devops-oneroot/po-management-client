@@ -25,9 +25,9 @@ import {
 import Image from "next/image";
 
 const supervisorNavItems = [
-  { label: "Company", icon: Building2, href: "/company" },
-  { label: "Eois", icon: ShoppingBasket, href: "/eois-card" },
-  { label: "Po", icon: ShoppingCart, href: "/po-card" },
+  { label: "Companys", icon: Building2, href: "/company" },
+  { label: "EOIs", icon: ShoppingBasket, href: "/eois-card" },
+  { label: "POs", icon: ShoppingCart, href: "/po-card" },
 ];
 
 const Sidebar: React.FC = () => {
@@ -61,7 +61,7 @@ const Sidebar: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="mt-6 space-y-2 px-3">
+      <nav className="mt-6 space-y-6 px-3">
         {supervisorNavItems.map((item) => (
           <Link
             key={item.href}
