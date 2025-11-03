@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Scale, Upload, Loader2, CheckCircle2, XCircle, X } from "lucide-react";
+import { Scale, Upload, Loader2, CheckCircle2, XCircle, X, AlertCircle } from "lucide-react";
 
 interface GRNDetailsProps {
   id: string;
@@ -10,6 +10,7 @@ interface GRNDetailsProps {
   rejectedQuantity?: number;
   rejectedQuantityMeasure?: string;
   grnImages?: string[];
+  onUpdate?: () => void;
 }
 
 const measureOptions = [
@@ -29,6 +30,7 @@ export default function GRNDetails({
   rejectedQuantity = 0,
   rejectedQuantityMeasure = "",
   grnImages = [],
+  onUpdate,
 }: GRNDetailsProps) {
   const [form, setForm] = useState({
     grnDate: "",
@@ -38,6 +40,7 @@ export default function GRNDetails({
   });
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -45,7 +48,6 @@ export default function GRNDetails({
   const [errors, setErrors] = useState<{ measure?: string }>({});
   const [popupImage, setPopupImage] = useState<string | null>(null);
 
-  // ✅ Cloudinary ENV values
   const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
   const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
 
@@ -59,10 +61,15 @@ export default function GRNDetails({
     });
   }, [grnDate, rejectedQuantity, rejectedQuantityMeasure, grnImages]);
 
-  // ✅ Upload image to Cloudinary
-  const handleUploadToCloudinary = async (
-    file: File
-  ): Promise<string | null> => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setErrors({});
+  };
+
+  // Upload to Cloudinary
+  const handleUploadToCloudinary = async (file: File): Promise<string | null> => {
     try {
       const data = new FormData();
       data.append("file", file);
@@ -71,10 +78,7 @@ export default function GRNDetails({
 
       const res = await fetch(
         `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        {
-          method: "POST",
-          body: data,
-        }
+        { method: "POST", body: data }
       );
 
       const result = await res.json();
@@ -82,39 +86,34 @@ export default function GRNDetails({
       throw new Error("Failed to upload image");
     } catch (error) {
       console.error("Cloudinary upload error:", error);
-      setMessage({
-        type: "error",
-        text: "Failed to upload image to Cloudinary!",
-      });
+      setMessage({ type: "error", text: "Failed to upload image!" });
       return null;
     }
   };
 
-  // ✅ Handle submit (upload → send to backend)
+  // Handle submit
   const handleSubmit = async () => {
     if (!id) return;
 
-    // Validation
     if (!form.rejectedQuantityMeasure) {
-      setErrors({ measure: "Please select a measure before saving." });
+      setErrors({ measure: "Please select a measure" });
       return;
     }
-    setErrors({});
-    setLoading(true);
-    setMessage(null);
 
     try {
+      setLoading(true);
       let imageUrls = [...form.grnImages];
 
-      // Upload new image (if selected)
+      // Upload new image if selected
       if (file) {
+        setUploading(true);
         const uploadedUrl = await handleUploadToCloudinary(file);
         if (uploadedUrl) {
           imageUrls.push(uploadedUrl);
         }
+        setUploading(false);
       }
 
-      // Payload for backend
       const payload = {
         grnDate: form.grnDate,
         rejectedQuantity: Number(form.rejectedQuantity),
@@ -129,65 +128,63 @@ export default function GRNDetails({
 
       setForm({ ...form, grnImages: imageUrls });
       setFile(null);
-      setMessage({
-        type: "success",
-        text: "GRN details updated successfully!",
-      });
+      setMessage({ type: "success", text: "GRN details updated!" });
+      setTimeout(() => setMessage(null), 3000);
+      
+      // Trigger parent refetch
+      setTimeout(() => {
+        onUpdate?.();
+      }, 1000);
     } catch (error) {
       console.error(error);
-      setMessage({ type: "error", text: "Failed to update GRN details!" });
+      setMessage({ type: "error", text: "Failed to update!" });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow hover:shadow-lg transition-all relative">
-      <div className="flex items-center gap-2 mb-4">
-        <Scale className="w-5 h-5 text-purple-600" />
-        <h3 className="font-semibold text-lg text-gray-800">GRN Details</h3>
+    <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-200">
+        <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+          <Scale className="w-5 h-5 text-slate-600" />
+          GRN Details
+        </h3>
       </div>
 
       <div className="flex flex-col gap-4">
         {/* GRN Date */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <label className="w-40 text-sm font-medium text-gray-700">
-            GRN Date
-          </label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">GRN Date</label>
           <input
             type="date"
+            name="grnDate"
             value={form.grnDate}
-            onChange={(e) => setForm({ ...form, grnDate: e.target.value })}
-            className="border border-gray-200 rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500"
+            onChange={handleChange}
+            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
           />
         </div>
 
         {/* Rejected Quantity */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <label className="w-40 text-sm font-medium text-gray-700">
-            Rejected Quantity
-          </label>
-          <div className="flex items-center gap-2 w-full">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">Rejected Quantity</label>
+          <div className="flex gap-2">
             <input
+              type="number"
+              name="rejectedQuantity"
               value={form.rejectedQuantity}
-              onChange={(e) =>
-                setForm({ ...form, rejectedQuantity: e.target.value })
-              }
+              onChange={handleChange}
               placeholder="10"
-              className="border border-gray-200 rounded-lg px-3 py-2 w-full text-sm focus:ring-2 focus:ring-purple-500"
+              className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
             />
             <select
+              name="rejectedQuantityMeasure"
               value={form.rejectedQuantityMeasure}
-              onChange={(e) =>
-                setForm({ ...form, rejectedQuantityMeasure: e.target.value })
-              }
-              className={`border rounded-lg px-2 py-2 text-sm focus:ring-2 w-40 ${
-                errors.measure
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-200 focus:ring-purple-500"
-              }`}
+              onChange={handleChange}
+              className="border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
             >
-              <option value="">Select Measure</option>
+              <option value="">Measure</option>
               {measureOptions.map((m) => (
                 <option key={m} value={m}>
                   {m}
@@ -195,34 +192,34 @@ export default function GRNDetails({
               ))}
             </select>
           </div>
+          {errors.measure && (
+            <p className="text-xs text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {errors.measure}
+            </p>
+          )}
         </div>
 
-        {errors.measure && (
-          <p className="text-xs text-red-600 ml-[10rem]">{errors.measure}</p>
-        )}
-
         {/* Image Upload */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <label className="w-40 text-sm font-medium text-gray-700">
-            GRN Images
-          </label>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">GRN Images</label>
           <input
             type="file"
             accept="image/*"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="text-sm"
+            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
           />
         </div>
 
-        {/* Show Uploaded Images */}
+        {/* Display Images */}
         {form.grnImages.length > 0 && (
-          <div className="flex flex-wrap gap-3 mt-3">
+          <div className="flex flex-wrap gap-2">
             {form.grnImages.map((img, i) => (
               <img
                 key={i}
                 src={img}
                 alt={`GRN-${i}`}
-                className="w-24 h-24 object-cover rounded-lg border cursor-pointer hover:scale-105 transition"
+                className="w-20 h-20 object-cover rounded-lg border border-slate-200 cursor-pointer hover:border-blue-300 transition-colors"
                 onClick={() => setPopupImage(img)}
               />
             ))}
@@ -230,25 +227,34 @@ export default function GRNDetails({
         )}
       </div>
 
-      {/* Submit Button */}
-      <button
-        onClick={handleSubmit}
-        disabled={loading}
-        className="mt-5 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-5 py-2.5 text-sm transition-all shadow-sm disabled:opacity-50"
-      >
-        {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Upload className="w-4 h-4" />
-        )}
-        {loading ? "Saving..." : "Save Details"}
-      </button>
+      {/* Save Button */}
+      <div className="flex justify-end mt-6 pt-4 border-t border-slate-200">
+        <button
+          onClick={handleSubmit}
+          disabled={loading || uploading}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+        >
+          {loading || uploading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {uploading ? "Uploading..." : "Saving..."}
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4" />
+              Save Details
+            </>
+          )}
+        </button>
+      </div>
 
       {/* Message */}
       {message && (
-        <p
-          className={`mt-3 flex items-center gap-2 text-sm ${
-            message.type === "success" ? "text-green-600" : "text-red-600"
+        <div
+          className={`mt-4 flex items-center gap-2 p-3 rounded-md text-sm ${
+            message.type === "success"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
           }`}
         >
           {message.type === "success" ? (
@@ -257,23 +263,23 @@ export default function GRNDetails({
             <XCircle className="w-4 h-4" />
           )}
           {message.text}
-        </p>
+        </div>
       )}
 
-      {/* ✅ Image Popup Preview */}
+      {/* Image Popup */}
       {popupImage && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="relative">
             <button
               onClick={() => setPopupImage(null)}
-              className="absolute top-2 right-2 bg-white p-2 rounded-full shadow"
+              className="absolute -top-3 -right-3 bg-white hover:bg-slate-100 p-2 rounded-full shadow-lg"
             >
-              <X className="w-4 h-4 text-gray-700" />
+              <X className="w-5 h-5 text-slate-700" />
             </button>
             <img
               src={popupImage}
               alt="Preview"
-              className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-lg"
+              className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
             />
           </div>
         </div>

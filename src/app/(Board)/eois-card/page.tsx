@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Package,
@@ -64,6 +64,7 @@ const fetchPurchaseOrders = async (): Promise<PurchaseOrder[]> => {
 };
 
 const OrderCard: React.FC = () => {
+  const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const {
     data: orders,
@@ -75,7 +76,11 @@ const OrderCard: React.FC = () => {
   });
 
   const openForm = () => setIsFormOpen(true);
-  const closeForm = () => setIsFormOpen(false);
+  const closeForm = () => {
+    setIsFormOpen(false);
+    // Invalidate and refetch queries after form closes
+    queryClient.invalidateQueries({ queryKey: ["purchaseOrders"] });
+  };
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -512,7 +517,11 @@ const OrderCard: React.FC = () => {
 
             {/* Scrollable Content */}
             <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
-              <OrderForm onSuccess={closeForm} />
+              <OrderForm onSuccess={() => {
+                closeForm();
+                // Force refetch after successful form submission
+                queryClient.invalidateQueries({ queryKey: ["purchaseOrders"] });
+              }} />
             </div>
           </div>
         </div>

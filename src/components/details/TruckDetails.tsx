@@ -16,6 +16,7 @@ interface TruckDetailsProps {
   truckNo?: string;
   driverName?: string;
   driverPhone?: string;
+  onUpdate?: () => void;
 }
 
 export default function TruckDetails({
@@ -23,6 +24,7 @@ export default function TruckDetails({
   truckNo = "",
   driverName = "",
   driverPhone = "",
+  onUpdate,
 }: TruckDetailsProps) {
   const [form, setForm] = useState({
     truckNo: "",
@@ -61,6 +63,11 @@ export default function TruckDetails({
         text: "Truck details updated successfully!",
       });
       console.log("Response:", response.data);
+      
+      // Trigger parent refetch
+      setTimeout(() => {
+        onUpdate?.();
+      }, 1000);
     } catch (error: any) {
       console.error(error);
       setMessage({ type: "error", text: "Failed to update truck details!" });
@@ -91,52 +98,48 @@ export default function TruckDetails({
   ];
 
   return (
-    <div className="bg-gradient-to-br from-white to-purple-50 rounded-3xl p-6 shadow-md border border-gray-100 w-full hover:shadow-xl transition-all duration-300">
+    <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="font-semibold text-xl text-gray-800 flex items-center gap-2">
-          <Truck className="w-5 h-5 text-purple-600" />
+      <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-200">
+        <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+          <Truck className="w-5 h-5 text-slate-600" />
           Truck Details
         </h3>
-        <span className="text-xs text-gray-400 bg-purple-100 px-3 py-1 rounded-full">
-          Required Info
+        <span className="text-xs text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+          Required
         </span>
       </div>
 
       {/* Form Fields */}
       <div className="flex flex-col gap-4">
         {fields.map(({ label, key, placeholder, icon: Icon }) => (
-          <div
-            key={key}
-            className="flex flex-col sm:flex-row sm:items-center gap-2"
-          >
-            <label className="w-40 text-sm font-medium text-gray-600">
+          <div key={key} className="space-y-2">
+            <label className="text-sm font-medium text-slate-700 flex items-center gap-2">
+              <Icon className="w-4 h-4 text-slate-500" />
               {label}
             </label>
-            <div className="relative w-full">
-              <Icon className="absolute left-3 top-2.5 text-purple-500 w-4 h-4" />
-              <input
-                type="text"
-                value={form[key as keyof typeof form]}
-                onChange={(e) => handleChange(key, e.target.value)}
-                placeholder={placeholder}
-                className="w-full border border-gray-200 rounded-lg py-2 pl-10 pr-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-400 outline-none transition-all bg-white hover:bg-purple-50"
-              />
-            </div>
+            <input
+              type="text"
+              value={form[key as keyof typeof form]}
+              onChange={(e) => handleChange(key, e.target.value)}
+              placeholder={placeholder}
+              className="w-full border border-slate-200 rounded-md py-2.5 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all hover:border-slate-300 placeholder-slate-400"
+            />
           </div>
         ))}
       </div>
 
       {/* Save Button */}
-      <div className="flex justify-end mt-6">
+      <div className="flex justify-end mt-6 pt-4 border-t border-slate-200">
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="px-5 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
         >
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
             </>
           ) : (
             "Save Details"
@@ -147,8 +150,10 @@ export default function TruckDetails({
       {/* Message */}
       {message && (
         <div
-          className={`mt-4 flex items-center gap-2 text-sm ${
-            message.type === "success" ? "text-green-600" : "text-red-600"
+          className={`mt-4 flex items-center gap-2 p-3 rounded-md text-sm ${
+            message.type === "success"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
           }`}
         >
           {message.type === "success" ? (

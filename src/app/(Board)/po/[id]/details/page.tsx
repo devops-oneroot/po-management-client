@@ -12,20 +12,20 @@ import {
   IndianRupee,
   Package,
   Hash,
-  ArrowBigRight,
+  ArrowLeft,
+  Loader2,
 } from "lucide-react";
 
 import PaymentDetails from "@/src/components/details/PaymentDetails";
-import WeighmentAndGRNDetails from "@/src/components/details/WeighmentDetails";
+import WeighmentDetails from "@/src/components/details/WeighmentDetails";
 import TruckDetails from "@/src/components/details/TruckDetails";
 import UploadReports from "@/src/components/details/UploadReports";
+import GRNDetails from "@/src/components/details/GRNDetails";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import axios from "axios";
-import WeighmentDetails from "@/src/components/details/WeighmentDetails";
-import GRNDetails from "@/src/components/details/GRNDetails";
 
-// Utility function to format date as DD/MM/YYYY
+// Utility function to format date
 function formatDate(dateString: string) {
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return "Invalid date";
@@ -38,7 +38,6 @@ function formatDate(dateString: string) {
 
 export default function BuyerDetails() {
   const [status, setStatus] = useState("");
-
   const [buyer, setBuyer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [additionalNotes, setAdditionalNotes] = useState("");
@@ -46,32 +45,12 @@ export default function BuyerDetails() {
   const [savingNoteType, setSavingNoteType] = useState<
     "additional" | "deduction" | null
   >(null);
-
-  const [updating, setUpdating] = useState(false);
-
-  const [selectedBuyer, setSelectedBuyer] = useState({
-    stages: [
-      { id: 1, name: "PO Created", icon: CheckCircle2, completed: true },
-      {
-        id: 2,
-        name: "Material Dispatched",
-        icon: CheckCircle2,
-        completed: false,
-      },
-      {
-        id: 3,
-        name: "Material Received",
-        icon: CheckCircle2,
-        completed: false,
-      },
-      { id: 4, name: "Payment Done", icon: CheckCircle2, completed: false },
-    ],
-  });
+  const [reloadKey, setReloadKey] = useState(0);
 
   const { id } = useParams();
   const router = useRouter();
 
-  // --- Fetch Buyer Assignment Details ---
+  // Fetch Buyer Assignment Details (refetches when reloadKey changes)
   useEffect(() => {
     if (!id) return;
     const fetchBuyer = async () => {
@@ -92,29 +71,20 @@ export default function BuyerDetails() {
     };
 
     fetchBuyer();
-  }, [id]);
+  }, [id, reloadKey]);
 
-  const toggleStageCompletion = (stageId: number) => {
-    setSelectedBuyer((prev) => ({
-      ...prev,
-      stages: prev.stages.map((stage) =>
-        stage.id === stageId ? { ...stage, completed: !stage.completed } : stage
-      ),
-    }));
-  };
-
-  // ✅ Save Additional Notes
+  // Save Additional Notes
   const handleSaveAdditionalNotes = async () => {
     if (!id) return;
     setSavingNoteType("additional");
     try {
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
-        {
-          additionalNotes,
-        }
+        { additionalNotes }
       );
       alert("Additional Notes updated successfully ✅");
+      // Refetch data
+      setReloadKey((k) => k + 1);
     } catch (error) {
       console.error("Error updating additional notes:", error);
       alert("Failed to update Additional Notes ❌");
@@ -123,18 +93,18 @@ export default function BuyerDetails() {
     }
   };
 
-  // ✅ Save Deduction Notes
+  // Save Deduction Notes
   const handleSaveDeductionNotes = async () => {
     if (!id) return;
     setSavingNoteType("deduction");
     try {
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
-        {
-          deductionNotes,
-        }
+        { deductionNotes }
       );
       alert("Deduction Notes updated successfully ✅");
+      // Refetch data
+      setReloadKey((k) => k + 1);
     } catch (error) {
       console.error("Error updating deduction notes:", error);
       alert("Failed to update Deduction Notes ❌");
@@ -143,66 +113,98 @@ export default function BuyerDetails() {
     }
   };
 
-  const handleImageUpload = (id: number, file: File) => {
-    const imageUrl = URL.createObjectURL(file);
-    setSelectedBuyer((prev) => ({
-      ...prev,
-      stages: prev.stages.map((stage) =>
-        stage.id === id ? { ...stage, image: imageUrl } : stage
-      ),
-    }));
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[70vh]">
-        <p className="text-gray-500 animate-pulse">Loading buyer details...</p>
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-slate-400 animate-spin mx-auto mb-4" />
+              <p className="text-sm text-slate-600">Loading buyer details...</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!buyer) {
     return (
-      <div className="flex items-center justify-center h-[70vh]">
-        <p className="text-gray-600">No buyer details found.</p>
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white border border-slate-200 rounded-lg p-12 text-center shadow-sm">
+            <div className="w-16 h-16 bg-red-50 rounded-lg flex items-center justify-center mx-auto mb-6">
+              <Package className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Buyer Not Found</h3>
+            <p className="text-sm text-slate-600">No buyer details found.</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-8 font-sans text-gray-800">
-      {/* ---- Back Button + Status ---- */}
-      <div className="flex justify-between px-5 mt-3">
-        <button
-          onClick={() => router.back()}
-          className="inline-flex w-32 h-10 items-center gap-1 bg-purple-600 hover:bg-purple-700 active:scale-[0.98] transition-all text-white font-semibold text-xl shadow-2xl px-3 py-1.5 rounded-lg border border-gray-300"
-        >
-          <ArrowBigRight className="w-10 h-10 rotate-180" />
-          Back
-        </button>
-        <div className="flex justify-end px-2 items-center gap-4">
-          <div className="flex flex-col items-start">
-            <label className="text-sm font-semibold text-gray-700">
-              Status
-            </label>
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => router.back()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 hover:border-slate-300 rounded-md font-medium shadow-sm transition-all duration-150 text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-600">Status:</span>
+            {/* Validation Warning */}
+            {(buyer?.quantityUnloaded == null || buyer?.rejectedQuantity == null || Number(buyer?.quantityUnloaded) <= Number(buyer?.rejectedQuantity)) && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-md">
+                <span className="text-xs font-medium text-amber-700">
+                  ⚠️ Complete weighment data first
+                </span>
+              </div>
+            )}
             <select
               value={status}
               onChange={async (e) => {
                 const newStatus = e.target.value;
+                
+                // Validate quantities before allowing status change
+                const unloaded = buyer?.quantityUnloaded;
+                const rejected = buyer?.rejectedQuantity;
+                
+                // Check if quantities are present and valid
+                if (unloaded == null || rejected == null) {
+                  alert("⚠️ Please enter both unloaded and rejected quantity values before changing status.");
+                  return;
+                }
+                
+                // Check if unloaded is greater than rejected
+                if (Number(unloaded) <= Number(rejected)) {
+                  alert("⚠️ Unloaded quantity must be greater than rejected quantity. Please enter correct values.");
+                  return;
+                }
+                
                 setStatus(newStatus);
-
                 try {
                   await axios.patch(
                     `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
                     { status: newStatus }
                   );
                   alert(`Status updated to ${newStatus} ✅`);
+                  // Refetch data to show updated status
+                  setReloadKey((k) => k + 1);
                 } catch (error) {
                   console.error("Error updating status:", error);
                   alert("Failed to update status ❌");
+                  // Revert status on error
+                  setStatus(buyer?.status || "");
                 }
               }}
-              className="mt-1 block w-48 rounded-lg border-gray-300 bg-white text-gray-700 py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="border border-slate-200 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none hover:border-slate-300 transition-colors duration-150"
             >
               <option value="PO_ASSIGNED">PO Assigned</option>
               <option value="VEHICLE_ASSIGNED">Vehicle Assigned</option>
@@ -217,244 +219,150 @@ export default function BuyerDetails() {
             </select>
           </div>
         </div>
-      </div>
 
-      {/* ---- Header Section ---- */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-6">
-        <div className="flex flex-col md:flex-row justify-between gap-6 border-b pb-6">
-          {/* Buyer Info */}
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-green-100 rounded-full flex items-center justify-center font-semibold text-gray-700">
-              {buyer?.user?.name?.charAt(0).toUpperCase() || "B"}
+        {/* Buyer Info Card */}
+        <div className="bg-white rounded-lg shadow-sm p-6 border border-slate-200 mb-6">
+          <div className="flex items-center justify-between mb-6 pb-6 border-b border-slate-200">
+            {/* Buyer Info */}
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center text-slate-700 font-semibold text-xl">
+                {buyer?.user?.name?.charAt(0).toUpperCase() || "B"}
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">
+                  {buyer?.user?.name}
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  {buyer?.user?.village || "Unknown"}, {buyer?.user?.district || ""}
+                </p>
+                <div className="flex items-center gap-2 mt-2 text-sm text-slate-700">
+                  <Phone className="w-4 h-4 text-slate-500" />
+                  <span>{buyer?.user?.mobileNumber || "N/A"}</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">
-                {buyer?.user?.name}
-              </h2>
-              <p className="text-gray-500 text-sm">
-                {buyer?.user?.village || "Unknown"},{" "}
-                {buyer?.user?.district || ""}
-              </p>
-              <div className="flex items-center gap-2 mt-2 text-sm text-gray-700">
-                <Phone className="w-4 h-4 text-blue-500" />
-                <MessageCircle className="w-4 h-4 text-green-500" />
-                <span>{buyer?.user?.mobileNumber || "N/A"}</span>
+
+            {/* Stats */}
+            <div className="flex gap-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center">
+                <p className="text-xs text-slate-600 mb-1">Quantity</p>
+                <p className="text-lg font-semibold text-slate-900">
+                  {buyer?.promisedQuantity || 0} {buyer?.promisedQuantityMeasure || ""}
+                </p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center">
+                <p className="text-xs text-slate-600 mb-1">Rate</p>
+                <p className="text-lg font-semibold text-slate-900">
+                  ₹{buyer?.rate || "N/A"}
+                </p>
+              </div>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center">
+                <p className="text-xs text-slate-600 mb-1">Promised Date</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {buyer?.promisedDate
+                    ? new Date(buyer.promisedDate).toLocaleDateString()
+                    : "N/A"}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Quantity + Price + Date */}
-          <div className="flex flex-wrap gap-4 items-center justify-end">
-            <div className="bg-blue-50 px-5 py-3 rounded-xl text-center">
-              <p className="text-sm font-medium text-gray-700">
-                Agreed Quantity
-              </p>
-              <p className="text-xl font-bold text-blue-600">
-                {buyer?.promisedQuantity || 0}{" "}
-                {buyer?.promisedQuantityMeasure || ""}
-              </p>
-            </div>
-            <div className="bg-green-50 px-5 py-3 rounded-xl text-center">
-              <p className="text-sm font-medium text-gray-700">Agreed Price</p>
-              <p className="text-xl font-bold text-green-600">
-                ₹{buyer?.rate || "N/A"}
-              </p>
-            </div>
-            <div className="bg-gray-50 px-5 py-3 rounded-xl text-center">
-              <p className="text-sm font-medium text-gray-700">Promised Date</p>
-              <p className="text-xl font-bold text-gray-800">
-                {buyer?.promisedDate
-                  ? new Date(buyer.promisedDate).toLocaleDateString()
-                  : "N/A"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className=" w-[900px] mt-8 shadow-2xl rounded-2xl border border-gray-100 p-8 mb-10 mx-auto hover:shadow-xl transition-all duration-300 ">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          {/* Company Info */}
+          <div className="bg-slate-50 rounded-lg p-5 border border-slate-200">
             <div className="flex items-center gap-4">
               <Image
-                src={
-                  buyer?.masterPO?.poCompany?.company_logo ||
-                  "/default-logo.png"
-                }
+                src={buyer?.masterPO?.poCompany?.company_logo || "/default-logo.png"}
                 alt="Company Logo"
-                width={60}
-                height={60}
-                className="rounded-full border border-gray-200 shadow-sm"
+                width={56}
+                height={56}
+                className="rounded-lg border border-slate-200 shadow-sm"
               />
 
-              <div>
-                <h2 className="text-4xl md:text-5xl font-bold text-gray-800 tracking-tight">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-slate-900">
                   {buyer?.masterPO?.poCompany?.name || "Company Name"}
-                </h2>
-                <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
-                  <MapPin className="w-4 h-4 text-indigo-500" />
+                </h3>
+                <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4" />
                   {buyer?.masterPO?.poCompany?.address || "Company Address"}
                 </p>
-                {buyer?.poExpiryDate ? formatDate(buyer.poExpiryDate) : "N/A"}
               </div>
-            </div>
 
-            <div className="flex justify-center items-center text-center gap-2">
-              <div className=" gap-2 text-sm text-gray-700 border border-gray-200 bg-gradient-to-br from-white to-indigo-50 shadow-sm px-5 py-2 rounded-lg">
-                <span className="flex gap-2">
-                  PO ISSUE DATE{" "}
-                  <CalendarDays className="w-4 h-4 text-indigo-600" />{" "}
-                </span>
-                <div>
-                  <span className="font-semibold text-xl md:text-xl text-indigo-600">
+              <div className="flex gap-3">
+                <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 text-center">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <CalendarDays className="w-4 h-4 text-slate-500" />
+                    <span className="text-xs text-slate-600">Issue Date</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-900">
                     {buyer?.createdAt ? formatDate(buyer.createdAt) : "N/A"}
                   </span>
                 </div>
-              </div>
 
-              <div className=" gap-2 text-sm text-gray-700 border border-gray-200 bg-gradient-to-br from-white to-indigo-50 shadow-sm px-5 py-2 rounded-lg">
-                <span className="flex gap-1">
-                  To be fulfilled by{" "}
-                  <CalendarDays className="w-4 h-4 text-indigo-600" />{" "}
-                </span>
-                <div>
-                  <span className="font-semibold text-xl md:text-xl text-indigo-600">
-                    {buyer?.poExpiryDate}
-                    {buyer?.masterPO?.poExpiryDate}
+                <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 text-center">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <CalendarDays className="w-4 h-4 text-slate-500" />
+                    <span className="text-xs text-slate-600">Fulfill By</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-900">
+                    {buyer?.masterPO?.poExpiryDate || "N/A"}
                   </span>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Stats */}
-          <div className="flex flex-col md:flex-row justify-between mt-12 gap-10 md:gap-0 text-center md:text-left px-10">
-            <div>
-              <div className="flex items-center gap-2 text-indigo-600">
-                <IndianRupee className="w-5 h-5" />
-                <p className="text-sm font-medium text-gray-600">Our Price</p>
-              </div>
-              <p className="text-3xl font-semibold text-gray-800">
-                ₹{buyer?.masterPO?.poPrice}
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 text-green-600">
-                <Package className="w-5 h-5" />
-                <p className="text-sm font-medium text-gray-600">
-                  Total Quantity
+            {/* PO Stats */}
+            <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-200">
+              <div>
+                <div className="flex items-center gap-2 text-slate-600 mb-1">
+                  <IndianRupee className="w-4 h-4" />
+                  <span className="text-xs font-medium">PO Price</span>
+                </div>
+                <p className="text-lg font-semibold text-slate-900">
+                  ₹{buyer?.masterPO?.poPrice}
                 </p>
               </div>
-              <p className="text-5xl font-semibold text-gray-800">
-                {buyer?.masterPO?.poQuantity}{" "}
-              </p>
-            </div>
 
-            <div>
-              <div className="flex items-center gap-2 text-purple-600">
-                <Hash className="w-5 h-5" />
-                <p className="text-sm font-medium text-gray-600">
-                  Total fulfilled
+              <div>
+                <div className="flex items-center gap-2 text-slate-600 mb-1">
+                  <Package className="w-4 h-4" />
+                  <span className="text-xs font-medium">Total Quantity</span>
+                </div>
+                <p className="text-lg font-semibold text-slate-900">
+                  {buyer?.masterPO?.poQuantity || 0}
                 </p>
               </div>
-              <p className="text-3xl font-semibold text-gray-800">
-                {buyer?.masterPO?.totalSuppliedQuantity}
-              </p>
+
+              <div>
+                <div className="flex items-center gap-2 text-slate-600 mb-1">
+                  <Hash className="w-4 h-4" />
+                  <span className="text-xs font-medium">Fulfilled</span>
+                </div>
+                <p className="text-lg font-semibold text-slate-900">
+                  {buyer?.masterPO?.totalSuppliedQuantity || 0}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ---- Progress Stages ---- */}
-        {/* <div className="relative w-full max-w-3xl mx-auto mb-12 mt-10">
-          <div className="absolute top-8 left-0 w-full h-1 bg-gray-200 rounded-full">
-            <div
-              className="h-1 bg-purple-500 rounded-full transition-all duration-500"
-              style={{
-                width: `${
-                  (selectedBuyer.stages.filter((s) => s.completed).length /
-                    selectedBuyer.stages.length) *
-                  100
-                }%`,
-              }}
-            />
-          </div> */}
-        {/* 
-          <div className="flex justify-between items-center relative z-10">
-            {selectedBuyer.stages.map((stage) => {
-              const Icon = stage.icon;
-              return (
-                <div
-                  key={stage.id}
-                  className="flex flex-col items-center text-center cursor-pointer group"
-                  onClick={() => toggleStageCompletion(stage.id)}
-                >
-                  <div
-                    className={`w-16 h-16 flex items-center justify-center rounded-full border-4 transition-all duration-300 ${
-                      stage.completed
-                        ? "bg-purple-100 border-purple-500 text-purple-600"
-                        : "bg-gray-100 border-gray-300 text-gray-400 group-hover:border-purple-300"
-                    }`}
-                  >
-                    {stage.completed ? (
-                      <CheckCircle className="w-8 h-8 text-purple-600" />
-                    ) : (
-                      <Icon className="w-8 h-8" />
-                    )}
-                  </div>
-                  <span
-                    className={`mt-3 text-sm font-medium ${
-                      stage.completed ? "text-purple-600" : "text-gray-500"
-                    }`}
-                  >
-                    {stage.name}
-                  </span> */}
-
-        {/* Image Upload */}
-        {/* <div className="mt-3">
-                    <label className="cursor-pointer text-xs text-purple-600 hover:underline flex items-center gap-1">
-                      <Upload className="w-3 h-3" />
-                      Upload Image
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          if (e.target.files?.[0]) {
-                            handleImageUpload(stage.id, e.target.files[0]);
-                          }
-                        }}
-                      />
-                    </label>
-
-                    {stage.image && (
-                      <div className="mt-2">
-                        <img
-                          src={stage.image}
-                          alt="Stage proof"
-                          className="w-20 h-20 object-cover rounded-lg border"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div> */}
-
         {/* Details Sections */}
-        <div className="mt-3 flex flex-col md:flex-row gap-4">
+        <div className="grid md:grid-cols-2 gap-4 mb-6">
           <TruckDetails
             id={buyer.id}
             truckNo={buyer.truckNo}
             driverName={buyer.driverName}
             driverPhone={buyer.driverPhone}
+            onUpdate={() => setReloadKey((k) => k + 1)}
           />
-
-          {/* <UploadReports id={id} data={buyer} /> */}
-          <UploadReports id={buyer.id} data={buyer} />
+          <UploadReports 
+            id={buyer.id} 
+            data={buyer}
+            onUpdate={() => setReloadKey((k) => k + 1)}
+          />
         </div>
 
-        <div className="mt-8 grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-4 mb-6">
           <WeighmentDetails
             id={buyer.id}
             quantityLoaded={buyer.quantityLoaded}
@@ -462,6 +370,7 @@ export default function BuyerDetails() {
             quantityUnloaded={buyer.quantityUnloaded}
             quantityUnloadedMeasure={buyer.quantityUnloadedMeasure}
             weighmentImages={buyer.weighmentImages}
+            onUpdate={() => setReloadKey((k) => k + 1)}
           />
 
           <GRNDetails
@@ -470,64 +379,72 @@ export default function BuyerDetails() {
             rejectedQuantity={buyer.rejectedQuantity}
             rejectedQuantityMeasure={buyer.rejectedQuantityMeasure}
             grnImages={buyer.grnImages}
+            onUpdate={() => setReloadKey((k) => k + 1)}
           />
+          
           <PaymentDetails
-            id={buyer.payments?.[0]?.id}
             assigneeId={buyer.id}
-            // assigneeId={buyer.payments?.[0]?.assigneeId}
-            paymentDate={buyer.payments?.[0]?.paymentDate}
-            amount={buyer.payments?.[0]?.amount}
-            refNo={buyer.payments?.[0]?.refNo}
-            paymentSlipImages={buyer.payments?.[0]?.paymentSlipImages}
+            onUpdate={() => setReloadKey((k) => k + 1)}
           />
         </div>
 
-        {/* Notes */}
-        {/* --- Additional Notes --- */}
-        {/* --- Additional Notes --- */}
-        <div className="mt-6 px-12 bg-white rounded-2xl p-6 shadow border border-gray-100">
-          <label className="block font-semibold mb-2 text-gray-700">
-            Additional Notes
-          </label>
-          <textarea
-            value={additionalNotes}
-            onChange={(e) => setAdditionalNotes(e.target.value)}
-            placeholder="Enter additional notes..."
-            className="w-full border rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-            rows={3}
-          />
-          <button
-            onClick={handleSaveAdditionalNotes}
-            disabled={savingNoteType === "additional"}
-            className="mt-3 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg shadow-sm transition-all"
-          >
-            {savingNoteType === "additional"
-              ? "Saving..."
-              : "Save Additional Notes"}
-          </button>
-        </div>
+        {/* Notes Sections */}
+        <div className="grid md:grid-cols-2 gap-4">
+          {/* Additional Notes */}
+          <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+            <label className="block text-sm font-semibold text-slate-900 mb-3">
+              Additional Notes
+            </label>
+            <textarea
+              value={additionalNotes}
+              onChange={(e) => setAdditionalNotes(e.target.value)}
+              placeholder="Enter additional notes..."
+              className="w-full border border-slate-200 rounded-md p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-slate-300 transition-colors duration-150 placeholder-slate-400"
+              rows={4}
+            />
+            <button
+              onClick={handleSaveAdditionalNotes}
+              disabled={savingNoteType === "additional"}
+              className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+            >
+              {savingNoteType === "additional" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Notes"
+              )}
+            </button>
+          </div>
 
-        {/* --- Deduction Notes --- */}
-        <div className="mt-6 px-12 bg-white rounded-2xl p-6 shadow border border-gray-100">
-          <label className="block font-semibold mb-2 text-gray-700">
-            Deduction Notes
-          </label>
-          <textarea
-            value={deductionNotes}
-            onChange={(e) => setDeductionNotes(e.target.value)}
-            placeholder="Enter deduction notes..."
-            className="w-full border rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-            rows={3}
-          />
-          <button
-            onClick={handleSaveDeductionNotes}
-            disabled={savingNoteType === "deduction"}
-            className="mt-3 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg shadow-sm transition-all"
-          >
-            {savingNoteType === "deduction"
-              ? "Saving..."
-              : "Save Deduction Notes"}
-          </button>
+          {/* Deduction Notes */}
+          <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+            <label className="block text-sm font-semibold text-slate-900 mb-3">
+              Deduction Notes
+            </label>
+            <textarea
+              value={deductionNotes}
+              onChange={(e) => setDeductionNotes(e.target.value)}
+              placeholder="Enter deduction notes..."
+              className="w-full border border-slate-200 rounded-md p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none hover:border-slate-300 transition-colors duration-150 placeholder-slate-400"
+              rows={4}
+            />
+            <button
+              onClick={handleSaveDeductionNotes}
+              disabled={savingNoteType === "deduction"}
+              className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+            >
+              {savingNoteType === "deduction" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Notes"
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

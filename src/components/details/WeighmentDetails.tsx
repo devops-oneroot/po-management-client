@@ -7,7 +7,7 @@ import {
   Scale,
   Loader2,
   CheckCircle2,
-  Image as ImageIcon,
+  XCircle,
   X,
   AlertCircle,
 } from "lucide-react";
@@ -19,6 +19,7 @@ interface WeighmentProps {
   quantityUnloaded?: number;
   quantityUnloadedMeasure?: string;
   weighmentImages?: string[];
+  onUpdate?: () => void;
 }
 
 const measureOptions = [
@@ -39,6 +40,7 @@ export default function WeighmentDetails({
   quantityUnloaded,
   quantityUnloadedMeasure,
   weighmentImages = [],
+  onUpdate,
 }: WeighmentProps) {
   const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
   const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
@@ -51,13 +53,17 @@ export default function WeighmentDetails({
     weighmentImages: weighmentImages || [],
   });
 
+  const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [errors, setErrors] = useState<{ measure?: string }>({});
   const [popupImage, setPopupImage] = useState<string | null>(null);
 
-  // ✅ Fetch existing weighment details
+  // Fetch existing weighment details
   useEffect(() => {
     if (!id) return;
     const fetchData = async () => {
@@ -80,15 +86,14 @@ export default function WeighmentDetails({
     fetchData();
   }, [id]);
 
-  // ✅ Handle input change
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setError("");
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setErrors({});
   };
 
-  // ✅ Handle Cloudinary image upload
+  // Upload image to Cloudinary
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
@@ -116,19 +121,21 @@ export default function WeighmentDetails({
       }));
     } catch (error) {
       console.error("Cloudinary upload failed:", error);
-      alert("Image upload failed. Please check your Cloudinary setup.");
+      setMessage({
+        type: "error",
+        text: "Image upload failed!",
+      });
     } finally {
       setUploading(false);
     }
   };
 
-  // ✅ Save updated data to backend
+  // Save to backend
   const handleUpdate = async () => {
     if (!id) return;
 
-    // 🔸 Validation for mandatory fields
     if (!formData.quantityLoadedMeasure || !formData.quantityUnloadedMeasure) {
-      setError("Please select both quantity measures before saving.");
+      setErrors({ measure: "Please select both measures" });
       return;
     }
 
@@ -147,48 +154,54 @@ export default function WeighmentDetails({
         payload
       );
 
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      setMessage({
+        type: "success",
+        text: "Weighment details updated!",
+      });
+      setTimeout(() => setMessage(null), 3000);
+      
+      // Trigger parent refetch
+      setTimeout(() => {
+        onUpdate?.();
+      }, 1000);
     } catch (error) {
-      console.error("Error updating weighment details:", error);
+      console.error(error);
+      setMessage({ type: "error", text: "Failed to update!" });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-white/90 backdrop-blur-sm border border-gray-100 shadow-sm hover:shadow-md transition-shadow rounded-2xl p-6">
-      {/* Title */}
-      <div className="flex items-center gap-2 mb-4">
-        <Scale className="w-5 h-5 text-purple-600" />
-        <h3 className="font-semibold text-lg text-gray-800">
+    <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-200">
+        <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+          <Scale className="w-5 h-5 text-slate-600" />
           Weighment Details
         </h3>
       </div>
 
       <div className="flex flex-col gap-4">
-        {/* ✅ Quantity Loaded */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <label className="w-40 text-sm font-medium text-gray-700">
-            Loading:
-          </label>
-          <div className="flex items-center gap-2 w-full">
+        {/* Quantity Loaded */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">Loading Quantity</label>
+          <div className="flex gap-2">
             <input
               type="number"
               name="quantityLoaded"
               value={formData.quantityLoaded}
               onChange={handleChange}
               placeholder="10.25"
-              className="border border-gray-200 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-purple-500 text-sm"
+              className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
             />
             <select
               name="quantityLoadedMeasure"
               value={formData.quantityLoadedMeasure}
               onChange={handleChange}
-              required
-              className="border border-gray-200 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+              className="border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
             >
-              <option value="">Select Measure *</option>
+              <option value="">Measure</option>
               {measureOptions.map((m) => (
                 <option key={m} value={m}>
                   {m}
@@ -198,28 +211,25 @@ export default function WeighmentDetails({
           </div>
         </div>
 
-        {/* ✅ Quantity Unloaded */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <label className="w-40 text-sm font-medium text-gray-700">
-            Unloading:
-          </label>
-          <div className="flex items-center gap-2 w-full">
+        {/* Quantity Unloaded */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">Unloading Quantity</label>
+          <div className="flex gap-2">
             <input
               type="number"
               name="quantityUnloaded"
               value={formData.quantityUnloaded}
               onChange={handleChange}
               placeholder="10.25"
-              className="border border-gray-200 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-purple-500 text-sm"
+              className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
             />
             <select
               name="quantityUnloadedMeasure"
               value={formData.quantityUnloadedMeasure}
               onChange={handleChange}
-              required
-              className="border border-gray-200 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+              className="border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
             >
-              <option value="">Select Measure *</option>
+              <option value="">Measure</option>
               {measureOptions.map((m) => (
                 <option key={m} value={m}>
                   {m}
@@ -229,80 +239,95 @@ export default function WeighmentDetails({
           </div>
         </div>
 
-        {/* ✅ Image Upload */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <label className="w-40 text-sm font-medium text-gray-700">
-            Weighment Images:
-          </label>
+        {errors.measure && (
+          <p className="text-xs text-red-600 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            {errors.measure}
+          </p>
+        )}
+
+        {/* Image Upload */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">Weighment Images</label>
           <input
             type="file"
             multiple
             accept="image/*"
             onChange={handleImageChange}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm w-full"
+            disabled={uploading}
+            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
           />
         </div>
 
-        {/* ✅ Display Images */}
+        {/* Display Images */}
         {formData.weighmentImages.length > 0 && (
-          <div className="flex flex-wrap gap-3 mt-3">
+          <div className="flex flex-wrap gap-2">
             {formData.weighmentImages.map((url, i) => (
               <img
                 key={i}
                 src={url}
-                alt={`uploaded-${i}`}
-                className="w-20 h-20 object-cover rounded-lg border cursor-pointer hover:scale-105 transition"
+                alt={`weighment-${i}`}
+                className="w-20 h-20 object-cover rounded-lg border border-slate-200 cursor-pointer hover:border-blue-300 transition-colors"
                 onClick={() => setPopupImage(url)}
               />
             ))}
           </div>
         )}
-
-        {/* ❌ Error */}
-        {error && (
-          <p className="flex items-center gap-2 text-red-600 text-sm">
-            <AlertCircle className="w-4 h-4" /> {error}
-          </p>
-        )}
       </div>
 
-      {/* ✅ Save button */}
-      <button
-        onClick={handleUpdate}
-        disabled={loading || uploading}
-        className="mt-5 flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-5 py-2.5 text-sm transition-all shadow-sm"
-      >
-        {loading || uploading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Upload className="w-4 h-4" />
-        )}
-        {loading || uploading ? "Saving..." : "Save Details"}
-      </button>
+      {/* Save Button */}
+      <div className="flex justify-end mt-6 pt-4 border-t border-slate-200">
+        <button
+          onClick={handleUpdate}
+          disabled={loading || uploading}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+        >
+          {loading || uploading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4" />
+              Save Details
+            </>
+          )}
+        </button>
+      </div>
 
-      {success && (
-        <p className="flex items-center gap-2 mt-3 text-green-600 text-sm">
-          <CheckCircle2 className="w-4 h-4" /> Updated successfully!
-        </p>
+      {/* Message */}
+      {message && (
+        <div
+          className={`mt-4 flex items-center gap-2 p-3 rounded-md text-sm ${
+            message.type === "success"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}
+        >
+          {message.type === "success" ? (
+            <CheckCircle2 className="w-4 h-4" />
+          ) : (
+            <XCircle className="w-4 h-4" />
+          )}
+          {message.text}
+        </div>
       )}
 
-      {/* ✅ Image Popup */}
+      {/* Image Popup */}
       {popupImage && (
-        <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999]"
-          style={{ backdropFilter: "blur(4px)" }}
-        >
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="relative">
             <button
               onClick={() => setPopupImage(null)}
-              className="absolute -top-3 -right-3 bg-white hover:bg-gray-100 p-2 rounded-full shadow-lg "
+              className="absolute -top-3 -right-3 bg-white hover:bg-slate-100 p-2 rounded-full shadow-lg"
             >
-              <X className="w-5 h-5 text-gray-700" />
+              <X className="w-5 h-5 text-slate-700" />
             </button>
             <img
               src={popupImage}
               alt="Preview"
-              className="max-w-[300px] max-h-[300px] rounded-xl shadow-2xl border border-gray-700 object-contain"
+              className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
             />
           </div>
         </div>

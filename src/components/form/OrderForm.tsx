@@ -744,7 +744,7 @@ const OrderForm = ({
     // Validate mandatory fields with specific error messages
 
     const requiredFields = [
-      // Only validate companyId when creating new order (not when editing)
+      // Validate companyId only in create mode, optional in edit mode
       ...(!isEditMode ? [{ field: "companyId", label: "Company" }] : []),
       { field: "cropName", label: "Crop Name" },
       { field: "cropVariety", label: "Crop Variety" },
@@ -839,27 +839,25 @@ const OrderForm = ({
       availablePoExpiry: formData.availablePoExpiry || null,
     };
 
-    // Company data (only included when creating new order)
-    const companyData = !isEditMode
-      ? {
-          companyId: selectedCompanyId,
-          companyName: formData.companyName,
-          state: formData.state,
-          village: formData.village,
-          taluk: formData.taluk,
-          district: formData.district,
-          coordinates: {
-            type: "Point",
-            coordinates: [
-              parseFloat(formData.coordinates.lon),
-              parseFloat(formData.coordinates.lat),
-            ],
-          },
-          company_logo: formData.company_logo,
-        }
-      : {};
+    // Company data (only included when company is selected)
+    const companyData = selectedCompanyId ? {
+      companyId: selectedCompanyId,
+      companyName: formData.companyName,
+      state: formData.state,
+      village: formData.village,
+      taluk: formData.taluk,
+      district: formData.district,
+      coordinates: {
+        type: "Point",
+        coordinates: [
+          parseFloat(formData.coordinates.lon),
+          parseFloat(formData.coordinates.lat),
+        ],
+      },
+      company_logo: formData.company_logo,
+    } : {};
 
-    // Merge data based on mode
+    // Merge data
     const formattedData = {
       ...companyData,
       ...baseData,
@@ -1170,126 +1168,115 @@ const OrderForm = ({
             </div>
           )}
 
-          {/* Company Selection & Auto-filled Info - Only show when creating new order */}
-          {!isEditMode && (
-            <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
-                <h3 className="text-base font-semibold text-slate-900">
-                  Company Information
-                </h3>
-              </div>
-
-              {/* Company Dropdown */}
-              {/* <InputField
-                label="Select Company"
-                name="companyId"
-                value={selectedCompanyId}
-                onChange={handleCompanyChange}
-                required
-                isSelect
-                options={companyOptions}
-                disabled={loadingCompanies}
-                error={error?.field === "companyId" ? error.message : undefined}
-              /> */}
-              <InputField
-                label="Select Company"
-                name="companyId"
-                value={selectedCompanyId}
-                onChange={handleCompanyChange}
-                required
-                isSelect
-                options={companyOptions}
-                disabled={loadingCompanies}
-                error={error?.field === "companyId" ? error.message : undefined}
-                // add a custom className for width
-                className="w-full max-w-2xl" // <-- add this prop to InputField
-              />
-
-              {/* Auto-filled Fields Grid */}
-              {selectedCompanyId && (
-                <div className="mt-6 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InputField
-                      label="Company Name"
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleChange}
-                      disabled
-                    />
-                    <InputField
-                      label="State"
-                      name="state"
-                      value={formData.state}
-                      onChange={handleChange}
-                      disabled
-                    />
-                    <InputField
-                      label="District"
-                      name="district"
-                      value={formData.district}
-                      onChange={handleChange}
-                      disabled
-                    />
-                    <InputField
-                      label="Taluk"
-                      name="taluk"
-                      value={formData.taluk}
-                      onChange={handleChange}
-                      disabled
-                    />
-                    <InputField
-                      label="Village"
-                      name="village"
-                      value={formData.village}
-                      onChange={handleChange}
-                      disabled
-                    />
-                    <InputField
-                      label="Latitude"
-                      name="coordinates.lat"
-                      value={formData.coordinates.lat}
-                      onChange={handleChange}
-                      disabled
-                      placeholder="Auto-filled"
-                    />
-                    <InputField
-                      label="Longitude"
-                      name="coordinates.lon"
-                      value={formData.coordinates.lon}
-                      onChange={handleChange}
-                      disabled
-                      placeholder="Auto-filled"
-                    />
-                  </div>
-
-                  {/* Logo Preview */}
-                  {formData.company_logo && (
-                    <div className="mt-4">
-                      <label className="text-sm font-semibold text-gray-700 mb-2 block">
-                        Company Logo
-                      </label>
-                      <img
-                        src={formData.company_logo}
-                        alt="Company Logo"
-                        className="w-24 h-24 object-cover rounded-xl border shadow-sm"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Loading or Empty State */}
-              {loadingCompanies && (
-                <p className="text-sm text-gray-500 mt-4">Loading companies...</p>
-              )}
-              {!loadingCompanies && companyOptions.length === 0 && (
-                <p className="text-sm text-gray-500 mt-4">
-                  No companies available.
-                </p>
+          {/* Company Selection & Auto-filled Info */}
+          <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
+              <h3 className="text-base font-semibold text-slate-900">
+                Company Information
+              </h3>
+              {isEditMode && (
+                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200">
+                  Can reassign company
+                </span>
               )}
             </div>
-          )}
+
+            <InputField
+              label="Select Company"
+              name="companyId"
+              value={selectedCompanyId}
+              onChange={handleCompanyChange}
+              required
+              isSelect
+              options={companyOptions}
+              disabled={loadingCompanies}
+              error={error?.field === "companyId" ? error.message : undefined}
+            />
+
+            {/* Auto-filled Fields Grid */}
+            {selectedCompanyId && (
+              <div className="mt-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InputField
+                    label="Company Name"
+                    name="companyName"
+                    value={formData.companyName}
+                    onChange={handleChange}
+                    disabled
+                  />
+                  <InputField
+                    label="State"
+                    name="state"
+                    value={formData.state}
+                    onChange={handleChange}
+                    disabled
+                  />
+                  <InputField
+                    label="District"
+                    name="district"
+                    value={formData.district}
+                    onChange={handleChange}
+                    disabled
+                  />
+                  <InputField
+                    label="Taluk"
+                    name="taluk"
+                    value={formData.taluk}
+                    onChange={handleChange}
+                    disabled
+                  />
+                  <InputField
+                    label="Village"
+                    name="village"
+                    value={formData.village}
+                    onChange={handleChange}
+                    disabled
+                  />
+                  <InputField
+                    label="Latitude"
+                    name="coordinates.lat"
+                    value={formData.coordinates.lat}
+                    onChange={handleChange}
+                    disabled
+                    placeholder="Auto-filled"
+                  />
+                  <InputField
+                    label="Longitude"
+                    name="coordinates.lon"
+                    value={formData.coordinates.lon}
+                    onChange={handleChange}
+                    disabled
+                    placeholder="Auto-filled"
+                  />
+                </div>
+
+                {/* Logo Preview */}
+                {formData.company_logo && (
+                  <div className="mt-4">
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      Company Logo
+                    </label>
+                    <img
+                      src={formData.company_logo}
+                      alt="Company Logo"
+                      className="w-24 h-24 object-cover rounded-lg border shadow-sm"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Loading or Empty State */}
+            {loadingCompanies && (
+              <p className="text-sm text-slate-500 mt-4">Loading companies...</p>
+            )}
+            {!loadingCompanies && companyOptions.length === 0 && (
+              <p className="text-sm text-slate-500 mt-4">
+                No companies available.
+              </p>
+            )}
+          </div>
 
           {/* Crop Information Section */}
           <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">

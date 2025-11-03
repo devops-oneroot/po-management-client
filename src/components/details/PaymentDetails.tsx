@@ -21,9 +21,10 @@ interface Payment {
 
 interface PaymentDetailsProps {
   assigneeId: string;
+  onUpdate?: () => void;
 }
 
-export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
+export default function PaymentDetails({ assigneeId, onUpdate }: PaymentDetailsProps) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
     setTotalAmount(total);
   }, [payments]);
 
-  // ✅ Fetch existing payments
+  // Fetch existing payments
   useEffect(() => {
     const fetchPayments = async () => {
       try {
@@ -60,7 +61,7 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
     if (assigneeId) fetchPayments();
   }, [assigneeId]);
 
-  // ✅ Add new payment row
+  // Add new payment row
   const handleAddPayment = () => {
     const newPayment: Payment = {
       id: `${Date.now()}`,
@@ -72,7 +73,7 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
     setPayments([...payments, newPayment]);
   };
 
-  // ✅ Handle input change
+  // Handle input change
   const handlePaymentChange = (
     id: string | undefined,
     field: keyof Payment,
@@ -83,7 +84,7 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
     );
   };
 
-  // ✅ Save payment details
+  // Save payment
   const handleSavePayment = async (payment: Payment) => {
     if (!payment.paymentDate || !payment.amount || !payment.refNo) {
       alert("Please fill all fields before saving.");
@@ -97,7 +98,6 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
         paymentDate: payment.paymentDate,
         amount: payment.amount.toString(),
         refNo: payment.refNo,
-        // explicitly set null
       };
 
       const res = await axios.post(
@@ -113,117 +113,98 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
         )
       );
 
-      setSuccessMsg("Payment saved successfully ✅");
+      setSuccessMsg("Payment saved successfully!");
       setTimeout(() => setSuccessMsg(null), 3000);
+      
+      // Trigger parent refetch
+      setTimeout(() => {
+        onUpdate?.();
+      }, 1000);
     } catch (err) {
       console.error("Error saving payment:", err);
-      alert("Failed to save payment ❌");
+      alert("Failed to save payment");
     } finally {
       setSavingId(null);
     }
   };
 
-  // ✅ Upload payment slip (separate API)
-  const handleUploadSlip = async () => {
-    if (!paymentSlipFile) {
-      alert("Please select a payment slip image first.");
-      return;
-    }
-
-    try {
-      setUploadingSlip(true);
-      const formData = new FormData();
-      formData.append("paymentSlipImages", paymentSlipFile);
-
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${assigneeId}/payments`,
-        formData,
-        {
-          headers: { "Content-Type": "multipart/form-data" },
-        }
-      );
-
-      setSuccessMsg("Payment slip uploaded successfully ✅");
-      setTimeout(() => setSuccessMsg(null), 3000);
-      setPaymentSlipFile(null);
-    } catch (err) {
-      console.error("Error uploading slip:", err);
-      alert("Failed to upload payment slip ❌");
-    } finally {
-      setUploadingSlip(false);
-    }
-  };
-
   return (
-    <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-5">
-        <CreditCard className="w-5 h-5 text-purple-600" />
-        <h3 className="font-semibold text-lg text-gray-800">Payment Details</h3>
+      <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-200">
+        <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+          <CreditCard className="w-5 h-5 text-slate-600" />
+          Payment Details
+        </h3>
       </div>
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
-          <thead className="bg-purple-50 text-gray-700 text-xs uppercase tracking-wide">
+        <table className="w-full text-sm border border-slate-200 rounded-lg">
+          <thead className="bg-slate-50">
             <tr>
-              <th className="p-2 border text-center">S.No.</th>
-              <th className="p-2 border text-center">Date</th>
-              <th className="p-2 border text-center">Amount</th>
-              <th className="p-2 border text-center">Reference</th>
-              <th className="p-2 border text-center">Action</th>
+              <th className="p-3 border border-slate-200 text-left text-xs font-semibold text-slate-900 uppercase">
+                S.No.
+              </th>
+              <th className="p-3 border border-slate-200 text-left text-xs font-semibold text-slate-900 uppercase">
+                Date
+              </th>
+              <th className="p-3 border border-slate-200 text-left text-xs font-semibold text-slate-900 uppercase">
+                Amount
+              </th>
+              <th className="p-3 border border-slate-200 text-left text-xs font-semibold text-slate-900 uppercase">
+                Reference
+              </th>
+              <th className="p-3 border border-slate-200 text-center text-xs font-semibold text-slate-900 uppercase">
+                Action
+              </th>
             </tr>
           </thead>
           <tbody>
             {payments.map((p, index) => (
-              <tr
-                key={p.id}
-                className={`${
-                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                } hover:bg-purple-50/60 transition-colors`}
-              >
-                <td className="p-2 border text-center font-medium text-gray-600">
+              <tr key={p.id} className="hover:bg-slate-50">
+                <td className="p-3 border border-slate-200 font-medium text-slate-600">
                   {index + 1}
                 </td>
-                <td className="p-2 border text-center">
+                <td className="p-3 border border-slate-200">
                   <input
                     type="date"
                     value={p.paymentDate}
                     onChange={(e) =>
                       handlePaymentChange(p.id, "paymentDate", e.target.value)
                     }
-                    className="w-full text-center bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-purple-400 rounded-md"
+                    className="w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-400 rounded-md text-sm"
                   />
                 </td>
-                <td className="p-2 border text-center">
+                <td className="p-3 border border-slate-200">
                   <input
                     type="number"
                     value={p.amount}
                     onChange={(e) =>
                       handlePaymentChange(p.id, "amount", e.target.value)
                     }
-                    className="w-full text-center bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-purple-400 rounded-md"
+                    className="w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-400 rounded-md text-sm"
                     placeholder="0.00"
                   />
                 </td>
-                <td className="p-2 border text-center">
+                <td className="p-3 border border-slate-200">
                   <input
                     type="text"
                     value={p.refNo}
                     onChange={(e) =>
                       handlePaymentChange(p.id, "refNo", e.target.value)
                     }
-                    className="w-full text-center bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-purple-400 rounded-md"
+                    className="w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-400 rounded-md text-sm"
                     placeholder="Ref No."
                   />
                 </td>
 
-                <td className="p-2 border text-center">
+                <td className="p-3 border border-slate-200 text-center">
                   {p.isNew ? (
                     <button
                       onClick={() => handleSavePayment(p)}
                       disabled={savingId === p.id}
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-md text-xs flex items-center justify-center gap-1 disabled:opacity-70"
+                      className="inline-flex items-center gap-1 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-150"
                     >
                       {savingId === p.id ? (
                         <Loader2 className="w-3 h-3 animate-spin" />
@@ -242,55 +223,34 @@ export default function PaymentDetails({ assigneeId }: PaymentDetailsProps) {
             ))}
           </tbody>
         </table>
+
         {/* Total Amount */}
-        <div className="flex justify-end mt-4 pr-2">
-          <div className="bg-purple-50 text-purple-700 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm">
-            Total Amount: ₹{totalAmount.toLocaleString("en-IN")}
+        {payments.length > 0 && (
+          <div className="flex justify-end mt-3">
+            <div className="bg-slate-100 text-slate-900 px-4 py-2 rounded-md text-sm font-semibold border border-slate-200">
+              Total: ₹{totalAmount.toLocaleString("en-IN")}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Add Payment & Upload Slip Buttons */}
-      <div className="flex items-center justify-between mt-5 gap-3">
+      {/* Add Payment Button */}
+      <div className="flex justify-center mt-6 pt-4 border-t border-slate-200">
         <button
           onClick={handleAddPayment}
-          className="flex-1 flex items-center justify-center gap-2 text-purple-600 border border-purple-400 hover:bg-purple-50 rounded-xl py-2 text-sm font-medium transition-all shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-md font-medium text-sm transition-colors duration-150"
         >
-          <Plus className="w-4 h-4" /> Add New Payment
+          <Plus className="w-4 h-4" />
+          Add Payment
         </button>
-
-        <div className="flex items-center gap-2">
-          <label className="cursor-pointer flex items-center gap-2 text-purple-600 border border-purple-400 hover:bg-purple-50 rounded-xl py-2 px-3 text-sm font-medium transition-all shadow-sm">
-            <ImagePlus className="w-4 h-4" />
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => setPaymentSlipFile(e.target.files?.[0] || null)}
-            />
-            {paymentSlipFile ? "Slip Selected" : "Upload Slip"}
-          </label>
-
-          {/* <button
-            onClick={handleUploadSlip}
-            disabled={uploadingSlip}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 disabled:opacity-70"
-          >
-            {uploadingSlip ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4" />
-            )}
-            {uploadingSlip ? "Uploading..." : "Upload"}
-          </button> */}
-        </div>
       </div>
 
-      {/* Success message */}
+      {/* Success Message */}
       {successMsg && (
-        <p className="flex items-center gap-2 mt-3 text-green-600 text-sm">
-          <CheckCircle2 className="w-4 h-4" /> {successMsg}
-        </p>
+        <div className="mt-4 flex items-center gap-2 p-3 rounded-md text-sm bg-green-50 text-green-700 border border-green-200">
+          <CheckCircle2 className="w-4 h-4" />
+          {successMsg}
+        </div>
       )}
     </div>
   );

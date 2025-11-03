@@ -103,10 +103,12 @@ const OrderCard: React.FC = () => {
     if (crop) params.set("crop", crop);
     if (district) params.set("district", district);
 
+    // Set loading state immediately
+    setIsLoading(true);
+    setError(null);
+
     async function load() {
       try {
-        setIsLoading(true);
-        setError(null);
         const qs = params.toString();
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/po-companies${
@@ -150,49 +152,107 @@ const OrderCard: React.FC = () => {
 
   const totalCompanies = companies.length;
 
-  return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      {/* Main Content */}
-      <div className="max-w-8xl mx-auto">
-        {/* Header Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900 mb-1">
-                Companies
-              </h1>
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                {isLoading ? (
+  // Loading State - Show skeleton
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-8xl mx-auto">
+          {/* Header Section */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+                  Companies
+                </h1>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
                   <div className="h-4 w-24 bg-slate-200 rounded animate-pulse" />
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <Users className="w-4 h-4 text-slate-500" />
-                    <span>{totalCompanies} Total Companies</span>
-                  </div>
-                )}
+                </div>
               </div>
+              <button
+                onClick={openForm}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Onboard Company</span>
+              </button>
             </div>
-            <button
-              onClick={openForm}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Onboard Company</span>
-            </button>
           </div>
-        </div>
 
-        {/* Loading State */}
-        {isLoading && (
+          {/* Loading Skeleton Grid */}
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[...Array(8)].map((_, i) => (
               <CompanySkeleton key={i} />
             ))}
           </div>
-        )}
+        </div>
 
-        {/* Error State */}
-        {error && !isLoading && (
+        {/* Modal */}
+        {isFormOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200">
+              <div className="px-6 py-4 border-b border-slate-200 bg-white">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    {editingCompany ? "Edit Company" : "Onboard Company"}
+                  </h2>
+                  <button
+                    onClick={closeForm}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-[calc(90vh-80px)] overflow-y-auto">
+                <CompanyForm
+                  company={editingCompany}
+                  onSuccess={() => {
+                    setReloadKey((k) => k + 1);
+                    closeForm();
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-8xl mx-auto">
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+                  Companies
+                </h1>
+              </div>
+              <button
+                onClick={openForm}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Onboard Company</span>
+              </button>
+            </div>
+          </div>
+
           <div className="bg-white border border-slate-200 rounded-lg p-12 text-center max-w-2xl mx-auto shadow-sm">
             <div className="w-16 h-16 bg-red-50 rounded-lg flex items-center justify-center mx-auto mb-6">
               <svg
@@ -214,17 +274,86 @@ const OrderCard: React.FC = () => {
             </h3>
             <p className="text-sm text-slate-600 mb-6">{error}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => setReloadKey((k) => k + 1)}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
             >
               <Loader2 className="w-4 h-4" />
               Retry
             </button>
           </div>
-        )}
+        </div>
 
-        {/* Empty State */}
-        {!isLoading && !error && companies.length === 0 && (
+        {/* Modal */}
+        {isFormOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200">
+              <div className="px-6 py-4 border-b border-slate-200 bg-white">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    {editingCompany ? "Edit Company" : "Onboard Company"}
+                  </h2>
+                  <button
+                    onClick={closeForm}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-[calc(90vh-80px)] overflow-y-auto">
+                <CompanyForm
+                  company={editingCompany}
+                  onSuccess={() => {
+                    setReloadKey((k) => k + 1);
+                    closeForm();
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Empty State - Only shown when there are really no companies
+  if (companies.length === 0) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-6">
+        <div className="max-w-8xl mx-auto">
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+                  Companies
+                </h1>
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Users className="w-4 h-4 text-slate-500" />
+                  <span>0 Total Companies</span>
+                </div>
+              </div>
+              <button
+                onClick={openForm}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Onboard Company</span>
+              </button>
+            </div>
+          </div>
+
           <div className="bg-white border border-slate-200 rounded-lg p-12 text-center max-w-lg mx-auto shadow-sm">
             <div className="w-16 h-16 bg-slate-100 rounded-lg flex items-center justify-center mx-auto mb-6">
               <Package className="w-8 h-8 text-slate-400" />
@@ -243,12 +372,85 @@ const OrderCard: React.FC = () => {
               Onboard Company
             </button>
           </div>
+        </div>
+
+        {/* Modal */}
+        {isFormOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200">
+              <div className="px-6 py-4 border-b border-slate-200 bg-white">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    {editingCompany ? "Edit Company" : "Onboard Company"}
+                  </h2>
+                  <button
+                    onClick={closeForm}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-[calc(90vh-80px)] overflow-y-auto">
+                <CompanyForm
+                  company={editingCompany}
+                  onSuccess={() => {
+                    setReloadKey((k) => k + 1);
+                    closeForm();
+                  }}
+                />
+              </div>
+            </div>
+          </div>
         )}
+      </div>
+    );
+  }
+
+  // Main Content - Companies exist
+  return (
+    <div className="min-h-screen bg-slate-50 p-6">
+      {/* Main Content */}
+      <div className="max-w-8xl mx-auto">
+        {/* Header Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+                Companies
+              </h1>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <div className="flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-slate-500" />
+                  <span>{totalCompanies} Total Companies</span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={openForm}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Onboard Company</span>
+            </button>
+          </div>
+        </div>
 
         {/* Companies Grid */}
-        {!isLoading && !error && companies.length > 0 && (
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {companies.map((company) => (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {companies.map((company) => (
               <div
                 key={company.id}
                 className="relative group"
@@ -350,53 +552,50 @@ const OrderCard: React.FC = () => {
                 </Link>
               </div>
             ))}
+        </div>
+
+        {/* Modal */}
+        {isFormOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200">
+              <div className="px-6 py-4 border-b border-slate-200 bg-white">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    {editingCompany ? "Edit Company" : "Onboard Company"}
+                  </h2>
+                  <button
+                    onClick={closeForm}
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-[calc(90vh-80px)] overflow-y-auto">
+                <CompanyForm
+                  company={editingCompany}
+                  onSuccess={() => {
+                    setReloadKey((k) => k + 1);
+                    closeForm();
+                  }}
+                />
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Modal (Minimal) */}
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 bg-white">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  {editingCompany ? "Edit Company" : "Onboard Company"}
-                </h2>
-                <button
-                  onClick={closeForm}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="max-h-[calc(90vh-80px)] overflow-y-auto">
-              <CompanyForm
-                company={editingCompany}
-                onSuccess={() => {
-                  setReloadKey((k) => k + 1);
-                  closeForm();
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

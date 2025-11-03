@@ -16,7 +16,7 @@ enum QuantityUnit {
   BOX = "BOX",
 }
 
-const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
+const AssignBuyerForm = ({ masterPOId, onClose }: { masterPOId: string; onClose?: () => void }) => {
   const [search, setSearch] = useState("");
   const [buyers, setBuyers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,6 +101,11 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
       setSelectedBuyer(null);
       setBuyers([]);
       setSearch("");
+      
+      // Close modal after 2 seconds if callback provided
+      setTimeout(() => {
+        onClose?.();
+      }, 2000);
     } catch (err) {
       console.error("Error submitting:", err);
       setMessage({ type: "error", text: "Failed to assign buyer." });
@@ -110,9 +115,9 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-      <h2 className="text-lg font-semibold mb-4 text-slate-900">
-        Assign Buyer to Master PO
+    <div>
+      <h2 className="text-base font-semibold mb-4 text-slate-900">
+        Search and Assign Buyer
       </h2>
 
       {/* Alert Message */}

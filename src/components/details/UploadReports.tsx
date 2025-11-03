@@ -15,12 +15,12 @@ import {
 interface UploadReportsProps {
   id: string;
   data: any;
+  onUpdate?: () => void;
 }
 
-export default function UploadReports({ id, data }: UploadReportsProps) {
-  // 🔹 Replace with your actual Cloudinary credentials
-  const CLOUD_NAME = "dz23idc5e";
-  const UPLOAD_PRESET = "Image_upload";
+export default function UploadReports({ id, data, onUpdate }: UploadReportsProps) {
+  const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+  const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
 
   const reports = [
     { title: "Payment Slip", key: "paymentSlipImages" },
@@ -28,7 +28,7 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
     { title: "E-Way Bill", key: "eWayBillImages" },
     { title: "APMC", key: "apmcImages" },
     { title: "Sales Invoice", key: "salesInvoiceImages" },
-    { title: "Miscellaneous Docs", key: "miscellaneousDocs" },
+    { title: "Miscellaneous", key: "miscellaneousDocs" },
   ];
 
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, string[]>>(
@@ -38,7 +38,6 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // 🔹 Handle upload to Cloudinary (image/pdf)
   const handleFileUpload = async (
     reportKey: string,
     files: FileList | null
@@ -51,8 +50,6 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
 
       for (const file of Array.from(files)) {
         const isPdf = file.type === "application/pdf";
-
-        // ✅ Correct endpoint for Cloudinary (no "type" param)
         const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${
           isPdf ? "raw" : "image"
         }/upload`;
@@ -65,7 +62,6 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
         uploadedUrls.push(uploadRes.data.secure_url);
       }
 
-      // ✅ Send Cloudinary URLs to backend
       const payload = { [reportKey]: uploadedUrls };
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
@@ -73,14 +69,18 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
         { headers: { "Content-Type": "application/json" } }
       );
 
-      // ✅ Update UI locally
       setUploadedFiles((prev) => ({
         ...prev,
         [reportKey]: [...(prev[reportKey] ?? []), ...uploadedUrls],
       }));
+      
+      // Trigger parent refetch after successful upload
+      setTimeout(() => {
+        onUpdate?.();
+      }, 1000);
     } catch (error) {
       console.error(error);
-      alert("Upload failed. Please check Cloudinary credentials or preset.");
+      alert("Upload failed. Please check Cloudinary credentials.");
     } finally {
       setLoading((prev) => ({ ...prev, [reportKey]: false }));
     }
@@ -90,31 +90,35 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
 
   return (
     <>
-      <div className="flex flex-wrap gap-6 mt-4">
-        {reports.map((report) => {
-          const existing = (data[report.key] ?? []) as string[];
-          const justUploaded = uploadedFiles[report.key] ?? [];
-          const allFiles = [...existing, ...justUploaded];
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
+        <h3 className="text-base font-semibold text-slate-900 mb-5 pb-4 border-b border-slate-200">
+          Upload Reports
+        </h3>
 
-          return (
-            <div
-              key={report.key}
-              className="bg-gradient-to-br from-white to-purple-50 rounded-3xl p-6 shadow-md border border-gray-100 w-[220px] flex flex-col items-center"
-            >
-              {/* Header */}
-              <h4 className="font-semibold text-base text-gray-800 border-b w-full text-center pb-2">
-                {report.title}
-              </h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {reports.map((report) => {
+            const existing = (data[report.key] ?? []) as string[];
+            const justUploaded = uploadedFiles[report.key] ?? [];
+            const allFiles = [...existing, ...justUploaded];
 
-              {/* Upload UI */}
-              <div className="mt-4 flex flex-col items-center gap-3">
-                <div className="relative w-20 h-20 bg-white border border-dashed border-purple-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-purple-500">
+            return (
+              <div
+                key={report.key}
+                className="bg-slate-50 rounded-lg p-4 border border-slate-200 flex flex-col items-center"
+              >
+                {/* Title */}
+                <h4 className="text-sm font-semibold text-slate-900 mb-3 text-center">
+                  {report.title}
+                </h4>
+
+                {/* Upload Area */}
+                <div className="relative w-16 h-16 bg-white border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-blue-400 transition-colors">
                   {loading[report.key] ? (
-                    <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+                    <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
                   ) : allFiles.length ? (
-                    <FileCheck2 className="w-8 h-8 text-green-500" />
+                    <FileCheck2 className="w-6 h-6 text-green-500" />
                   ) : (
-                    <ImageIcon className="w-8 h-8 text-purple-400" />
+                    <ImageIcon className="w-6 h-6 text-slate-400" />
                   )}
                   <input
                     type="file"
@@ -130,17 +134,15 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
 
                 <button
                   onClick={() => fileInputRefs.current[report.key]?.click()}
-                  className="flex items-center gap-1 text-sm font-medium text-purple-600 hover:text-purple-800"
+                  className="mt-3 flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
                 >
-                  {allFiles.length ? "Add More" : "Upload"}{" "}
-                  <Upload className="w-4 h-4" />
+                  {allFiles.length ? "Add More" : "Upload"}
+                  <Upload className="w-3 h-3" />
                 </button>
-              </div>
 
-              {/* File previews */}
-              {allFiles.length > 0 && (
-                <div className="mt-4 w-full">
-                  <div className="flex flex-wrap justify-center gap-2">
+                {/* File previews */}
+                {allFiles.length > 0 && (
+                  <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                     {allFiles.map((url, idx) => (
                       <div key={idx} className="relative group">
                         <div
@@ -148,14 +150,14 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
                           className="cursor-pointer"
                         >
                           {isPdfFile(url) ? (
-                            <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded-lg border shadow-sm">
-                              <FileText className="w-8 h-8 text-red-500" />
+                            <div className="w-12 h-12 flex items-center justify-center bg-red-50 rounded-lg border border-red-200">
+                              <FileText className="w-6 h-6 text-red-500" />
                             </div>
                           ) : (
                             <img
                               src={url}
                               alt="uploaded"
-                              className="w-16 h-16 rounded-lg border object-cover shadow-sm hover:scale-105 transition-transform"
+                              className="w-12 h-12 rounded-lg border border-slate-200 object-cover hover:border-blue-300 transition-colors"
                             />
                           )}
                         </div>
@@ -164,29 +166,29 @@ export default function UploadReports({ id, data }: UploadReportsProps) {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition"
-                            title="Open PDF in new tab"
+                            className="absolute -top-1 -right-1 bg-white border border-slate-200 rounded-full p-0.5 shadow-sm opacity-0 group-hover:opacity-100 transition"
+                            title="Open PDF"
                           >
-                            <ExternalLink className="w-3 h-3 text-purple-600" />
+                            <ExternalLink className="w-3 h-3 text-blue-600" />
                           </a>
                         )}
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Preview Modal */}
       {previewUrl && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="relative bg-white rounded-xl shadow-2xl p-4 max-w-3xl w-full max-h-[90vh] overflow-auto">
+          <div className="relative bg-white rounded-lg shadow-xl p-4 max-w-4xl w-full max-h-[90vh] overflow-auto">
             <button
               onClick={() => setPreviewUrl(null)}
-              className="absolute top-3 right-3 text-gray-600 hover:text-black"
+              className="absolute top-3 right-3 text-slate-600 hover:text-slate-900"
             >
               <X className="w-6 h-6" />
             </button>

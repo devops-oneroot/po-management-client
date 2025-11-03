@@ -26,12 +26,14 @@ const CompaniesPage = () => {
   const [activeTab, setActiveTab] = useState<"expiring" | "expired">(
     "expiring"
   );
+  const [reloadKey, setReloadKey] = useState(0);
   const router = useRouter();
 
-  // ✅ Fetch all Master POs
+  // ✅ Fetch all Master POs (refetches when reloadKey changes)
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/master-po`
         );
@@ -45,7 +47,7 @@ const CompaniesPage = () => {
     };
 
     fetchData();
-  }, []);
+  }, [reloadKey]);
 
   // ✅ Navigate to PO Details Page
   const handleCardClick = (id: string) => {
@@ -259,7 +261,10 @@ const CompaniesPage = () => {
               </div>
             </div>
             <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
-              <POForm onClose={() => setShowForm(false)} />
+              <POForm onClose={() => {
+                setShowForm(false);
+                setReloadKey((k) => k + 1); // Trigger refetch
+              }} />
             </div>
           </div>
         </div>
