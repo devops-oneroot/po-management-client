@@ -422,7 +422,7 @@ const OrderCard: React.FC = () => {
                   {inactiveOrders.map((order) => (
                     <Link
                       key={order.id}
-                      href={`/order/${order.id}`}
+                      href={`/eoi/${order.id}`}
                       className="group block transform transition-all duration-300"
                     >
                       <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 border border-white/40 shadow-lg hover:shadow-2xl hover:-translate-y-2 hover:border-purple-200/60 overflow-hidden relative h-full">
