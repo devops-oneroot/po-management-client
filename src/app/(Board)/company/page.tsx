@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import CompanyForm from "@/src/components/form/CompanyForm";
@@ -442,4 +442,22 @@ const OrderCard: React.FC = () => {
   );
 };
 
-export default OrderCard;
+// Wrapper component with Suspense boundary
+const CompanyPageWithSuspense = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600 font-medium">Loading companies...</p>
+          </div>
+        </div>
+      }
+    >
+      <OrderCard />
+    </Suspense>
+  );
+};
+
+export default CompanyPageWithSuspense;
