@@ -9,9 +9,11 @@ import {
   Building2,
   ShoppingBasket,
   ShoppingCart,
+  LayoutDashboard,
 } from "lucide-react";
 
 const supervisorNavItems = [
+  { label: "Overview", icon: LayoutDashboard, href: "/" },
   { label: "Companies", icon: Building2, href: "/company" },
   { label: "EOIs", icon: ShoppingBasket, href: "/eois-card" },
   { label: "POs", icon: ShoppingCart, href: "/po-card" },

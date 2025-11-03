@@ -71,7 +71,6 @@ const CompanyOrderMessage = ({ order }: { order: PurchaseOrder }) => {
 
 ಧನ್ಯವಾದಗಳು!! ಮಾರಖೇತ್ ಆಪ್‌ !!`;
 
-    console.log("📝 GENERATED MESSAGE:", message);
     return message;
   };
 
@@ -79,7 +78,6 @@ const CompanyOrderMessage = ({ order }: { order: PurchaseOrder }) => {
     e.stopPropagation();
     e.preventDefault();
 
-    console.log("🖱️ COPY BUTTON CLICKED!");
     setIsCopying(true);
 
     try {
@@ -87,7 +85,6 @@ const CompanyOrderMessage = ({ order }: { order: PurchaseOrder }) => {
 
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(message);
-        console.log("✅ CLIPBOARD API SUCCESS!");
       } else {
         const textArea = document.createElement("textarea");
         textArea.value = message;
@@ -99,61 +96,18 @@ const CompanyOrderMessage = ({ order }: { order: PurchaseOrder }) => {
         textArea.select();
         document.execCommand("copy");
         textArea.remove();
-        console.log("✅ FALLBACK COPY SUCCESS!");
       }
 
-      toast.success(
-        (t) => (
-          <div className="flex items-center space-x-3">
-            <CheckCircle className="w-5 h-5 text-green-500" />
-            <div>
-              <div className="font-bold text-sm">✅ COPIED TO CLIPBOARD!</div>
-              <div className="text-xs text-green-700 mt-1 truncate max-w-[250px]">
-                "{message.substring(0, 50)}..."
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Paste in WhatsApp 👆
-              </div>
-            </div>
-          </div>
-        ),
-        {
-          duration: 6000,
-          position: "top-center",
-          style: {
-            background: "white",
-            padding: "12px 16px",
-            borderRadius: "12px",
-            border: "2px solid #10b981",
-            boxShadow: "0 10px 25px rgba(16, 185, 129, 0.2)",
-          },
-        }
-      );
+      toast.success("Message copied to clipboard!", {
+        duration: 3000,
+        position: "top-center",
+      });
     } catch (err) {
       console.error("❌ COPY FAILED:", err);
-      toast.error(
-        (t) => (
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-5 h-5 text-red-500" />
-            <div>
-              <div className="font-bold">❌ Copy Failed!</div>
-              <div className="text-xs text-gray-600">
-                Try again or copy manually
-              </div>
-            </div>
-          </div>
-        ),
-        {
-          duration: 4000,
-          position: "top-center",
-          style: {
-            background: "white",
-            padding: "12px 16px",
-            borderRadius: "12px",
-            border: "2px solid #ef4444",
-          },
-        }
-      );
+      toast.error("Failed to copy message", {
+        duration: 3000,
+        position: "top-center",
+      });
     } finally {
       setIsCopying(false);
     }
@@ -163,23 +117,14 @@ const CompanyOrderMessage = ({ order }: { order: PurchaseOrder }) => {
     <button
       onClick={handleCopy}
       disabled={isCopying}
-      className={`w-44  mt-2 relative overflow-hidden transition-all duration-300 ease-out group  ${
-        isCopying ? "scale-95" : "border biorder-black hover:scale-105"
-      } text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl z-50`}
+      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
     >
-      <div className="flex items-center justify-center space-x-2 relative z-10">
-        {isCopying ? (
-          <CheckCircle className="w-4 h-4 animate-pulse" />
-        ) : (
-          <Copy className="w-4 h-4 group-hover:scale-110 transition-transform" />
-        )}
-        <span className="text-sm text-black">
-          {isCopying ? "✅ Copied!" : "📋 Copy Message"}
-        </span>
-      </div>
-      {isCopying && (
-        <div className="absolute inset-0 bg-white/20 animate-ping rounded-xl"></div>
+      {isCopying ? (
+        <CheckCircle className="w-4 h-4" />
+      ) : (
+        <Copy className="w-4 h-4" />
       )}
+      <span>{isCopying ? "Copied!" : "Copy Message"}</span>
     </button>
   );
 };
@@ -380,15 +325,15 @@ const PurchaseOrderDetails: React.FC = () => {
     const statusLower = status.toLowerCase();
     switch (statusLower) {
       case "approved":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-green-50 text-green-700 border-green-200";
       case "not_approved":
       case "notapproved":
       case "not-approved":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-red-50 text-red-700 border-red-200";
       case "pending":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-amber-50 text-amber-700 border-amber-200";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "bg-slate-100 text-slate-600 border-slate-200";
     }
   };
 
@@ -534,7 +479,7 @@ const PurchaseOrderDetails: React.FC = () => {
         `${process.env.NEXT_PUBLIC_API_URL}/users/find-buyers-nearby`
       );
       url.searchParams.append("page", (payload.page || 1).toString());
-      url.searchParams.append("limit", (payload.limit || 10).toString()); // Changed from 1 to 10
+      url.searchParams.append("limit", (payload.limit || 10).toString());
 
       const response = await fetch(url.toString(), {
         method: "POST",
@@ -569,9 +514,6 @@ const PurchaseOrderDetails: React.FC = () => {
     },
   });
 
-  // TypeScript quirk: ensure we can read isLoading reliably in this file.
-  // Narrow to `any` here to avoid a mismatched generic type error from the
-  // project's React Query types while preserving runtime behavior.
   const isFindingNearbyBuyers = (findNearbyBuyersMutation as any)
     .isLoading as boolean;
 
@@ -596,85 +538,54 @@ const PurchaseOrderDetails: React.FC = () => {
       distanceKm: parseFloat(distanceKm),
       cropName: order.cropName,
       page,
-      limit: 10, // Changed from 1 to 10
+      limit: 10,
     });
   };
 
   const LoadingSkeleton = () => (
     <div className="animate-pulse space-y-4">
-      {/* Company Header */}
-      <div className="flex items-center space-x-3 p-4 bg-gray-100 rounded-xl">
-        <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
-        <div className="space-y-1 flex-1">
-          <div className="h-4 bg-gray-200 rounded w-32"></div>
-          <div className="h-3 bg-gray-200 rounded w-20"></div>
-        </div>
-        <div className="flex space-x-2">
-          <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
-          <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+      <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-lg">
+        <div className="w-12 h-12 bg-slate-200 rounded-lg"></div>
+        <div className="space-y-2 flex-1">
+          <div className="h-4 bg-slate-200 rounded w-32"></div>
+          <div className="h-3 bg-slate-100 rounded w-20"></div>
         </div>
       </div>
-
-      {/* Compact Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[...Array(8)].map((_, i) => (
-          <div key={i} className="space-y-1">
-            <div className="h-2 bg-gray-200 rounded w-16"></div>
-            <div className="h-3 bg-gray-200 rounded w-full"></div>
+          <div key={i} className="space-y-2">
+            <div className="h-3 bg-slate-200 rounded w-16"></div>
+            <div className="h-4 bg-slate-100 rounded w-full"></div>
           </div>
         ))}
-      </div>
-
-      {/* Language Sections Skeleton */}
-      <div className="space-y-4">
-        <div className="bg-gray-50 rounded-lg p-3">
-          <div className="h-3 bg-gray-200 rounded w-24 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-full"></div>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <div className="h-3 bg-gray-200 rounded w-24 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-full"></div>
-        </div>
       </div>
     </div>
   );
 
   const ErrorState = ({ message }: { message: string }) => (
-    <div className="flex flex-col items-center justify-center space-y-4 p-4 text-center">
-      <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-        <svg
-          className="w-6 h-6 text-red-500"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-          />
-        </svg>
+    <div className="flex flex-col items-center justify-center space-y-4 p-8 text-center">
+      <div className="w-16 h-16 bg-red-50 rounded-lg flex items-center justify-center">
+        <AlertCircle className="w-8 h-8 text-red-500" />
       </div>
       <div className="space-y-2">
-        <h3 className="text-base font-semibold text-gray-900">
+        <h3 className="text-base font-semibold text-slate-900">
           Something went wrong
         </h3>
-        <p className="text-sm text-gray-600 max-w-sm">{message}</p>
+        <p className="text-sm text-slate-600 max-w-sm">{message}</p>
       </div>
     </div>
   );
 
   const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center space-y-4 p-4 text-center">
-      <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-        <Package className="w-6 h-6 text-gray-400" />
+    <div className="flex flex-col items-center justify-center space-y-4 p-8 text-center">
+      <div className="w-16 h-16 bg-slate-100 rounded-lg flex items-center justify-center">
+        <Package className="w-8 h-8 text-slate-400" />
       </div>
       <div className="space-y-2">
-        <h3 className="text-base font-semibold text-base-semibold text-gray-900">
+        <h3 className="text-base font-semibold text-slate-900">
           Order Not Found
         </h3>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-slate-600">
           The purchase order doesn't exist.
         </p>
       </div>
@@ -683,11 +594,11 @@ const PurchaseOrderDetails: React.FC = () => {
 
   if (orderLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="min-h-screen bg-slate-50 p-6">
         <div className="max-w-6xl mx-auto">
           <Header />
-          <div className="bg-white shadow-lg rounded-2xl overflow-hidden border border-gray-200 mt-6">
-            <div className="p-4">
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-slate-200 mt-6">
+            <div className="p-6">
               <LoadingSkeleton />
             </div>
           </div>
@@ -698,10 +609,10 @@ const PurchaseOrderDetails: React.FC = () => {
 
   if (orderError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="min-h-screen bg-slate-50 p-6">
         <div className="max-w-6xl mx-auto">
           <Header />
-          <div className="bg-white shadow-lg rounded-2xl overflow-hidden border border-gray-200 mt-6 flex items-center justify-center p-8">
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-slate-200 mt-6 flex items-center justify-center p-8">
             <ErrorState message={(orderError as Error).message} />
           </div>
         </div>
@@ -711,10 +622,10 @@ const PurchaseOrderDetails: React.FC = () => {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="min-h-screen bg-slate-50 p-6">
         <div className="max-w-6xl mx-auto">
           <Header />
-          <div className="bg-white shadow-lg rounded-2xl overflow-hidden border border-gray-200 mt-6 flex items-center justify-center p-8">
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-slate-200 mt-6 flex items-center justify-center p-8">
             <EmptyState />
           </div>
         </div>
@@ -723,108 +634,90 @@ const PurchaseOrderDetails: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 p-4">
+    <div className="min-h-screen bg-slate-50 p-6">
       <Toaster />
       <div className="max-w-8xl mx-auto">
         <Header />
 
-        {/* Compact Card - No Scroll */}
-        <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-200 mt-6 relative">
-          {/* Company Header - Compact with Edit Button */}
-          <div className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-100 relative">
+        {/* Main Card */}
+        <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-slate-200 mt-6">
+          {/* Company Header */}
+          <div className="p-6 bg-slate-50 border-b border-slate-200">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3 flex-1 min-w-0">
+              <div className="flex items-center gap-4 flex-1">
                 <div className="flex-shrink-0">
                   {order.company_logo ? (
                     <img
                       src={order.company_logo}
                       alt={`${order.companyName} logo`}
-                      className="w-12 h-12 rounded-xl object-cover shadow-md ring-1 ring-white"
+                      className="w-16 h-16 rounded-lg object-cover shadow-sm"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.style.display = "none";
                       }}
                     />
                   ) : (
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md ring-1 ring-white">
-                      <span className="text-white text-sm font-bold">
+                    <div className="w-16 h-16 bg-slate-200 rounded-lg flex items-center justify-center">
+                      <span className="text-slate-600 text-xl font-bold">
                         {order.companyName.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-lg font-bold text-gray-900 truncate pr-2">
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold text-slate-900">
                     {order.companyName}
                   </h2>
-                  <div className="flex items-center space-x-2 mt-1">
+                  <div className="flex items-center gap-2 mt-2">
                     <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
                         order.isActive
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
+                          ? "bg-green-50 text-green-700 border border-green-200"
+                          : "bg-slate-100 text-slate-600 border border-slate-200"
                       }`}
                     >
                       <div
-                        className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                          order.isActive ? "bg-green-500" : "bg-red-500"
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          order.isActive ? "bg-green-500" : "bg-slate-400"
                         }`}
                       ></div>
-                      <span>{order.isActive ? "Active" : "Inactive"}</span>
+                      {order.isActive ? "Active" : "Inactive"}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      <Calendar className="w-3 h-3 inline mr-1" />
+                      {formatDate(order.createdAt)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Date Info */}
-              <div className="flex items-center space-x-2 text-xs text-gray-500 min-w-0">
-                <Calendar className="w-3 h-3" />
-                <span className="truncate">{formatDate(order.createdAt)}</span>
-                <span className="mx-1">•</span>
-                <span className="truncate">{formatDate(order.expiresAt)}</span>
-              </div>
-
               {/* Action Buttons */}
-              <div className="flex items-center space-x-2 ml-4">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => openEditModal(order)}
-                  className="group relative inline-flex items-center space-x-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200 transform hover:-translate-y-0.5"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
                 >
-                  <Edit2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <Edit2 className="w-4 h-4" />
                   <span>Edit</span>
-                </button>
-
-                <button
-                  className={`inline-flex items-center space-x-2 px-3 py-2 rounded-lg font-medium text-sm shadow-sm transition-all duration-200 transform ${
-                    order.isActive
-                      ? "bg-green-500 hover:bg-green-600 text-white hover:shadow-md hover:-translate-y-0.5"
-                      : "bg-gray-200 hover:bg-gray-300 text-gray-700 hover:shadow-md hover:-translate-y-0.5"
-                  }`}
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      order.isActive ? "bg-white" : "bg-gray-400"
-                    }`}
-                  ></div>
-                  <span>{order.isActive ? "Active" : "Inactive"}</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* NEW COPY BUTTON - ADDED HERE */}
-          <div className="p-4 flex justify-between items-center border-b border-gray-200 ">
+          {/* Copy Message & Find Buyers */}
+          <div className="p-6 flex justify-between items-center border-b border-slate-200">
             <CompanyOrderMessage order={order} />
 
-            <div className=" items-center gap-2 flex justify-end  px-4">
+            <div className="flex items-center gap-2">
               <input
                 type="number"
-                placeholder="Enter km"
+                placeholder="Distance (km)"
                 value={distanceKm}
                 onChange={(e) => setDistanceKm(e.target.value)}
-                className="w-40 px-3 py-2 text-sm border rounded-md"
+                className="w-32 px-3 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
                 min={1}
                 max={500}
+                disabled={isFindingNearbyBuyers}
               />
               <button
                 onClick={() => {
@@ -832,97 +725,100 @@ const PurchaseOrderDetails: React.FC = () => {
                     toast.error("Enter valid km");
                     return;
                   }
-                  fetchBuyers(1); // Always start from page 1
+                  fetchBuyers(1);
                 }}
                 disabled={isFindingNearbyBuyers}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium ${
-                  isFindingNearbyBuyers
-                    ? "bg-gray-400 text-white"
-                    : "bg-green-600 text-white hover:bg-green-700"
-                }`}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
               >
-                {isFindingNearbyBuyers ? "Searching..." : "Find Buyers"}
+                {isFindingNearbyBuyers ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Searching...</span>
+                  </>
+                ) : (
+                  "Find Buyers"
+                )}
               </button>
             </div>
           </div>
 
-          {/* Compact Information Grid */}
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Location Details - Full Width */}
-            <div className="sm:col-span-2 lg:col-span-4 bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <div className="flex items-center space-x-2 mb-2">
-                <MapPin className="w-4 h-4 text-gray-600" />
-                <h4 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">
+          {/* Information Grid */}
+          <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Location - Full Width */}
+            <div className="sm:col-span-2 lg:col-span-4 bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-3">
+                <MapPin className="w-4 h-4 text-slate-600" />
+                <h4 className="text-xs font-semibold text-slate-900 uppercase">
                   Location
                 </h4>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                 <div className="space-y-1">
-                  <span className="text-xs text-gray-500">Village</span>
-                  <p className="font-medium text-gray-900">{order.village}</p>
+                  <span className="text-xs text-slate-500">Village</span>
+                  <p className="font-medium text-slate-900">{order.village}</p>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-xs text-gray-500">Taluk</span>
-                  <p className="font-medium text-gray-900">{order.taluk}</p>
+                  <span className="text-xs text-slate-500">Taluk</span>
+                  <p className="font-medium text-slate-900">{order.taluk}</p>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-xs text-gray-500">District</span>
-                  <p className="font-medium text-gray-900">{order.district}</p>
+                  <span className="text-xs text-slate-500">District</span>
+                  <p className="font-medium text-slate-900">{order.district}</p>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-xs text-gray-500">State</span>
-                  <p className="font-medium text-gray-900">{order.state}</p>
+                  <span className="text-xs text-slate-500">State</span>
+                  <p className="font-medium text-slate-900">{order.state}</p>
                 </div>
               </div>
             </div>
 
             {/* Crop Details */}
-            <div className="bg-green-50 rounded-lg p-3 border border-green-100">
-              <div className="flex items-center space-x-2 mb-1">
-                <Package className="w-3 h-3 text-green-600" />
-                <h4 className="text-xs font-semibold text-green-800 uppercase tracking-wide">
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="w-4 h-4 text-slate-600" />
+                <h4 className="text-xs font-semibold text-slate-900 uppercase">
                   Crop
                 </h4>
               </div>
-              <p className="text-sm font-medium text-gray-900 truncate">
+              <p className="text-sm font-medium text-slate-900 truncate">
                 {order.cropName}
               </p>
               {order.cropVariety && (
-                <p className="text-xs text-green-700 truncate">
+                <p className="text-xs text-slate-600 truncate">
                   {order.cropVariety}
                 </p>
               )}
             </div>
 
             {/* Quantity */}
-            <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-              <div className="flex items-center space-x-2 mb-1">
-                <Package className="w-3 h-3 text-blue-600" />
-                <h4 className="text-xs font-semibold text-blue-800 uppercase tracking-wide">
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="w-4 h-4 text-slate-600" />
+                <h4 className="text-xs font-semibold text-slate-900 uppercase">
                   Quantity
                 </h4>
               </div>
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-semibold text-slate-900">
                 {order.minQuantity.toLocaleString()}
               </p>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-slate-600">
                 {order.unit} {order.measure}
               </p>
             </div>
 
             {/* Price */}
             {order.price_rate && (
-              <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                <div className="flex items-center space-x-2 mb-1">
-                  <IndianRupee className="w-3 h-3 text-indigo-600" />
-                  <h4 className="text-xs font-semibold text-indigo-800 uppercase tracking-wide">
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <IndianRupee className="w-4 h-4 text-slate-600" />
+                  <h4 className="text-xs font-semibold text-slate-900 uppercase">
                     Price
                   </h4>
                 </div>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold text-slate-900">
                   ₹{order.price_rate.toLocaleString()}
                 </p>
-                <p className="text-xs text-gray-600 truncate">
+                <p className="text-xs text-slate-600 truncate">
                   per {order.price_measure}
                 </p>
               </div>
@@ -930,14 +826,14 @@ const PurchaseOrderDetails: React.FC = () => {
 
             {/* Moisture */}
             {order.moisturePercent && (
-              <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
-                <div className="flex items-center space-x-2 mb-1">
-                  <Droplets className="w-3 h-3 text-purple-600" />
-                  <h4 className="text-xs font-semibold text-purple-800 uppercase tracking-wide">
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Droplets className="w-4 h-4 text-slate-600" />
+                  <h4 className="text-xs font-semibold text-slate-900 uppercase">
                     Moisture
                   </h4>
                 </div>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold text-slate-900">
                   {order.moisturePercent}%
                 </p>
               </div>
@@ -945,266 +841,156 @@ const PurchaseOrderDetails: React.FC = () => {
 
             {/* Quality */}
             {order.quality && (
-              <div className="bg-rose-50 rounded-lg p-3 border border-rose-100">
-                <div className="flex items-center space-x-2 mb-1">
-                  <Shield className="w-3 h-3 text-rose-600" />
-                  <h4 className="text-xs font-semibold text-rose-800 uppercase tracking-wide">
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="w-4 h-4 text-slate-600" />
+                  <h4 className="text-xs font-semibold text-slate-900 uppercase">
                     Quality
                   </h4>
                 </div>
-                <p className="text-sm font-medium text-gray-900 truncate">
+                <p className="text-sm font-medium text-slate-900 truncate">
                   {order.quality}
                 </p>
               </div>
             )}
           </div>
 
-          {/* Multi-Language Specifications Section */}
+          {/* Specifications Section */}
           {hasAnySpecification() && (
-            <div className="sm:col-span-2 lg:col-span-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-b-lg p-4 border-t border-yellow-100">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <FileText className="w-4 h-4 text-yellow-600" />
-                  <h4 className="text-sm font-semibold text-yellow-800 uppercase tracking-wide">
+            <div className="p-6 border-t border-slate-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-slate-600" />
+                  <h4 className="text-sm font-semibold text-slate-900 uppercase">
                     Specifications
                   </h4>
                 </div>
 
                 {/* Language Selector */}
-                <div className="flex items-center space-x-1">
-                  <div className="flex space-x-1 bg-white rounded-lg p-1 border border-yellow-200">
-                    {LANGUAGES.map((lang) => {
-                      const hasContent = !!getSpecificationContent(lang.value);
-                      const isSelected =
-                        lang.value === selectedSpecificationLanguage;
-                      return (
-                        <button
-                          key={lang.value}
-                          onClick={() =>
-                            setSelectedSpecificationLanguage(lang.value)
-                          }
-                          className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs transition-all duration-200 ${
-                            isSelected
-                              ? "bg-yellow-500 text-white shadow-sm"
-                              : hasContent
-                              ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-                              : "text-gray-400 hover:text-gray-600"
-                          }`}
-                          title={`${lang.label} ${hasContent ? "✓" : "✗"}`}
-                        >
-                          <span>{lang.icon}</span>
-                          <span>{lang.code}</span>
-                          {hasContent && !isSelected && (
-                            <Check className="w-3 h-3" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="flex gap-1 bg-slate-100 rounded-md p-1">
+                  {LANGUAGES.map((lang) => {
+                    const hasContent = !!getSpecificationContent(lang.value);
+                    const isSelected =
+                      lang.value === selectedSpecificationLanguage;
+                    return (
+                      <button
+                        key={lang.value}
+                        onClick={() =>
+                          setSelectedSpecificationLanguage(lang.value)
+                        }
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors duration-150 ${
+                          isSelected
+                            ? "bg-slate-900 text-white"
+                            : hasContent
+                            ? "bg-white text-slate-700 hover:bg-slate-50"
+                            : "text-slate-400"
+                        }`}
+                        disabled={!hasContent}
+                      >
+                        <span>{lang.icon}</span>
+                        <span>{lang.code}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Content Display */}
+              {/* Content */}
               <div className="space-y-2">
-                {/* Language Indicator */}
-                <div className="flex items-center space-x-2 text-xs text-gray-600">
-                  <Globe className="w-3 h-3" />
-                  <span className="font-medium">
-                    {
-                      LANGUAGES.find(
-                        (l) => l.value === selectedSpecificationLanguage
-                      )?.label
-                    }
-                  </span>
-                  <span className="text-gray-400">
-                    (
-                    {
-                      getSpecificationContent(selectedSpecificationLanguage)
-                        .length
-                    }{" "}
-                    chars)
-                  </span>
-                </div>
-
-                {/* Content */}
                 <div
-                  className={`text-xs text-gray-700 leading-relaxed transition-all duration-200 ${
-                    isSpecificationExpanded
-                      ? "max-h-none"
-                      : "max-h-16 overflow-hidden"
+                  className={`text-sm text-slate-700 leading-relaxed ${
+                    isSpecificationExpanded ? "" : "line-clamp-3"
                   }`}
                 >
-                  <p className={isSpecificationExpanded ? "" : "line-clamp-3"}>
-                    {getSpecificationContent(selectedSpecificationLanguage) || (
-                      <span className="text-gray-400 italic">
-                        No content available in this language
-                      </span>
-                    )}
-                  </p>
+                  {getSpecificationContent(selectedSpecificationLanguage) || (
+                    <span className="text-slate-400 italic">
+                      No content available in this language
+                    </span>
+                  )}
                 </div>
-
-                {/* Expand/Collapse Button */}
                 {getSpecificationContent(selectedSpecificationLanguage).length >
                   120 && (
                   <button
                     onClick={() =>
                       setIsSpecificationExpanded(!isSpecificationExpanded)
                     }
-                    className="flex items-center space-x-1 text-xs text-yellow-600 hover:text-yellow-700 font-medium transition-colors"
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    <span>
-                      {isSpecificationExpanded ? "Show Less" : "Show More"}
-                    </span>
+                    {isSpecificationExpanded ? "Show Less" : "Show More"}
                     {isSpecificationExpanded ? (
-                      <ChevronUp className="w-3 h-3" />
+                      <ChevronUp className="w-3 h-3 inline ml-1" />
                     ) : (
-                      <ChevronDown className="w-3 h-3" />
+                      <ChevronDown className="w-3 h-3 inline ml-1" />
                     )}
                   </button>
                 )}
               </div>
-
-              {/* Language Status Summary */}
-              <div className="mt-3 pt-3 border-t border-yellow-200">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">
-                    Content in other languages:
-                  </span>
-                  <div className="flex space-x-2">
-                    {getSpecificationLanguageStatus().map((lang) => {
-                      if (lang.isSelected) return null;
-                      return (
-                        <span
-                          key={lang.value}
-                          className={`px-2 py-1 rounded-full ${
-                            lang.hasContent
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-500"
-                          }`}
-                        >
-                          {lang.code}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
-          {/* Multi-Language Terms & Conditions Section */}
+          {/* Terms & Conditions Section */}
           {hasAnyTerms() && (
-            <div className="sm:col-span-2 lg:col-span-4 bg-gradient-to-r from-rose-50 to-pink-50 rounded-b-lg p-4 border-t border-rose-100">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <FileText className="w-4 h-4 text-rose-600" />
-                  <h4 className="text-sm font-semibold text-rose-800 uppercase tracking-wide">
+            <div className="p-6 border-t border-slate-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-slate-600" />
+                  <h4 className="text-sm font-semibold text-slate-900 uppercase">
                     Terms & Conditions
                   </h4>
                 </div>
 
                 {/* Language Selector */}
-                <div className="flex items-center space-x-1">
-                  <div className="flex space-x-1 bg-white rounded-lg p-1 border border-rose-200">
-                    {LANGUAGES.map((lang) => {
-                      const hasContent = !!getTermsContent(lang.value);
-                      const isSelected = lang.value === selectedTermsLanguage;
-                      return (
-                        <button
-                          key={lang.value}
-                          onClick={() => setSelectedTermsLanguage(lang.value)}
-                          className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs transition-all duration-200 ${
-                            isSelected
-                              ? "bg-rose-500 text-white shadow-sm"
-                              : hasContent
-                              ? "bg-rose-100 text-rose-800 hover:bg-rose-200"
-                              : "text-gray-400 hover:text-gray-600"
-                          }`}
-                          title={`${lang.label} ${hasContent ? "✓" : "✗"}`}
-                        >
-                          <span>{lang.icon}</span>
-                          <span>{lang.code}</span>
-                          {hasContent && !isSelected && (
-                            <Check className="w-3 h-3" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="flex gap-1 bg-slate-100 rounded-md p-1">
+                  {LANGUAGES.map((lang) => {
+                    const hasContent = !!getTermsContent(lang.value);
+                    const isSelected = lang.value === selectedTermsLanguage;
+                    return (
+                      <button
+                        key={lang.value}
+                        onClick={() => setSelectedTermsLanguage(lang.value)}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors duration-150 ${
+                          isSelected
+                            ? "bg-slate-900 text-white"
+                            : hasContent
+                            ? "bg-white text-slate-700 hover:bg-slate-50"
+                            : "text-slate-400"
+                        }`}
+                        disabled={!hasContent}
+                      >
+                        <span>{lang.icon}</span>
+                        <span>{lang.code}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Content Display */}
+              {/* Content */}
               <div className="space-y-2">
-                {/* Language Indicator */}
-                <div className="flex items-center space-x-2 text-xs text-gray-600">
-                  <Globe className="w-3 h-3" />
-                  <span className="font-medium">
-                    {
-                      LANGUAGES.find((l) => l.value === selectedTermsLanguage)
-                        ?.label
-                    }
-                  </span>
-                  <span className="text-gray-400">
-                    ({getTermsContent(selectedTermsLanguage).length} chars)
-                  </span>
-                </div>
-
-                {/* Content */}
                 <div
-                  className={`text-xs text-gray-700 leading-relaxed transition-all duration-200 ${
-                    isTermsExpanded ? "max-h-none" : "max-h-16 overflow-hidden"
+                  className={`text-sm text-slate-700 leading-relaxed ${
+                    isTermsExpanded ? "" : "line-clamp-3"
                   }`}
                 >
-                  <p className={isTermsExpanded ? "" : "line-clamp-3"}>
-                    {getTermsContent(selectedTermsLanguage) || (
-                      <span className="text-gray-400 italic">
-                        No content available in this language
-                      </span>
-                    )}
-                  </p>
+                  {getTermsContent(selectedTermsLanguage) || (
+                    <span className="text-slate-400 italic">
+                      No content available in this language
+                    </span>
+                  )}
                 </div>
-
-                {/* Expand/Collapse Button */}
                 {getTermsContent(selectedTermsLanguage).length > 120 && (
                   <button
                     onClick={() => setIsTermsExpanded(!isTermsExpanded)}
-                    className="flex items-center space-x-1 text-xs text-rose-600 hover:text-rose-700 font-medium transition-colors"
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    <span>{isTermsExpanded ? "Show Less" : "Show More"}</span>
+                    {isTermsExpanded ? "Show Less" : "Show More"}
                     {isTermsExpanded ? (
-                      <ChevronUp className="w-3 h-3" />
+                      <ChevronUp className="w-3 h-3 inline ml-1" />
                     ) : (
-                      <ChevronDown className="w-3 h-3" />
+                      <ChevronDown className="w-3 h-3 inline ml-1" />
                     )}
                   </button>
                 )}
-              </div>
-
-              {/* Language Status Summary */}
-              <div className="mt-3 pt-3 border-t border-rose-200">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">
-                    Content in other languages:
-                  </span>
-                  <div className="flex space-x-2">
-                    {getTermsLanguageStatus().map((lang) => {
-                      if (lang.isSelected) return null;
-                      return (
-                        <span
-                          key={lang.value}
-                          className={`px-2 py-1 rounded-full ${
-                            lang.hasContent
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-500"
-                          }`}
-                        >
-                          {lang.code}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
             </div>
           )}
@@ -1212,157 +998,107 @@ const PurchaseOrderDetails: React.FC = () => {
 
         {/* Buyers Modal */}
         {showBuyersModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-[1500px] max-h-[90vh] overflow-y-auto">
-              <div className="p-6 bg-gradient-to-r from-green-600 to-emerald-600 text-white">
-                <div className="flex justify-between">
-                  <div>
-                    <h3 className="text-xl font-bold">
-                      Nearby Buyers (
-                      {buyersMeta?.totalItems || nearbyBuyers.length})
-                    </h3>
-                    <p className="text-green-100">
-                      Within {distanceKm}km of {order.cropName} • Page{" "}
-                      {buyersMeta?.currentPage || 1} of{" "}
-                      {buyersMeta?.totalPages || 1}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowBuyersModal(false);
-                      setNearbyBuyers([]);
-                      setDistanceKm("");
-                    }}
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[90vh] overflow-hidden border border-slate-200">
+              <div className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    Nearby Buyers ({buyersMeta?.totalItems || nearbyBuyers.length})
+                  </h3>
+                  <p className="text-sm text-slate-300">
+                    Within {distanceKm}km • Page {buyersMeta?.currentPage || 1}
+                  </p>
                 </div>
+                <button
+                  onClick={() => {
+                    setShowBuyersModal(false);
+                    setNearbyBuyers([]);
+                    setDistanceKm("");
+                  }}
+                  className="text-white hover:text-slate-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div className="p-6">
+
+              <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto">
                 {nearbyBuyers.length > 0 ? (
-                  <table className="w-full table-auto border">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="border px-4 py-3 text-left text-xs font-semibold">
+                  <table className="w-full border border-slate-200">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="border border-slate-200 px-4 py-3 text-left text-xs font-semibold text-slate-900">
                           Buyer
                         </th>
-                        <th className="border px-4 py-3 text-left text-xs font-semibold">
+                        <th className="border border-slate-200 px-4 py-3 text-left text-xs font-semibold text-slate-900">
                           Village
                         </th>
-                        <th className="border px-4 py-3 text-left text-xs font-semibold">
+                        <th className="border border-slate-200 px-4 py-3 text-left text-xs font-semibold text-slate-900">
                           Taluk
                         </th>
-                        <th className="border px-4 py-3 text-left text-xs font-semibold">
+                        <th className="border border-slate-200 px-4 py-3 text-left text-xs font-semibold text-slate-900">
                           District
                         </th>
-                        <th className="border px-4 py-3 text-left text-xs font-semibold">
+                        <th className="border border-slate-200 px-4 py-3 text-left text-xs font-semibold text-slate-900">
                           Mobile
                         </th>
-                        <th className="border px-4 py-3 text-left text-xs font-semibold">
-                          Crops
-                        </th>
-                        <th className="border px-4 py-3 text-left text-xs font-semibold">
+                        <th className="border border-slate-200 px-4 py-3 text-left text-xs font-semibold text-slate-900">
                           Distance
                         </th>
-                        <th className="border px-4 py-3 text-left text-xs font-semibold">
-                          Share
-                        </th>
-                        <th className="border px-4 py-3 text-left text-xs font-semibold">
-                          Buyer Page
+                        <th className="border border-slate-200 px-4 py-3 text-left text-xs font-semibold text-slate-900">
+                          Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {nearbyBuyers.map((buyer) => (
-                        <tr key={buyer.id}>
-                          <td className="border border-gray-300 px-4 py-3 text-sm text-gray-900">
-                            {/* Name */}
-                            <p className="font-semibold text-gray-900">
+                        <tr key={buyer.id} className="hover:bg-slate-50">
+                          <td className="border border-slate-200 px-4 py-3 text-sm">
+                            <p className="font-semibold text-slate-900">
                               {buyer.name}
                             </p>
-
-                            {/* Plan & Date */}
-                            <div className="mt-1 text-xs text-gray-500 flex items-center gap-2">
-                              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                                {buyer.userPlan || "Free Plan"}
-                              </span>
-                              <span>•</span>
-                              <span>
-                                {new Date(buyer.createdAt)
-                                  .toLocaleDateString("en-US", {
-                                    year: "2-digit",
-                                    month: "short",
-                                    day: "2-digit",
-                                  })
-                                  .replace(",", "")
-                                  .replace(" ", "-")}
-                              </span>
-                            </div>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {buyer.userPlan || "Free Plan"}
+                            </p>
                           </td>
-                          <td className="border px-4 py-3 text-sm">
+                          <td className="border border-slate-200 px-4 py-3 text-sm text-slate-700">
                             {buyer.village}
                           </td>
-                          <td className="border px-4 py-3 text-sm">
+                          <td className="border border-slate-200 px-4 py-3 text-sm text-slate-700">
                             {buyer.taluk}
                           </td>
-                          <td className="border px-4 py-3 text-sm">
+                          <td className="border border-slate-200 px-4 py-3 text-sm text-slate-700">
                             {buyer.district}
                           </td>
-                          <td className="border px-4 py-3 text-sm">
+                          <td className="border border-slate-200 px-4 py-3 text-sm text-slate-700">
                             {buyer.mobileNumber}
                           </td>
-                          <td className="border px-4 py-3 text-sm">
-                            {buyer.cropNames.map((c: string) => (
-                              <span
-                                key={c}
-                                className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded mr-1"
-                              >
-                                {c}
-                              </span>
-                            ))}
-                          </td>
-                          <td className="border px-4 py-3 text-sm">
+                          <td className="border border-slate-200 px-4 py-3 text-sm text-slate-700">
                             {buyer.distanceKm.toFixed(1)}km
                           </td>
-                          <td className="border px-4 py-3 text-sm">
-                            <button
-                              onClick={() => {
-                                const cropKey = order.cropName?.toLowerCase();
-
-                                const message = `🌾 ${
-                                  cropNamesKannada[cropKey] || order.cropName
-                                } ಕ್ಕಾಗಿ, ಈ ಖರೀದಿದಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ 👇
-
-📍 ಗ್ರಾಮ: ${buyer.village}
-🏢 ತಾಲೂಕು: ${buyer.taluk}
-🌆 ಜಿಲ್ಲೆ: ${buyer.district}
-
-🔗 ಲಿಂಕ್: https://oneroot.farm/farmer/buyer/${buyer.id}
-ಲಿಂಕ್ ಮೂಲಕ ವ್ಯಾಪಾರಸ್ಥರೊಂದಿಗೆ ನೇರವಾಗಿ ಸಂಪರ್ಕಿಸಿ ಮತ್ತು ವ್ಯವಹರಿಸಿ!
-
-🙏 ಧನ್ಯವಾದಗಳು,
-ಮಾರ್ಕೆಟ್ ಆಪ್‌ 🚜`;
-
-                                navigator.clipboard.writeText(message);
-                                toast.success(
-                                  "Message copied! 📝 Paste in WhatsApp"
-                                );
-                              }}
-                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors ml-5"
-                              title="Copy Message"
-                            >
-                              <Link2 className="w-5 h-5" />
-                            </button>
-                          </td>
-
-                          <td className="border px-4 py-3 text-sm">
-                            <div
-                              onClick={() => {
-                                router.push(`/user/buyer/${buyer.id}`);
-                              }}
-                              className="text-blue-600 cursor-pointer hover:underline"
-                            >
-                              View Buyer Page
+                          <td className="border border-slate-200 px-4 py-3 text-sm">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  const cropKey = order.cropName?.toLowerCase();
+                                  const message = `🌾 ${
+                                    cropNamesKannada[cropKey] || order.cropName
+                                  } ಕ್ಕಾಗಿ, ಈ ಖರೀದಿದಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ 👇\n\n📍 ಗ್ರಾಮ: ${buyer.village}\n🏢 ತಾಲೂಕು: ${buyer.taluk}\n🌆 ಜಿಲ್ಲೆ: ${buyer.district}\n\n🔗 ಲಿಂಕ್: https://oneroot.farm/farmer/buyer/${buyer.id}\nಲಿಂಕ್ ಮೂಲಕ ವ್ಯಾಪಾರಸ್ಥರೊಂದಿಗೆ ನೇರವಾಗಿ ಸಂಪರ್ಕಿಸಿ ಮತ್ತು ವ್ಯವಹರಿಸಿ!\n\n🙏 ಧನ್ಯವಾದಗಳು,\nಮಾರ್ಕೆಟ್ ಆಪ್‌ 🚜`;
+                                  navigator.clipboard.writeText(message);
+                                  toast.success("Message copied!");
+                                }}
+                                className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Copy Message"
+                              >
+                                <Link2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  window.open(`https://markhet.vercel.app/user/buyer/${buyer.id}`, '_blank');
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                View
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1370,16 +1106,16 @@ const PurchaseOrderDetails: React.FC = () => {
                     </tbody>
                   </table>
                 ) : (
-                  <p className="text-center py-12 text-gray-500">
+                  <p className="text-center py-12 text-slate-500">
                     No buyers found
                   </p>
                 )}
               </div>
 
-              {/* PAGINATION */}
+              {/* Pagination */}
               {buyersMeta && buyersMeta.totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4 px-6">
-                  <div className="text-sm text-gray-700">
+                <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+                  <div className="text-sm text-slate-600">
                     Showing {(buyersMeta.currentPage - 1) * 10 + 1} to{" "}
                     {Math.min(
                       buyersMeta.currentPage * 10,
@@ -1391,55 +1127,16 @@ const PurchaseOrderDetails: React.FC = () => {
                     <button
                       onClick={() => fetchBuyers(buyersMeta.currentPage - 1)}
                       disabled={!buyersMeta.hasPreviousPage}
-                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      &lt;
+                      Previous
                     </button>
-
-                    {/* Dynamic Page Buttons */}
-                    {(() => {
-                      const maxPagesToShow = 5;
-                      const currentPage = buyersMeta.currentPage || 1;
-                      const totalPages = buyersMeta.totalPages || 1;
-                      const halfRange = Math.floor(maxPagesToShow / 2);
-
-                      let startPage = Math.max(1, currentPage - halfRange);
-                      let endPage = Math.min(
-                        totalPages,
-                        startPage + maxPagesToShow - 1
-                      );
-
-                      // Adjust startPage to ensure 5 pages are shown when possible
-                      if (endPage - startPage + 1 < maxPagesToShow) {
-                        startPage = Math.max(1, endPage - maxPagesToShow + 1);
-                      }
-
-                      const pageNumbers = Array.from(
-                        { length: endPage - startPage + 1 },
-                        (_, i) => startPage + i
-                      );
-
-                      return pageNumbers.map((page) => (
-                        <button
-                          key={page}
-                          onClick={() => fetchBuyers(page)}
-                          className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                            buyersMeta.currentPage === page
-                              ? "bg-green-600 text-white shadow-md"
-                              : "text-gray-500 bg-white border border-gray-300 hover:bg-gray-50"
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      ));
-                    })()}
-
                     <button
                       onClick={() => fetchBuyers(buyersMeta.currentPage + 1)}
                       disabled={!buyersMeta.hasNextPage}
-                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      &gt;
+                      Next
                     </button>
                   </div>
                 </div>
@@ -1448,65 +1145,52 @@ const PurchaseOrderDetails: React.FC = () => {
           </div>
         )}
 
-        {/* Interests Table Section */}
+        {/* Interests Table */}
         {order.interests && order.interests.length > 0 && (
-          <div className="mt-6 bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-200">
-            {/* Interests Header */}
-            <div className="p-6 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-indigo-100 rounded-xl">
-                    <Users className="w-5 h-5 text-indigo-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">
-                      Buyer Interests
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {order.interests.length} buyer
-                      {order.interests.length !== 1 ? "s" : ""} interested
-                    </p>
-                  </div>
+          <div className="mt-6 bg-white shadow-sm rounded-lg overflow-hidden border border-slate-200">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-slate-600" />
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    Buyer Interests
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    {order.interests.length} buyer
+                    {order.interests.length !== 1 ? "s" : ""} interested
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Interests Table */}
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-slate-50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                       Buyer
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                       Quantity
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                       Commit Date
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      createdAt
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      updatedAt
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                       Contact
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                       Location
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-slate-200">
                   {order.interests.map((interest) => {
                     const user = interest.user;
                     const statusClass = getStatusColor(user.userStatus);
-                    const isNotApproved = isNotApprovedStatus(user.userStatus);
                     const initials = getUserInitials(user.name);
                     const statusDisplay = getStatusDisplay(user.userStatus);
                     const cropNamesDisplay = getCropNamesDisplay(
@@ -1514,98 +1198,76 @@ const PurchaseOrderDetails: React.FC = () => {
                     );
 
                     return (
-                      <tr key={interest.id} className="hover:bg-gray-50">
-                        {/* Buyer Column */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
+                      <tr key={interest.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0">
                               {user.profileImage ? (
                                 <img
-                                  className="h-10 w-10 rounded-full object-cover"
+                                  className="w-10 h-10 rounded-full object-cover"
                                   src={user.profileImage}
                                   alt={user.name}
                                 />
                               ) : (
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-semibold text-sm">
                                   {initials}
                                 </div>
                               )}
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
+                            <div>
+                              <div className="text-sm font-medium text-slate-900">
                                 {user.name}
                               </div>
-                              <div className="text-xs text-gray-500 truncate max-w-32">
+                              <div className="text-xs text-slate-500 truncate max-w-32">
                                 {cropNamesDisplay}
                               </div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Quantity Column */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-50 text-green-700 border border-green-200">
                             {parseFloat(interest.quantity).toLocaleString()}{" "}
                             {order.measure}
-                          </div>
+                          </span>
                         </td>
 
-                        {/* Commit Date Column */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div className="flex items-center">
-                            <Clock className="w-4 h-4 text-gray-400 mr-2" />
+                        <td className="px-6 py-4 text-sm text-slate-700">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-slate-400" />
                             <span>{formatCommitDate(interest.commitDate)}</span>
                           </div>
                         </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div className="flex items-center">
-                            <Clock className="w-4 h-4 text-gray-400 mr-2" />
-                            <span>
-                              {formatCommitDate(interest.user.createdAt)}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div className="flex items-center">
-                            <Clock className="w-4 h-4 text-gray-400 mr-2" />
-                            <span>
-                              {formatCommitDate(interest.user.updatedAt)}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Status Column */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4">
                           <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusClass}`}
+                            className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${statusClass}`}
                           >
                             {getStatusIcon(user.userStatus)}
                             {statusDisplay}
                           </span>
                         </td>
 
-                        {/* Contact Column */}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div className="flex items-center">
-                            <Phone className="w-4 h-4 text-gray-400 mr-2" />
+                        <td className="px-6 py-4 text-sm text-slate-700">
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-slate-400" />
                             <a
                               href={`tel:${user.mobileNumber}`}
-                              className="text-indigo-600 hover:text-indigo-900 font-medium"
+                              className="text-blue-600 hover:text-blue-700 font-medium"
                             >
                               {user.mobileNumber}
                             </a>
                           </div>
                         </td>
 
-                        {/* Location Column */}
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <Map className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
-                            <div className="text-sm text-gray-900">
-                              <div className="font-medium">{user.district}</div>
-                              <div className="text-xs text-gray-500">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Map className="w-4 h-4 text-slate-400" />
+                            <div className="text-sm">
+                              <div className="font-medium text-slate-900">
+                                {user.district}
+                              </div>
+                              <div className="text-xs text-slate-500">
                                 {user.village}
                               </div>
                             </div>
@@ -1617,68 +1279,29 @@ const PurchaseOrderDetails: React.FC = () => {
                 </tbody>
               </table>
             </div>
-
-            {/* Empty Interests State */}
-            {(!order.interests || order.interests.length === 0) && (
-              <div className="text-center py-12">
-                <Users className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
-                  No buyer interests yet
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Share this listing with potential buyers to get interest
-                  requests.
-                </p>
-              </div>
-            )}
           </div>
         )}
-
-        <div></div>
       </div>
 
       {/* Edit Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl w-full max-w-7xl max-h-[95vh] overflow-hidden relative animate-slide-up border border-white/30">
-            <div className="sticky top-0 bg-white/90 backdrop-blur-sm border-b border-white/30 z-20">
-              <div className="flex items-center justify-between p-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      Edit Purchase Order
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      Updating order for{" "}
-                      <span className="font-medium">
-                        {selectedOrder?.companyName}
-                      </span>
-                    </p>
-                  </div>
-                </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Edit Purchase Order
+                </h2>
                 <button
                   onClick={closeEditModal}
-                  className="group p-2 rounded-2xl bg-white/80 hover:bg-white shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5"
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  <svg
-                    className="w-6 h-6 text-gray-600 group-hover:text-gray-800 transition-colors"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="p-8 max-h-[75vh] overflow-y-auto">
+            <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto">
               <OrderForm
                 order={selectedOrder}
                 isEditMode={isEditMode}
@@ -1690,32 +1313,6 @@ const PurchaseOrderDetails: React.FC = () => {
       )}
 
       <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            backdrop-filter: blur(0px);
-          }
-          to {
-            opacity: 1;
-            backdrop-filter: blur(12px);
-          }
-        }
-        @keyframes slide-up {
-          from {
-            transform: translateY(40px) scale(0.95);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0) scale(1);
-            opacity: 1;
-          }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .animate-slide-up {
-          animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-        }
         .line-clamp-3 {
           display: -webkit-box;
           -webkit-line-clamp: 3;
@@ -1730,21 +1327,19 @@ const PurchaseOrderDetails: React.FC = () => {
 const Header: React.FC = () => {
   const params = useParams();
   return (
-    <div className="flex items-center justify-between mb-6 bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-md border border-white/30">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+    <div className="flex items-center justify-between">
+      <div>
+        <h1 className="text-2xl font-semibold text-slate-900">
           Order Details
         </h1>
-        <p className="text-sm text-gray-600">Order #{params?.id}</p>
+        <p className="text-sm text-slate-500 mt-1">Order #{params?.id}</p>
       </div>
       <Link
         href="/eois-card"
-        className="group flex items-center space-x-2 px-3 py-2 bg-white hover:bg-gray-50 rounded-lg shadow-sm border border-gray-200 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 text-sm"
+        className="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 hover:border-slate-300 rounded-md font-medium shadow-sm transition-all duration-150 text-sm"
       >
-        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-        <span className="font-medium text-gray-700 group-hover:text-emerald-600">
-          Back to Orders
-        </span>
+        <ArrowLeft className="w-4 h-4" />
+        <span>Back to Orders</span>
       </Link>
     </div>
   );

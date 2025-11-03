@@ -9,7 +9,7 @@ const TopBar: React.FC = () => {
   const router = useRouter();
 
   const getPageName = (path: string) => {
-    if (path === "/" || path === "/dashboard") return "Dashboard";
+    if (path === "/" || path === "/dashboard") return "Dashboard Overview";
     const last = path.split("/").pop() || "";
     return last.charAt(0).toUpperCase() + last.slice(1).replace(/-/g, " ");
   };
@@ -19,7 +19,7 @@ const TopBar: React.FC = () => {
     router.push("/login");
   };
 
-  const userName = "Haider"; // Replace with dynamic user data if available
+  const userName = "Admin"; // Replace with your auth system
 
   return (
     <header className="w-full flex items-center justify-between h-16 px-6 bg-white border-b border-slate-200 sticky top-0 z-40">

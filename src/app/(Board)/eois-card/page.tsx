@@ -242,7 +242,7 @@ const OrderCard: React.FC = () => {
                     {activeOrders.length}
                   </div>
                   <p className="text-xs text-slate-500">
-                    Live on marketplace
+                    Live on makhet app
                   </p>
                 </div>
               </div>

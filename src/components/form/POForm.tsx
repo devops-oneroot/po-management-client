@@ -41,6 +41,7 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
   const [terms, setTerms] = useState("");
   const [poDocCopy, setPoDocCopy] = useState<string>("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // ✅ Fetch Companies
   useEffect(() => {
@@ -105,14 +106,14 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
     setPreviewUrl(localPreview);
 
     try {
-      setLoading(true);
+      setUploading(true);
       const url = await uploadToCloudinary(file);
       setPoDocCopy(url);
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Upload failed. Check your Cloudinary preset.");
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
@@ -134,7 +135,7 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
       poId: selectedCompany.id,
       poCompanyId: selectedCompany.poCompany?.id,
       poQuantity,
-      poQuantityMeasure, // ✅ added enum field
+      poQuantityMeasure,
       poPrice,
       poExpiryDate,
       specification,
@@ -173,257 +174,283 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-xl p-6 relative shadow-xl border border-gray-100 transition-all">
-        {/* Close */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700"
-        >
-          <X size={22} />
-        </button>
-
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg w-full max-w-xl shadow-xl border border-slate-200">
         {/* Header */}
-        <div className="flex items-center gap-2 mb-5">
-          <Building2 className="w-5 h-5 text-purple-600" />
-          <h2 className="text-lg md:text-xl font-semibold text-gray-800">
-            Create Purchase Order
-          </h2>
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-slate-600" />
+            <h2 className="text-lg font-semibold text-slate-900">
+              Create Purchase Order
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Success */}
-        {success && (
-          <div className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-medium">
-            <CheckCircle2 size={18} />
-            Purchase Order created successfully!
-          </div>
-        )}
+        {/* Content */}
+        <div className="p-6 space-y-4 max-h-[calc(90vh-140px)] overflow-y-auto">
+          {/* Success */}
+          {success && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-green-50 border border-green-200 text-green-700 text-sm font-medium">
+              <CheckCircle2 className="w-4 h-4" />
+              Purchase Order created successfully!
+            </div>
+          )}
 
-        {/* Search Company */}
-        <div className="mb-4 relative">
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Search Company
-          </label>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setSelectedCompany(null);
-            }}
-            placeholder="Search company name..."
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-          />
-          {filtered.length > 0 && !selectedCompany && (
-            <div className="absolute w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto z-20">
-              {filtered.map((company) => (
-                <div
-                  key={company.id}
-                  onClick={() => handleCompanySelect(company)}
-                  className="flex items-center gap-3 px-4 py-2 hover:bg-purple-50 cursor-pointer text-sm border-b last:border-none"
-                >
-                  {company.company_logo ? (
-                    <img
-                      src={company.company_logo}
-                      alt="logo"
-                      className="w-6 h-6 rounded-full border border-gray-200 object-cover"
-                    />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
-                      ?
+          {/* Search Company */}
+          <div className="relative">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Search Company
+            </label>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setSelectedCompany(null);
+              }}
+              placeholder="Search company name..."
+              className="w-full border border-slate-200 rounded-md px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:border-slate-300 transition-colors duration-150"
+            />
+            {filtered.length > 0 && !selectedCompany && (
+              <div className="absolute w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-20">
+                {filtered.map((company) => (
+                  <div
+                    key={company.id}
+                    onClick={() => handleCompanySelect(company)}
+                    className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-none"
+                  >
+                    {company.company_logo ? (
+                      <img
+                        src={company.company_logo}
+                        alt="logo"
+                        className="w-8 h-8 rounded-full border border-slate-200 object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-medium">
+                        {company.companyName.charAt(0)}
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-medium text-slate-900">
+                        {company.companyName}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {company.village}, {company.taluk}
+                      </p>
                     </div>
-                  )}
-                  <div>
-                    <p className="font-medium text-gray-800">
-                      {company.companyName}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {company.village} ({company.taluk}) ({company.district})
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Selected Company */}
+          {selectedCompany && (
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <div className="flex items-center gap-3 mb-3">
+                {selectedCompany.company_logo && (
+                  <img
+                    src={selectedCompany.company_logo}
+                    alt="Company Logo"
+                    className="w-10 h-10 rounded-full border border-slate-200 object-cover"
+                  />
+                )}
+                <div className="flex-1">
+                  <label className="text-xs text-slate-500 font-medium">
+                    Company Name
+                  </label>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {selectedCompany.companyName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {["village", "taluk", "district"].map((field) => (
+                  <div key={field}>
+                    <label className="text-xs text-slate-500 font-medium capitalize block mb-1">
+                      {field}
+                    </label>
+                    <p className="text-sm text-slate-700">
+                      {selectedCompany[field as keyof Company] as string}
                     </p>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Crop Dropdown */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Crop Name
+            </label>
+            <select
+              value={cropName}
+              onChange={(e) => setCropName(e.target.value)}
+              className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white hover:border-slate-300 transition-colors duration-150"
+            >
+              <option value="">Select Crop</option>
+              <option value="Tender Coconut">Tender Coconut</option>
+              <option value="Turmeric">Turmeric</option>
+              <option value="Banana">Banana</option>
+              <option value="Dry Coconut">Dry Coconut</option>
+              <option value="Maize">Maize</option>
+              <option value="Sunflower">Sunflower</option>
+            </select>
+          </div>
+
+          {/* Expiry Date */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Expiry Date
+            </label>
+            <input
+              type="date"
+              value={poExpiryDate}
+              onChange={(e) => setPoExpiryDate(e.target.value)}
+              className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+            />
+          </div>
+
+          {/* Quantity + Measure + Price */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Quantity
+              </label>
+              <input
+                type="number"
+                value={poQuantity}
+                onChange={(e) => setPoQuantity(Number(e.target.value))}
+                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Measure
+              </label>
+              <select
+                value={poQuantityMeasure}
+                onChange={(e) => setPoQuantityMeasure(e.target.value)}
+                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+              >
+                <option value="QUINTAL">QUINTAL</option>
+                <option value="TON">TON</option>
+                <option value="PIECE">PIECE</option>
+                <option value="KILOGRAM">KILOGRAM</option>
+                <option value="GRAM">GRAM</option>
+                <option value="LITRE">LITRE</option>
+                <option value="BAG">BAG</option>
+                <option value="BOX">BOX</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Price (₹)
+              </label>
+              <input
+                type="text"
+                value={poPrice}
+                onChange={(e) => setPoPrice(e.target.value)}
+                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+              />
+            </div>
+          </div>
+
+          {/* Specification & Terms */}
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Specifications
+              </label>
+              <textarea
+                value={specification}
+                onChange={(e) => setSpecification(e.target.value)}
+                rows={3}
+                placeholder="Enter specifications..."
+                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150 placeholder-slate-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Terms & Conditions
+              </label>
+              <textarea
+                value={terms}
+                onChange={(e) => setTerms(e.target.value)}
+                rows={3}
+                placeholder="Enter terms..."
+                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150 placeholder-slate-400"
+              />
+            </div>
+          </div>
+
+          {/* File Upload */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Upload PO Copy (Optional)
+            </label>
+            <label className="flex items-center justify-center gap-2 cursor-pointer border-2 border-dashed border-slate-300 hover:border-slate-400 px-4 py-6 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-all duration-150">
+              {uploading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5 text-slate-500" />
+                  <span>Click to upload</span>
+                </>
+              )}
+              <input
+                type="file"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={uploading}
+              />
+            </label>
+          </div>
+
+          {/* Preview Image */}
+          {previewUrl && (
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <ImageIcon className="w-4 h-4 text-slate-600" />
+                <h4 className="text-sm font-medium text-slate-900">Preview</h4>
+              </div>
+              <img
+                src={poDocCopy || previewUrl}
+                alt="PO Copy Preview"
+                className="rounded-lg w-full h-32 object-cover border border-slate-200"
+              />
             </div>
           )}
         </div>
 
-        {/* Selected Company */}
-        {selectedCompany && (
-          <div className="mb-4 grid grid-cols-1 gap-3">
-            <div className="flex items-center gap-3">
-              {selectedCompany.company_logo && (
-                <img
-                  src={selectedCompany.company_logo}
-                  alt="Company Logo"
-                  className="w-10 h-10 rounded-full border border-gray-200 object-cover"
-                />
-              )}
-              <div className="flex-1">
-                <label className="text-xs text-gray-500 font-medium">
-                  Company Name
-                </label>
-                <input
-                  type="text"
-                  value={selectedCompany.companyName}
-                  readOnly
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 bg-gray-50 text-gray-700 text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {["village", "taluk", "district"].map((field) => (
-                <div key={field}>
-                  <label className="text-xs text-gray-500 font-medium capitalize">
-                    {field}
-                  </label>
-                  <input
-                    type="text"
-                    value={selectedCompany[field as keyof Company] as string}
-                    readOnly
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 bg-gray-50 text-gray-700 text-sm"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Crop Dropdown */}
-        <div className="mb-3">
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Crop Name
-          </label>
-          <select
-            value={cropName}
-            onChange={(e) => setCropName(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 bg-white"
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors duration-150"
           >
-            <option value="">Select Crop</option>
-            <option value="Tender Coconut">Tender Coconut</option>
-            <option value="Turmeric">Turmeric</option>
-            <option value="Banana">Banana</option>
-            <option value="Dry Coconut">Dry Coconut</option>
-            <option value="Maize">Maize</option>
-            <option value="Sunflower">Sunflower</option>
-          </select>
-        </div>
-
-        {/* Expiry Date */}
-        <div className="mb-3">
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Expiry Date
-          </label>
-          <input
-            type="date"
-            value={poExpiryDate}
-            onChange={(e) => setPoExpiryDate(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
-
-        {/* Quantity + Measure + Price */}
-        <div className="grid grid-cols-3 gap-3 mb-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Quantity
-            </label>
-            <input
-              type="number"
-              value={poQuantity}
-              onChange={(e) => setPoQuantity(Number(e.target.value))}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Measure
-            </label>
-            <select
-              value={poQuantityMeasure}
-              onChange={(e) => setPoQuantityMeasure(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="QUINTAL">QUINTAL</option>
-              <option value="TON">TON</option>
-              <option value="PIECE">PIECE</option>
-              <option value="KILOGRAM">KILOGRAM</option>
-              <option value="GRAM">GRAM</option>
-              <option value="LITRE">LITRE</option>
-              <option value="BAG">BAG</option>
-              <option value="BOX">BOX</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Price (₹)
-            </label>
-            <input
-              type="text"
-              value={poPrice}
-              onChange={(e) => setPoPrice(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
-
-        {/* Specification & Terms */}
-        <div className="grid md:grid-cols-2 gap-3 mb-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Specifications
-            </label>
-            <textarea
-              value={specification}
-              onChange={(e) => setSpecification(e.target.value)}
-              rows={3}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Terms & Conditions
-            </label>
-            <textarea
-              value={terms}
-              onChange={(e) => setTerms(e.target.value)}
-              rows={3}
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
-
-        {/* File Upload + Submit */}
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 cursor-pointer border border-gray-200 px-4 py-2 rounded-xl text-sm text-gray-700 hover:bg-purple-50 transition-all">
-            <Upload size={18} className="text-purple-600" />
-            Upload PO Copy
-            <input type="file" className="hidden" onChange={handleFileUpload} />
-          </label>
-
+            Cancel
+          </button>
           <button
             onClick={handleSubmit}
-            disabled={loading}
-            className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:from-purple-700 hover:to-purple-800 shadow-md active:scale-[0.98] transition-all flex items-center gap-2"
+            disabled={loading || uploading}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
           >
             {loading && <Loader2 className="animate-spin w-4 h-4" />}
             {loading ? "Creating..." : "Create PO"}
           </button>
         </div>
-
-        {/* ✅ Show Preview / Uploaded Image */}
-        {previewUrl && (
-          <div className="mt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-              <ImageIcon size={16} /> Preview
-            </h4>
-            <img
-              src={poDocCopy || previewUrl}
-              alt="PO Copy Preview"
-              className="rounded-xl w-20 h-20 object-cover border"
-            />
-          </div>
-        )}
       </div>
     </div>
   );

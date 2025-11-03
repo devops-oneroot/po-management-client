@@ -99,13 +99,13 @@ const InputField = React.memo(
     isSelect?: boolean;
   }) => {
     const iconPadding = Icon ? "pl-12" : "pl-4";
-    const baseClasses = `${iconPadding} pr-4 py-3 bg-white border-2 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 placeholder-gray-400 w-full`;
+    const baseClasses = `${iconPadding} pr-4 py-3 bg-white border rounded-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-slate-400 w-full text-sm`;
 
     return (
       <div className="space-y-2" key={name}>
         <label
-          className={`flex items-center space-x-2 text-sm font-semibold ${
-            required ? "text-purple-700" : "text-gray-700"
+          className={`flex items-center space-x-2 text-sm font-medium ${
+            required ? "text-slate-900" : "text-slate-700"
           }`}
         >
           {required && <span className="text-red-500">*</span>}
@@ -130,8 +130,8 @@ const InputField = React.memo(
                 fieldError
                   ? "border-red-300 bg-red-50"
                   : disabled
-                  ? "border-gray-200 bg-gray-50 cursor-not-allowed"
-                  : "border-gray-200 hover:border-gray-300"
+                  ? "border-slate-200 bg-slate-50 cursor-not-allowed"
+                  : "border-slate-200 hover:border-slate-300"
               } pr-10 ${baseClasses}`}
             >
               <option value="" disabled className="text-gray-500">
@@ -156,8 +156,8 @@ const InputField = React.memo(
                 fieldError
                   ? "border-red-300 bg-red-50"
                   : disabled
-                  ? "border-gray-200 bg-gray-50 cursor-not-allowed"
-                  : "border-gray-200 hover:border-gray-300"
+                  ? "border-slate-200 bg-slate-50 cursor-not-allowed"
+                  : "border-slate-200 hover:border-slate-300"
               } ${baseClasses}`}
             />
           )}
@@ -194,8 +194,8 @@ const TextAreaField = React.memo(
     error?: string;
   }) => (
     <div className="space-y-2" key={name}>
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <FileText className="w-4 h-4 text-gray-500" />
+      <label className="flex items-center space-x-2 text-sm font-medium text-slate-700">
+        <FileText className="w-4 h-4 text-slate-500" />
         {language && (
           <span className="flex items-center space-x-1">
             <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
@@ -211,11 +211,11 @@ const TextAreaField = React.memo(
         onChange={onChange}
         rows={rows}
         placeholder={placeholder}
-        className={`w-full p-3 bg-white border-2 rounded-xl resize-vertical transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
+        className={`w-full p-3 bg-white border rounded-md resize-vertical transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
           fieldError
             ? "border-red-300 bg-red-50"
-            : "border-gray-200 hover:border-gray-300"
-        } placeholder-gray-400 min-h-[100px]`}
+            : "border-slate-200 hover:border-slate-300"
+        } placeholder-slate-400 min-h-[100px] text-sm`}
       />
       {fieldError && (
         <p className="flex items-center space-x-1 text-sm text-red-600 mt-1">
@@ -238,14 +238,14 @@ const LanguageSelector = React.memo(
     label: string;
   }) => (
     <div className="space-y-2">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <Globe className="w-4 h-4 text-gray-500" />
+      <label className="flex items-center space-x-2 text-sm font-medium text-slate-700">
+        <Globe className="w-4 h-4 text-slate-500" />
         <span>{label}</span>
       </label>
       <select
         value={selectedLanguage}
         onChange={(e) => onLanguageChange(e.target.value as Language)}
-        className="w-full p-3 bg-white border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 border-gray-200 hover:border-gray-300"
+        className="w-full p-3 bg-white border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-slate-200 hover:border-slate-300 text-sm transition-colors duration-150"
       >
         {LANGUAGES.map((lang) => (
           <option key={lang.value} value={lang.value}>
@@ -268,8 +268,8 @@ const FileUpload = React.memo(
     preview?: string;
   }) => (
     <div className="space-y-3">
-      <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
-        <Upload className="w-4 h-4 text-gray-500" />
+      <label className="flex items-center space-x-2 text-sm font-medium text-slate-700">
+        <Upload className="w-4 h-4 text-slate-500" />
         <span>{label}</span>
       </label>
       <div className="relative">
@@ -280,10 +280,10 @@ const FileUpload = React.memo(
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         />
         <div
-          className={`w-full p-6 border-2 border-dashed rounded-xl transition-all duration-300 cursor-pointer hover:shadow-md ${
+          className={`w-full p-6 border-2 border-dashed rounded-lg transition-all duration-150 cursor-pointer ${
             preview
-              ? "border-purple-300 bg-purple-50"
-              : "border-gray-300 hover:border-gray-400 bg-white"
+              ? "border-blue-300 bg-blue-50"
+              : "border-slate-300 hover:border-slate-400 bg-white"
           }`}
         >
           {preview ? (
@@ -294,15 +294,15 @@ const FileUpload = React.memo(
                   alt="Logo Preview"
                   className="w-20 h-20 object-cover rounded-xl shadow-md"
                 />
-                <div className="absolute -top-1 -right-1 bg-purple-500 text-white rounded-full p-1.5 shadow-lg">
+                <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full p-1.5 shadow-sm">
                   <CheckCircle2 className="w-3 h-3" />
                 </div>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-medium text-slate-700">
                   Logo uploaded
                 </p>
-                <p className="text-xs text-purple-600">Click to change image</p>
+                <p className="text-xs text-blue-600">Click to change image</p>
               </div>
             </div>
           ) : (
@@ -1117,48 +1117,35 @@ const OrderForm = ({
   return (
     <div className="w-full max-w-6xl mx-auto p-0">
       {/* Header */}
-      <div
-        className={`text-white p-6 rounded-t-2xl shadow-lg ${
-          isEditMode
-            ? "bg-gradient-to-r from-blue-600 to-indigo-700"
-            : "bg-gradient-to-r from-purple-600 to-purple-700"
-        }`}
-      >
-        <div className="flex items-center justify-center space-x-3 mb-2">
+      <div className="bg-slate-50 p-6 border-b border-slate-200">
+        <div className="flex items-center gap-3 mb-2">
           {isEditMode ? (
-            <Edit3 className="w-6 h-6" />
+            <Edit3 className="w-5 h-5 text-slate-600" />
           ) : (
-            <Building2 className="w-6 h-6" />
+            <Building2 className="w-5 h-5 text-slate-600" />
           )}
-          <h2 className="text-2xl font-bold">
+          <h2 className="text-xl font-semibold text-slate-900">
             {isEditMode ? "Edit Purchase Order" : "Create Purchase Order"}
           </h2>
         </div>
-        <p
-          className={`text-center text-sm opacity-90 ${
-            isEditMode ? "text-blue-100" : "text-purple-100"
-          }`}
-        >
+        <p className="text-sm text-slate-600">
           {isEditMode
             ? `Update the details for ${order?.companyName}`
             : "Fill in the details to create a new agricultural purchase order"}
         </p>
       </div>
 
-      <div className="bg-white rounded-b-2xl shadow-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white border-slate-200 overflow-hidden">
         <form
           onSubmit={handleSubmit}
           className="p-8 space-y-8 max-h-[80vh] overflow-y-auto"
         >
           {/* Global Messages */}
           {error && !error.field && (
-            <div className="relative bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-xl p-4">
-              <div className="absolute -top-2 left-3 bg-white px-2 py-1 rounded-full border border-red-200">
-                <AlertCircle className="w-4 h-4 text-red-500 inline-flex-shrink-0" />
-              </div>
-              <div className="flex items-start space-x-2">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-red-800 text-sm leading-relaxed flex-1">
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <p className="text-red-800 text-sm flex-1">
                   {error.message}
                 </p>
               </div>
@@ -1166,17 +1153,14 @@ const OrderForm = ({
           )}
 
           {success && (
-            <div className="relative bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 animate-bounce">
-              <div className="absolute -top-2 left-3 bg-white px-2 py-1 rounded-full border border-purple-200">
-                <CheckCircle2 className="w-4 h-4 text-purple-500 inline-flex-shrink-0" />
-              </div>
-              <div className="flex items-start space-x-2">
-                <CheckCircle2 className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+            <div className="bg-green-50 border border-green-200 rounded-md p-4">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
                 <div>
-                  <p className="text-purple-800 font-semibold text-sm">
+                  <p className="text-green-900 font-semibold text-sm">
                     Success!
                   </p>
-                  <p className="text-purple-700 text-sm leading-relaxed">
+                  <p className="text-green-700 text-sm">
                     {isEditMode
                       ? "Purchase order updated successfully."
                       : "Purchase order created successfully."}
@@ -1188,10 +1172,10 @@ const OrderForm = ({
 
           {/* Company Selection & Auto-filled Info - Only show when creating new order */}
           {!isEditMode && (
-            <div className="bg-gray-50/50 rounded-xl p-6 border border-purple-100">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <h3 className="text-lg font-bold text-gray-900">
+            <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
+                <h3 className="text-base font-semibold text-slate-900">
                   Company Information
                 </h3>
               </div>
@@ -1308,10 +1292,10 @@ const OrderForm = ({
           )}
 
           {/* Crop Information Section */}
-          <div className="bg-gray-50/50 rounded-xl p-6 border border-purple-100">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <h3 className="text-lg font-bold text-gray-900">
+          <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
+              <h3 className="text-base font-semibold text-slate-900">
                 Crop Information
               </h3>
             </div>
@@ -1366,10 +1350,10 @@ const OrderForm = ({
           </div>
 
           {/* Pricing and Quantity Section */}
-          <div className="bg-gray-50/50 rounded-xl p-6 border border-blue-100">
-            <div className="flex items-center space-x-3 mb-6">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <h3 className="text-lg font-bold text-gray-900">
+          <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
+              <h3 className="text-base font-semibold text-slate-900">
                 Pricing & Quantity
               </h3>
             </div>
@@ -1444,10 +1428,10 @@ const OrderForm = ({
 
           {/* Specifications Section */}
           <div className="space-y-6">
-            <div className="bg-gray-50 rounded-xl p-6 border border-purple-100">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <h3 className="text-lg font-bold text-gray-900">
+            <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
+                <h3 className="text-base font-semibold text-slate-900">
                   Specifications
                 </h3>
               </div>
@@ -1485,8 +1469,8 @@ const OrderForm = ({
                           <span
                             className={`ml-auto ${
                               content
-                                ? "text-purple-600 font-medium"
-                                : "text-gray-400"
+                                ? "text-blue-600 font-medium"
+                                : "text-slate-400"
                             }`}
                           >
                             {content ? `${content.length} chars` : "Empty"}
@@ -1521,10 +1505,10 @@ const OrderForm = ({
             </div>
 
             {/* Terms & Conditions Section */}
-            <div className="bg-gray-50 rounded-xl p-6 border border-orange-100">
-              <div className="flex items-center space-x-3 mb-6">
-                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                <h3 className="text-lg font-bold text-gray-900">
+            <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
+                <h3 className="text-base font-semibold text-slate-900">
                   Terms & Conditions
                 </h3>
               </div>
@@ -1561,8 +1545,8 @@ const OrderForm = ({
                           <span
                             className={`ml-auto ${
                               content
-                                ? "text-purple-600 font-medium"
-                                : "text-gray-400"
+                                ? "text-blue-600 font-medium"
+                                : "text-slate-400"
                             }`}
                           >
                             {content ? `${content.length} chars` : "Empty"}
@@ -1599,7 +1583,7 @@ const OrderForm = ({
 
           {/* Footer Section */}
 
-          <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+          <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
               <div className="flex flex-col space-y-4 flex-shrink-0">
                 <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 cursor-pointer">
@@ -1608,7 +1592,7 @@ const OrderForm = ({
                     name="isActive"
                     checked={formData.isActive}
                     onChange={handleCheckboxChange}
-                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
                   />
                   <span className="flex items-center space-x-2">
                     <Shield className="w-4 h-4 text-gray-500" />
@@ -1675,12 +1659,10 @@ const OrderForm = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full flex items-center justify-center space-x-3 py-4 px-8 rounded-xl font-semibold text-lg transition-all duration-300 transform ${
+              className={`w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold text-sm transition-colors duration-150 ${
                 isSubmitting
-                  ? "bg-gray-400 cursor-not-allowed opacity-70"
-                  : isEditMode
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg hover:shadow-blue-500/25 hover:-translate-y-0.5 active:scale-95"
-                  : "bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-600 hover:to-purple-800hover:to-purple-800 text-white shadow-lg hover:shadow-purple-500/25 hover:-translate-y-0.5 active:scale-95"
+                  ? "bg-slate-400 cursor-not-allowed text-white"
+                  : "bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
               }`}
             >
               {isSubmitting ? (
@@ -1688,8 +1670,8 @@ const OrderForm = ({
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span>
                     {isEditMode
-                      ? "Updating Purchase Order..."
-                      : "Creating Purchase Order..."}
+                      ? "Updating..."
+                      : "Creating..."}
                   </span>
                 </>
               ) : (

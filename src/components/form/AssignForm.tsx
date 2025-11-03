@@ -91,6 +91,8 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
       console.log("Submitted:", res.data);
       setMessage({ type: "success", text: "Buyer successfully assigned!" });
       setFormData({
+        masterPOId: masterPOId,
+        userId: "",
         promisedDate: "",
         promisedQuantity: "",
         promisedQuantityMeasure: "",
@@ -108,72 +110,78 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-md border border-gray-100">
-      <h2 className="text-xl font-semibold mb-4 text-gray-800">
+    <div className="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+      <h2 className="text-lg font-semibold mb-4 text-slate-900">
         Assign Buyer to Master PO
       </h2>
 
-      {/* ✅ Alert Message */}
+      {/* Alert Message */}
       {message && (
         <div
-          className={`flex items-center gap-2 mb-4 text-sm px-3 py-2 rounded-lg ${
+          className={`flex items-center gap-2 mb-4 text-sm px-4 py-3 rounded-md ${
             message.type === "success"
               ? "bg-green-50 text-green-700 border border-green-200"
               : "bg-red-50 text-red-700 border border-red-200"
           }`}
         >
           {message.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4" />
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
           ) : (
-            <AlertCircle className="w-4 h-4" />
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
           )}
           {message.text}
         </div>
       )}
 
-      {/* 🔍 Search Section */}
+      {/* Search Section */}
       <form onSubmit={handleSearch} className="flex items-center gap-3 mb-4">
         <input
           type="text"
           placeholder="Search buyer by name or number..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 border border-gray-300 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+          className="flex-1 border border-slate-200 rounded-md px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm hover:border-slate-300 transition-colors duration-150"
         />
         <button
           type="submit"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl flex items-center gap-2"
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
         >
           {loading ? (
-            <Loader2 className="animate-spin w-5 h-5" />
+            <>
+              <Loader2 className="animate-spin w-4 h-4" />
+              <span>Searching...</span>
+            </>
           ) : (
-            <Search className="w-5 h-5" />
+            <>
+              <Search className="w-4 h-4" />
+              <span>Search</span>
+            </>
           )}
-          Search
         </button>
       </form>
 
-      {/* 👤 Buyer List */}
+      {/* Buyer List */}
       {buyers.length > 0 && (
-        <div className="mb-6 border rounded-xl divide-y">
+        <div className="mb-6 border border-slate-200 rounded-lg divide-y divide-slate-200">
           {buyers.map((buyer) => (
             <div
               key={buyer.id}
-              className={`p-3 cursor-pointer flex justify-between items-center hover:bg-indigo-50 ${
+              className={`p-4 cursor-pointer flex justify-between items-center hover:bg-slate-50 transition-colors duration-150 ${
                 selectedBuyer?.id === buyer.id
-                  ? "bg-indigo-100 border-l-4 border-indigo-500"
+                  ? "bg-blue-50 border-l-4 border-blue-500"
                   : ""
               }`}
               onClick={() => setSelectedBuyer(buyer)}
             >
               <div>
-                <p className="font-medium text-gray-800">{buyer.name}</p>
-                <p className="text-sm text-gray-500">{buyer.mobileNumber}</p>
-                <p className="text-xs text-gray-400">
+                <p className="font-medium text-slate-900">{buyer.name}</p>
+                <p className="text-sm text-slate-600">{buyer.mobileNumber}</p>
+                <p className="text-xs text-slate-500">
                   {buyer.village}, {buyer.district}
                 </p>
               </div>
-              <span className="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-600">
+              <span className="text-xs bg-slate-100 px-2.5 py-1 rounded-md text-slate-600 border border-slate-200">
                 {buyer.identity}
               </span>
             </div>
@@ -181,12 +189,12 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
         </div>
       )}
 
-      {/* 📝 Form Section */}
+      {/* Form Section */}
       {selectedBuyer && (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Promised Date
               </label>
               <input
@@ -195,12 +203,12 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
                 onChange={(e) =>
                   setFormData({ ...formData, promisedDate: e.target.value })
                 }
-                className="w-full border border-gray-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-slate-200 rounded-md px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:border-slate-300 transition-colors duration-150"
               />
             </div>
 
             <div>
-              <label className="block text-sm text-gray-600 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Promised Quantity
               </label>
               <input
@@ -210,15 +218,14 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
                   setFormData({ ...formData, promisedQuantity: e.target.value })
                 }
                 placeholder="Enter quantity"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-slate-200 rounded-md px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:border-slate-300 transition-colors duration-150 placeholder-slate-400"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            {/* Dropdown for Measure */}
             <div>
-              <label className="block text-sm text-gray-600 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Measure
               </label>
               <select
@@ -229,7 +236,7 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
                     promisedQuantityMeasure: e.target.value,
                   })
                 }
-                className="w-full border border-gray-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full border border-slate-200 rounded-md px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:border-slate-300 transition-colors duration-150"
               >
                 <option value="">Select measure</option>
                 {Object.values(QuantityUnit).map((unit) => (
@@ -240,10 +247,9 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
               </select>
             </div>
 
-            {/* Rate Field */}
             <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                Rate In KG
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Rate (₹)
               </label>
               <input
                 type="text"
@@ -251,12 +257,8 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
                 onChange={(e) =>
                   setFormData({ ...formData, rate: e.target.value })
                 }
-                placeholder={`Enter rate per ${
-                  formData.promisedQuantityMeasure
-                    ? formData.promisedQuantityMeasure.toLowerCase()
-                    : "unit"
-                }`}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Enter rate"
+                className="w-full border border-slate-200 rounded-md px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:border-slate-300 transition-colors duration-150 placeholder-slate-400"
               />
             </div>
           </div>
@@ -264,7 +266,7 @@ const AssignBuyerForm = ({ masterPOId }: { masterPOId: string }) => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-xl mt-3 flex items-center justify-center gap-2"
+            className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-semibold shadow-sm transition-colors duration-150 text-sm"
           >
             {submitting && <Loader2 className="animate-spin w-5 h-5" />}
             {submitting ? "Submitting..." : "Submit Assignment"}
