@@ -6,26 +6,13 @@ import { usePathname } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
-  LayoutDashboardIcon,
-  Calendar,
-  Leaf,
-  User2,
-  UserCheck2,
-  ListTodoIcon,
-  BarChart2,
-  PhoneCall,
-  ShieldCheck,
-  WatchIcon,
-  DollarSign,
-  MapPin,
   Building2,
   ShoppingBasket,
   ShoppingCart,
 } from "lucide-react";
-import Image from "next/image";
 
 const supervisorNavItems = [
-  { label: "Companys", icon: Building2, href: "/company" },
+  { label: "Companies", icon: Building2, href: "/company" },
   { label: "EOIs", icon: ShoppingBasket, href: "/eois-card" },
   { label: "POs", icon: ShoppingCart, href: "/po-card" },
 ];
@@ -39,71 +26,55 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`z-40 h-screen shadow-xl bg-purple-950 text-white transition-all duration-300 ease-in-out ${
-        isOpen ? "w-52" : "w-20"
+      className={`z-40 h-screen bg-slate-950 text-white transition-all duration-300 ease-in-out border-r border-slate-800 ${
+        isOpen ? "w-64" : "w-20"
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between h-16 px-2 bg-gradient-to-r from-purple-950 to-purple-900 shadow-md">
-        <Image
-          src="/marKhet  Logo white.png"
-          width={isOpen ? 140 : 40}
-          height={20}
-          alt="markhet logo"
-          className="rounded-md"
-        />
+      <div className="flex items-center justify-between h-16 px-4 border-b border-slate-800">
+        {isOpen ? (
+          <span className="text-lg font-bold text-white">MarkhetB2B</span>
+        ) : (
+          <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center mx-auto">
+            <span className="text-white text-lg font-bold">M</span>
+          </div>
+        )}
         <button
           onClick={toggleSidebar}
-          className="p-1 rounded-full bg-purple-700 hover:bg-purple-800"
+          className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 transition-colors duration-150"
         >
-          {isOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+          {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
         </button>
       </div>
 
       {/* Navigation */}
-      <nav className="mt-6 space-y-6 px-3">
+      <nav className="mt-6 space-y-2 px-3">
         {supervisorNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className={`flex items-center p-2 rounded-md transition-all duration-200 hover:scale-105 ${
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-150 ${
               pathname === item.href
-                ? "bg-purple-800 text-white shadow-md"
-                : "text-purple-100 hover:bg-purple-700"
+                ? "bg-slate-800 text-white shadow-sm"
+                : "text-slate-300 hover:bg-slate-800/50 hover:text-white"
             }`}
           >
             <item.icon
-              className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
-                pathname === item.href ? "text-purple-200" : "text-purple-300"
+              className={`w-5 h-5 flex-shrink-0 ${
+                pathname === item.href ? "text-blue-400" : "text-slate-400"
               }`}
             />
             {isOpen && (
-              <span className="text-[11px] font-medium tracking-wide">
+              <span className="text-sm font-medium">
                 {item.label}
               </span>
             )}
             {pathname === item.href && isOpen && (
-              <div className="ml-auto w-0.5 h-0.5 rounded-full bg-purple-300 animate-pulse"></div>
+              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></div>
             )}
           </Link>
         ))}
       </nav>
-
-      {/* Footer */}
-      {isOpen && (
-        <div className=" p-3 bg-gradient-to-r from-purple-950 to-purple-900 mt-[600px]">
-          {/* <a
-            href="https://oneroot.vercel.app/regions"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block mb-2 px-4 py-2 bg-green-100 text-green-700 rounded hover:bg-green-200 text-sm font-medium text-center"
-          >
-            View All Regions Prices
-          </a> */}
-          <p className="text-sm font-semibold">Order Dashboard</p>
-          <p className="text-xs text-purple-200">markhet.farm</p>
-        </div>
-      )}
     </aside>
   );
 };

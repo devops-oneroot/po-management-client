@@ -11,7 +11,7 @@ const TopBar: React.FC = () => {
   const getPageName = (path: string) => {
     if (path === "/" || path === "/dashboard") return "Dashboard";
     const last = path.split("/").pop() || "";
-    return last.charAt(0).toUpperCase() + last.slice(1);
+    return last.charAt(0).toUpperCase() + last.slice(1).replace(/-/g, " ");
   };
 
   const handleLogout = () => {
@@ -22,21 +22,26 @@ const TopBar: React.FC = () => {
   const userName = "Haider"; // Replace with dynamic user data if available
 
   return (
-    <header className="w-full flex items-center justify-between h-14 px-6 bg-purple-950 shadow-md">
+    <header className="w-full flex items-center justify-between h-16 px-6 bg-white border-b border-slate-200 sticky top-0 z-40">
       {/* Page Title */}
-      <h1 className="text-lg font-semibold text-white">
-        {getPageName(pathname || "")}
-      </h1>
+      <div>
+        <h1 className="text-lg font-semibold text-slate-900">
+          {getPageName(pathname || "")}
+        </h1>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Manage your orders efficiently
+        </p>
+      </div>
 
       {/* User Info & Logout */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 text-white">
-          <User size={20} />
-          <span className="text-sm font-medium">{userName}</span>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-md border border-slate-200">
+          <User size={16} className="text-slate-600" />
+          <span className="text-sm font-medium text-slate-700">{userName}</span>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1 px-3 py-1 text-sm text-white bg-purple-600 rounded-md hover:bg-purple-700 transition"
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors duration-150"
         >
           <LogOut size={16} />
           Logout

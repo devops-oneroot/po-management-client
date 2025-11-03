@@ -1,18 +1,28 @@
 import type { Metadata } from "next";
-import { Saira } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import Sidebar from "../components/SideBar";
 import TopBar from "../components/TopBar";
-// <-- make sure you have Sidebar component
 
-const geistSans = Saira({
-  variable: "--font-geist-sans",
+// Primary Font - Inter for body text
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+// Heading Font - Plus Jakarta Sans for headings
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Dashboard layout with fixed topbar and sidebar",
+  title: "PO Management - Dashboard",
+  description: "Modern minimal purchase order management dashboard",
 };
 
 export default function RootLayout({
@@ -21,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} antialiased bg-zinc-50 dark:bg-black`}
+        className={`${inter.variable} ${jakarta.variable} antialiased bg-slate-50`}
       >
         {/* Layout wrapper */}
         <div className="flex h-screen">
@@ -34,7 +44,7 @@ export default function RootLayout({
             <TopBar />
 
             {/* Page content */}
-            <main className="flex-1  p-3 overflow-y-auto bg-gradient-to-b from-gray-50 to-gray-100">
+            <main className="flex-1 overflow-y-auto bg-slate-50">
               {children}
             </main>
           </div>
