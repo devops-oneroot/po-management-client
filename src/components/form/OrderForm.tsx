@@ -52,7 +52,7 @@ interface PurchaseOrder {
   termsAndConditions_kn: string | null;
   termsAndConditions_te: string | null;
   isActive: boolean;
-  isPoAvailable: boolean; // New field
+
   availablePoExpiry: string | null; // New field
   createdAt: string;
   updatedAt: string;
@@ -99,13 +99,13 @@ const InputField = React.memo(
     isSelect?: boolean;
   }) => {
     const iconPadding = Icon ? "pl-12" : "pl-4";
-    const baseClasses = `${iconPadding} pr-4 py-3 bg-white border-2 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 placeholder-gray-400 w-full`;
+    const baseClasses = `${iconPadding} pr-4 py-3 bg-white border-2 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 placeholder-gray-400 w-full`;
 
     return (
       <div className="space-y-2" key={name}>
         <label
           className={`flex items-center space-x-2 text-sm font-semibold ${
-            required ? "text-emerald-700" : "text-gray-700"
+            required ? "text-purple-700" : "text-gray-700"
           }`}
         >
           {required && <span className="text-red-500">*</span>}
@@ -211,7 +211,7 @@ const TextAreaField = React.memo(
         onChange={onChange}
         rows={rows}
         placeholder={placeholder}
-        className={`w-full p-3 bg-white border-2 rounded-xl resize-vertical transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+        className={`w-full p-3 bg-white border-2 rounded-xl resize-vertical transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
           fieldError
             ? "border-red-300 bg-red-50"
             : "border-gray-200 hover:border-gray-300"
@@ -245,7 +245,7 @@ const LanguageSelector = React.memo(
       <select
         value={selectedLanguage}
         onChange={(e) => onLanguageChange(e.target.value as Language)}
-        className="w-full p-3 bg-white border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 border-gray-200 hover:border-gray-300"
+        className="w-full p-3 bg-white border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 border-gray-200 hover:border-gray-300"
       >
         {LANGUAGES.map((lang) => (
           <option key={lang.value} value={lang.value}>
@@ -282,7 +282,7 @@ const FileUpload = React.memo(
         <div
           className={`w-full p-6 border-2 border-dashed rounded-xl transition-all duration-300 cursor-pointer hover:shadow-md ${
             preview
-              ? "border-emerald-300 bg-emerald-50"
+              ? "border-purple-300 bg-purple-50"
               : "border-gray-300 hover:border-gray-400 bg-white"
           }`}
         >
@@ -294,7 +294,7 @@ const FileUpload = React.memo(
                   alt="Logo Preview"
                   className="w-20 h-20 object-cover rounded-xl shadow-md"
                 />
-                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-1.5 shadow-lg">
+                <div className="absolute -top-1 -right-1 bg-purple-500 text-white rounded-full p-1.5 shadow-lg">
                   <CheckCircle2 className="w-3 h-3" />
                 </div>
               </div>
@@ -302,9 +302,7 @@ const FileUpload = React.memo(
                 <p className="text-sm font-medium text-gray-700">
                   Logo uploaded
                 </p>
-                <p className="text-xs text-emerald-600">
-                  Click to change image
-                </p>
+                <p className="text-xs text-purple-600">Click to change image</p>
               </div>
             </div>
           ) : (
@@ -375,7 +373,7 @@ const OrderForm = ({
     termsAndConditions_kn: "",
     termsAndConditions_te: "",
     isActive: true,
-    isPoAvailable: false, // New field
+
     availablePoExpiry: "", // New field
   });
 
@@ -387,7 +385,7 @@ const OrderForm = ({
       setLoadingCompanies(true);
       try {
         const response = await axios.get(
-          "https://markhet-internal-dev.onrender.com/po-companies"
+          `${process.env.NEXT_PUBLIC_API_URL}/po-companies`
         );
         // Support multiple API shapes:
         // - response.data is an array (API returns raw array)
@@ -416,12 +414,27 @@ const OrderForm = ({
   }, [API_BASE_URL]);
 
   // Company Options for Dropdown
+  // const companyOptions = companies.map((comp: any) => {
+  //   // Some APIs return different id or name keys (_id, id) or companyName/company_name/name
+  //   const id = String(comp?.id ?? comp?._id ?? comp?.companyId ?? "");
+  //   const label =
+  //     (comp?.companyName ?? comp?.company_name ?? comp?.name ?? id) ||
+  //     "Unknown";
+  //   return { value: id, label };
+  // });
   const companyOptions = companies.map((comp: any) => {
-    // Some APIs return different id or name keys (_id, id) or companyName/company_name/name
     const id = String(comp?.id ?? comp?._id ?? comp?.companyId ?? "");
-    const label =
+    const name =
       (comp?.companyName ?? comp?.company_name ?? comp?.name ?? id) ||
       "Unknown";
+
+    // Pull the extra fields – fall‑back to empty strings if missing
+    const village = comp?.village ?? "";
+    const district = comp?.district ?? "";
+
+    // Build a readable label
+    const label = `${name.padEnd(25)} | ${village.padEnd(16)} | ${district}`;
+
     return { value: id, label };
   });
 
@@ -446,7 +459,10 @@ const OrderForm = ({
         setFormData((prev) => ({
           ...prev,
           companyName:
-            selected.companyName ?? selected.name ?? selected.company_name ?? "",
+            selected.companyName ??
+            selected.name ??
+            selected.company_name ??
+            "",
           state: selected.state || "",
           district: selected.district || "",
           taluk: selected.taluk || "",
@@ -475,437 +491,6 @@ const OrderForm = ({
     },
     [companies]
   );
-  // API_BASE_URL is now declared at the top of the file
-
-  // Fetch states on mount
-  // Fetch districts on mount (state is fixed to Karnataka)
-  // Fetch states on mount
-  // useEffect(() => {
-  //   const fetchStates = async () => {
-  //     setLoading((prev) => ({ ...prev, states: true }));
-  //     try {
-  //       const response = await axios.get(`${API_BASE_URL}/newlocations/states`);
-  //       setStates(Array.isArray(response.data.data) ? response.data.data : []);
-  //     } catch (error) {
-  //       console.error("Error fetching states:", error);
-  //       setStates([]);
-  //       setError({ message: "Failed to fetch states" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, states: false }));
-  //     }
-  //   };
-  //   fetchStates();
-  // }, [API_BASE_URL]);
-
-  // Fetch districts when state changes
-  // useEffect(() => {
-  //   if (!formData.state) {
-  //     setDistricts([]);
-  //     setTalukas([]);
-  //     setVillages([]);
-  //     return;
-  //   }
-  //   const fetchDistricts = async () => {
-  //     setLoading((prev) => ({ ...prev, districts: true }));
-  //     try {
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/districts`,
-  //         {
-  //           params: { state: formData.state },
-  //         }
-  //       );
-  //       setDistricts(
-  //         Array.isArray(response.data.data) ? response.data.data : []
-  //       );
-  //     } catch (error) {
-  //       console.error("Error fetching districts:", error);
-  //       setDistricts([]);
-  //       setError({ message: "Failed to fetch districts" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, districts: false }));
-  //     }
-  //   };
-  //   fetchDistricts();
-  // }, [formData.state, API_BASE_URL]);
-
-  // Fetch talukas when district changes
-  // useEffect(() => {
-  //   if (!formData.district) {
-  //     setTalukas([]);
-  //     setVillages([]);
-  //     return;
-  //   }
-  //   const fetchTalukas = async () => {
-  //     setLoading((prev) => ({ ...prev, talukas: true }));
-  //     try {
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/taluks`,
-  //         {
-  //           params: { state: formData.state, district: formData.district },
-  //         }
-  //       );
-  //       setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
-  //     } catch (error) {
-  //       console.error("Error fetching talukas:", error);
-  //       setTalukas([]);
-  //       setError({ message: "Failed to fetch talukas" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, talukas: false }));
-  //     }
-  //   };
-  //   fetchTalukas();
-  // }, [formData.state, formData.district, API_BASE_URL]);
-
-  // Fetch villages when taluk changes
-  // useEffect(() => {
-  //   if (!formData.taluk) {
-  //     setVillages([]);
-  //     return;
-  //   }
-  //   const fetchVillages = async () => {
-  //     setLoading((prev) => ({ ...prev, villages: true }));
-  //     try {
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/villages`,
-  //         {
-  //           params: {
-  //             state: formData.state,
-  //             district: formData.district,
-  //             taluk: formData.taluk,
-  //           },
-  //         }
-  //       );
-  //       setVillages(
-  //         Array.isArray(response.data.data) ? response.data.data : []
-  //       );
-  //     } catch (error) {
-  //       console.error("Error fetching villages:", error);
-  //       setVillages([]);
-  //       setError({ message: "Failed to fetch villages" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, villages: false }));
-  //     }
-  //   };
-  //   fetchVillages();
-  // }, [formData.state, formData.district, formData.taluk, API_BASE_URL]);
-
-  // Fetch coordinates when district, taluk, and village are selected
-  // useEffect(() => {
-  //   const { district, taluk, village } = formData;
-  //   if (!district || !taluk || !village) {
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       coordinates: { lat: "", lon: "" },
-  //     }));
-  //     return;
-  //   }
-  //   const fetchCoordinates = async () => {
-  //     setLoading((prev) => ({ ...prev, coordinates: true }));
-  //     try {
-  //       const address = `${district},${taluk},${village}`;
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/coordinates`,
-  //         {
-  //           params: { address },
-  //         }
-  //       );
-  //       const coords = response?.data?.data;
-  //       if (
-  //         coords &&
-  //         typeof coords.latitude !== "undefined" &&
-  //         typeof coords.longitude !== "undefined"
-  //       ) {
-  //         setFormData((prev) => ({
-  //           ...prev,
-  //           coordinates: {
-  //             lat: String(coords.latitude),
-  //             lon: String(coords.longitude),
-  //           },
-  //         }));
-  //       } else {
-  //         console.warn("Coordinates response missing data:", response.data);
-  //         setFormData((prev) => ({
-  //           ...prev,
-  //           coordinates: { lat: "", lon: "" },
-  //         }));
-  //         setError({ message: "Failed to fetch valid coordinates" });
-  //       }
-  //     } catch (err) {
-  //       console.error("Error fetching coordinates:", err);
-  //       setFormData((prev) => ({
-  //         ...prev,
-  //         coordinates: { lat: "", lon: "" },
-  //       }));
-  //       setError({ message: "Failed to fetch coordinates" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, coordinates: false }));
-  //     }
-  //   };
-  //   fetchCoordinates();
-  // }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
-
-  // Fetch talukas when district changes
-  // useEffect(() => {
-  //   if (!formData.district) {
-  //     setTalukas([]);
-  //     setVillages([]);
-  //     return;
-  //   }
-  //   const fetchTalukas = async () => {
-  //     setLoading((prev) => ({ ...prev, talukas: true }));
-  //     try {
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/taluks`,
-  //         {
-  //           params: { state: "Karnataka", district: formData.district },
-  //         }
-  //       );
-  //       setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
-  //     } catch (error) {
-  //       console.error("Error fetching talukas:", error);
-  //       setTalukas([]);
-  //       setError({ message: "Failed to fetch talukas" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, talukas: false }));
-  //     }
-  //   };
-  //   fetchTalukas();
-  // }, [formData.district, API_BASE_URL]);
-
-  // Fetch villages when taluk changes
-  // useEffect(() => {
-  //   if (!formData.taluk) {
-  //     setVillages([]);
-  //     return;
-  //   }
-  //   const fetchVillages = async () => {
-  //     setLoading((prev) => ({ ...prev, villages: true }));
-  //     try {
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/villages`,
-  //         {
-  //           params: {
-  //             state: "Karnataka",
-  //             district: formData.district,
-  //             taluk: formData.taluk,
-  //           },
-  //         }
-  //       );
-  //       setVillages(
-  //         Array.isArray(response.data.data) ? response.data.data : []
-  //       );
-  //     } catch (error) {
-  //       console.error("Error fetching villages:", error);
-  //       setVillages([]);
-  //       setError({ message: "Failed to fetch villages" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, villages: false }));
-  //     }
-  //   };
-  //   fetchVillages();
-  // }, [formData.district, formData.taluk, API_BASE_URL]);
-
-  // Fetch coordinates when district, taluk, and village are selected
-  // useEffect(() => {
-  //   const { district, taluk, village } = formData;
-  //   if (!district || !taluk || !village) {
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       coordinates: { lat: "", lon: "" },
-  //     }));
-  //     return;
-  //   }
-  //   const fetchCoordinates = async () => {
-  //     setLoading((prev) => ({ ...prev, coordinates: true }));
-  //     try {
-  //       const address = `${district},${taluk},${village}`;
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/coordinates`,
-  //         {
-  //           params: { address },
-  //         }
-  //       );
-  //       const coords = response?.data?.data;
-  //       if (
-  //         coords &&
-  //         typeof coords.latitude !== "undefined" &&
-  //         typeof coords.longitude !== "undefined"
-  //       ) {
-  //         setFormData((prev) => ({
-  //           ...prev,
-  //           coordinates: {
-  //             lat: String(coords.latitude),
-  //             lon: String(coords.longitude),
-  //           },
-  //         }));
-  //       } else {
-  //         console.warn("Coordinates response missing data:", response.data);
-  //         setFormData((prev) => ({
-  //           ...prev,
-  //           coordinates: { lat: "", lon: "" },
-  //         }));
-  //         setError({ message: "Failed to fetch valid coordinates" });
-  //       }
-  //     } catch (err) {
-  //       console.error("Error fetching coordinates:", err);
-  //       setFormData((prev) => ({
-  //         ...prev,
-  //         coordinates: { lat: "", lon: "" },
-  //       }));
-  //       setError({ message: "Failed to fetch coordinates" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, coordinates: false }));
-  //     }
-  //   };
-  //   fetchCoordinates();
-  // }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
-
-  // Fetch districts when state changes
-  // useEffect(() => {
-  //   if (!formData.state) {
-  //     setDistricts([]);
-  //     setTalukas([]);
-  //     setVillages([]);
-  //     return;
-  //   }
-  //   const fetchDistricts = async () => {
-  //     setLoading((prev) => ({ ...prev, districts: true }));
-  //     try {
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/districts`,
-  //         {
-  //           params: { state: formData.state },
-  //         }
-  //       );
-  //       setDistricts(
-  //         Array.isArray(response.data.data) ? response.data.data : []
-  //       );
-  //     } catch (error) {
-  //       console.error("Error fetching districts:", error);
-  //       setDistricts([]);
-  //       setError({ message: "Failed to fetch districts" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, districts: false }));
-  //     }
-  //   };
-  //   fetchDistricts();
-  // }, [formData.state, API_BASE_URL]);
-
-  // // Fetch talukas when district changes
-  // useEffect(() => {
-  //   if (!formData.district) {
-  //     setTalukas([]);
-  //     setVillages([]);
-  //     return;
-  //   }
-  //   const fetchTalukas = async () => {
-  //     setLoading((prev) => ({ ...prev, talukas: true }));
-  //     try {
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/taluks`,
-  //         {
-  //           params: { state: formData.state, district: formData.district },
-  //         }
-  //       );
-  //       setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
-  //     } catch (error) {
-  //       console.error("Error fetching talukas:", error);
-  //       setTalukas([]);
-  //       setError({ message: "Failed to fetch talukas" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, talukas: false }));
-  //     }
-  //   };
-  //   fetchTalukas();
-  // }, [formData.state, formData.district, API_BASE_URL]);
-
-  // // Fetch villages when taluk changes
-  // useEffect(() => {
-  //   if (!formData.taluk) {
-  //     setVillages([]);
-  //     return;
-  //   }
-  //   const fetchVillages = async () => {
-  //     setLoading((prev) => ({ ...prev, villages: true }));
-  //     try {
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/villages`,
-  //         {
-  //           params: {
-  //             state: formData.state,
-  //             district: formData.district,
-  //             taluk: formData.taluk,
-  //           },
-  //         }
-  //       );
-  //       setVillages(
-  //         Array.isArray(response.data.data) ? response.data.data : []
-  //       );
-  //     } catch (error) {
-  //       console.error("Error fetching villages:", error);
-  //       setVillages([]);
-  //       setError({ message: "Failed to fetch villages" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, villages: false }));
-  //     }
-  //   };
-  //   fetchVillages();
-  // }, [formData.state, formData.district, formData.taluk, API_BASE_URL]);
-
-  // // Fetch coordinates when district, taluk, and village are selected
-  // useEffect(() => {
-  //   const { district, taluk, village } = formData;
-  //   if (!district || !taluk || !village) {
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       coordinates: { lat: "", lon: "" },
-  //     }));
-  //     return;
-  //   }
-  //   const fetchCoordinates = async () => {
-  //     setLoading((prev) => ({ ...prev, coordinates: true }));
-  //     try {
-  //       const address = `${district},${taluk},${village}`;
-  //       const response = await axios.get(
-  //         `${API_BASE_URL}/newlocations/coordinates`,
-  //         {
-  //           params: { address },
-  //         }
-  //       );
-  //       const coords = response?.data?.data;
-  //       if (
-  //         coords &&
-  //         typeof coords.latitude !== "undefined" &&
-  //         typeof coords.longitude !== "undefined"
-  //       ) {
-  //         setFormData((prev) => ({
-  //           ...prev,
-  //           coordinates: {
-  //             lat: String(coords.latitude),
-  //             lon: String(coords.longitude),
-  //           },
-  //         }));
-  //       } else {
-  //         console.warn("Coordinates response missing data:", response.data);
-  //         setFormData((prev) => ({
-  //           ...prev,
-  //           coordinates: { lat: "", lon: "" },
-  //         }));
-  //         setError({ message: "Failed to fetch valid coordinates" });
-  //       }
-  //     } catch (err) {
-  //       console.error("Error fetching coordinates:", err);
-  //       setFormData((prev) => ({
-  //         ...prev,
-  //         coordinates: { lat: "", lon: "" },
-  //       }));
-  //       setError({ message: "Failed to fetch coordinates" });
-  //     } finally {
-  //       setLoading((prev) => ({ ...prev, coordinates: false }));
-  //     }
-  //   };
-  //   fetchCoordinates();
-  // }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
 
   // Language selection state
   const [selectedSpecificationLanguage, setSelectedSpecificationLanguage] =
@@ -976,7 +561,7 @@ const OrderForm = ({
         termsAndConditions_kn: order?.termsAndConditions_kn || "",
         termsAndConditions_te: order?.termsAndConditions_te || "",
         isActive: order?.isActive ?? true,
-        isPoAvailable: order?.isPoAvailable ?? false,
+
         availablePoExpiry: order?.availablePoExpiry
           ? new Date(order.availablePoExpiry).toISOString().split("T")[0]
           : "",
@@ -1010,7 +595,7 @@ const OrderForm = ({
         termsAndConditions_kn: "",
         termsAndConditions_te: "",
         isActive: true,
-        isPoAvailable: false,
+
         availablePoExpiry: "",
       });
       setSelectedSpecificationLanguage("en");
@@ -1168,16 +753,7 @@ const OrderForm = ({
       { field: "price_rate", label: "Price Rate" },
       { field: "price_measure", label: "Price Measure" },
       { field: "expiresAt", label: "Expiry Date" },
-      {
-        field: "availablePoExpiry",
-        label: "PO Availability Expiry",
-        customValidation: () => {
-          if (formData.isPoAvailable) {
-            return !!formData.availablePoExpiry;
-          }
-          return true; // Not required if isPoAvailable is false
-        },
-      },
+
       // Existing specification and terms validations...
       {
         field: "specification",
@@ -1272,7 +848,7 @@ const OrderForm = ({
       termsAndConditions_kn: formData.termsAndConditions_kn,
       termsAndConditions_te: formData.termsAndConditions_te,
       isActive: formData.isActive,
-      isPoAvailable: formData.isPoAvailable, // New field
+
       availablePoExpiry: formData.availablePoExpiry || null, // New field
     };
 
@@ -1348,7 +924,7 @@ const OrderForm = ({
           termsAndConditions_kn: "",
           termsAndConditions_te: "",
           availablePoExpiry: "",
-          isPoAvailable: false,
+
           isActive: true,
         });
         // reset selected company
@@ -1532,7 +1108,7 @@ const OrderForm = ({
         className={`text-white p-6 rounded-t-2xl shadow-lg ${
           isEditMode
             ? "bg-gradient-to-r from-blue-600 to-indigo-700"
-            : "bg-gradient-to-r from-emerald-600 to-green-700"
+            : "bg-gradient-to-r from-purple-600 to-purple-700"
         }`}
       >
         <div className="flex items-center justify-center space-x-3 mb-2">
@@ -1547,7 +1123,7 @@ const OrderForm = ({
         </div>
         <p
           className={`text-center text-sm opacity-90 ${
-            isEditMode ? "text-blue-100" : "text-emerald-100"
+            isEditMode ? "text-blue-100" : "text-purple-100"
           }`}
         >
           {isEditMode
@@ -1577,17 +1153,17 @@ const OrderForm = ({
           )}
 
           {success && (
-            <div className="relative bg-gradient-to-r from-emerald-50 to-green-100 border border-emerald-200 rounded-xl p-4 animate-bounce">
-              <div className="absolute -top-2 left-3 bg-white px-2 py-1 rounded-full border border-emerald-200">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 inline-flex-shrink-0" />
+            <div className="relative bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 animate-bounce">
+              <div className="absolute -top-2 left-3 bg-white px-2 py-1 rounded-full border border-purple-200">
+                <CheckCircle2 className="w-4 h-4 text-purple-500 inline-flex-shrink-0" />
               </div>
               <div className="flex items-start space-x-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-emerald-800 font-semibold text-sm">
+                  <p className="text-purple-800 font-semibold text-sm">
                     Success!
                   </p>
-                  <p className="text-emerald-700 text-sm leading-relaxed">
+                  <p className="text-purple-700 text-sm leading-relaxed">
                     {isEditMode
                       ? "Purchase order updated successfully."
                       : "Purchase order created successfully."}
@@ -1598,15 +1174,26 @@ const OrderForm = ({
           )}
 
           {/* Company Selection & Auto-filled Info */}
-          <div className="bg-gray-50/50 rounded-xl p-6 border border-emerald-100">
+          <div className="bg-gray-50/50 rounded-xl p-6 border border-purple-100">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
               <h3 className="text-lg font-bold text-gray-900">
                 Company Information
               </h3>
             </div>
 
             {/* Company Dropdown */}
+            {/* <InputField
+              label="Select Company"
+              name="companyId"
+              value={selectedCompanyId}
+              onChange={handleCompanyChange}
+              required
+              isSelect
+              options={companyOptions}
+              disabled={loadingCompanies}
+              error={error?.field === "companyId" ? error.message : undefined}
+            /> */}
             <InputField
               label="Select Company"
               name="companyId"
@@ -1617,6 +1204,8 @@ const OrderForm = ({
               options={companyOptions}
               disabled={loadingCompanies}
               error={error?.field === "companyId" ? error.message : undefined}
+              // add a custom className for width
+              className="w-full max-w-2xl" // <-- add this prop to InputField
             />
 
             {/* Auto-filled Fields Grid */}
@@ -1704,9 +1293,9 @@ const OrderForm = ({
           </div>
 
           {/* Crop Information Section */}
-          <div className="bg-gray-50/50 rounded-xl p-6 border border-green-100">
+          <div className="bg-gray-50/50 rounded-xl p-6 border border-purple-100">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
               <h3 className="text-lg font-bold text-gray-900">
                 Crop Information
               </h3>
@@ -1881,7 +1470,7 @@ const OrderForm = ({
                           <span
                             className={`ml-auto ${
                               content
-                                ? "text-green-600 font-medium"
+                                ? "text-purple-600 font-medium"
                                 : "text-gray-400"
                             }`}
                           >
@@ -1957,7 +1546,7 @@ const OrderForm = ({
                           <span
                             className={`ml-auto ${
                               content
-                                ? "text-green-600 font-medium"
+                                ? "text-purple-600 font-medium"
                                 : "text-gray-400"
                             }`}
                           >
@@ -2004,7 +1593,7 @@ const OrderForm = ({
                     name="isActive"
                     checked={formData.isActive}
                     onChange={handleCheckboxChange}
-                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                   />
                   <span className="flex items-center space-x-2">
                     <Shield className="w-4 h-4 text-gray-500" />
@@ -2030,7 +1619,7 @@ const OrderForm = ({
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+          {/* <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
               <div className="flex flex-col space-y-4 flex-shrink-0">
                 <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 cursor-pointer">
@@ -2039,7 +1628,7 @@ const OrderForm = ({
                     name="isPoAvailable"
                     checked={formData.isPoAvailable}
                     onChange={handleCheckboxChange}
-                    className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                   />
                   <span className="flex items-center space-x-2">
                     <Shield className="w-4 h-4 text-gray-500" />
@@ -2064,7 +1653,7 @@ const OrderForm = ({
                 />
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Submit Button */}
           <div className="pt-4">
@@ -2076,7 +1665,7 @@ const OrderForm = ({
                   ? "bg-gray-400 cursor-not-allowed opacity-70"
                   : isEditMode
                   ? "bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg hover:shadow-blue-500/25 hover:-translate-y-0.5 active:scale-95"
-                  : "bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-lg hover:shadow-emerald-500/25 hover:-translate-y-0.5 active:scale-95"
+                  : "bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-600 hover:to-purple-800hover:to-purple-800 text-white shadow-lg hover:shadow-purple-500/25 hover:-translate-y-0.5 active:scale-95"
               }`}
             >
               {isSubmitting ? (

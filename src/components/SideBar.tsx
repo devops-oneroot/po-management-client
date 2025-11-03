@@ -25,9 +25,9 @@ import {
 import Image from "next/image";
 
 const supervisorNavItems = [
-  { label: "Company", icon: Building2, href: "/company" },
-  { label: "Eois", icon: ShoppingBasket, href: "/eois-card" },
-  { label: "Po", icon: ShoppingCart, href: "/po-card" },
+  { label: "Companys", icon: Building2, href: "/company" },
+  { label: "EOIs", icon: ShoppingBasket, href: "/eois-card" },
+  { label: "POs", icon: ShoppingCart, href: "/po-card" },
 ];
 
 const Sidebar: React.FC = () => {
@@ -61,7 +61,7 @@ const Sidebar: React.FC = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="mt-6 space-y-2 px-3">
+      <nav className="mt-6 space-y-6 px-3">
         {supervisorNavItems.map((item) => (
           <Link
             key={item.href}
@@ -72,9 +72,18 @@ const Sidebar: React.FC = () => {
                 : "text-purple-100 hover:bg-purple-700"
             }`}
           >
-            <item.icon className="w-5 h-5 mr-3" />
+            <item.icon
+              className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
+                pathname === item.href ? "text-purple-200" : "text-purple-300"
+              }`}
+            />
             {isOpen && (
-              <span className="text-sm font-medium">{item.label}</span>
+              <span className="text-[11px] font-medium tracking-wide">
+                {item.label}
+              </span>
+            )}
+            {pathname === item.href && isOpen && (
+              <div className="ml-auto w-0.5 h-0.5 rounded-full bg-purple-300 animate-pulse"></div>
             )}
           </Link>
         ))}

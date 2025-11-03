@@ -1,4 +1,4 @@
-"use client";
+// "use client";
 import axios from "axios";
 import React, { useState, useCallback, useEffect } from "react";
 import {
@@ -42,6 +42,10 @@ const CROPS = [
   "Groundnut",
 ] as const;
 
+// Cloudinary Constants
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
+const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
+
 const InputField = React.memo(
   ({
     label,
@@ -71,13 +75,13 @@ const InputField = React.memo(
     isSelect?: boolean;
   }) => {
     const iconPadding = Icon ? "pl-12" : "pl-4";
-    const baseClasses = `${iconPadding} pr-4 py-3 bg-white border-2 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 placeholder-gray-400 w-full`;
+    const baseClasses = `${iconPadding} pr-4 py-3 bg-white border-2 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 placeholder-gray-400 w-full`;
 
     return (
       <div className="space-y-2" key={name}>
         <label
           className={`flex items-center space-x-2 text-sm font-semibold ${
-            required ? "text-emerald-700" : "text-gray-700"
+            required ? "text-purple-700" : "text-gray-700"
           }`}
         >
           {required && <span className="text-red-500">*</span>}
@@ -149,10 +153,12 @@ const FileUpload = React.memo(
     label,
     onChange,
     preview,
+    uploading = false,
   }: {
     label: string;
     onChange: any;
     preview?: string;
+    uploading?: boolean;
   }) => (
     <div className="space-y-3">
       <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
@@ -164,16 +170,22 @@ const FileUpload = React.memo(
           type="file"
           accept="image/*"
           onChange={onChange}
+          disabled={uploading}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
         />
         <div
           className={`w-full p-6 border-2 border-dashed rounded-xl transition-all duration-300 cursor-pointer hover:shadow-md ${
             preview
-              ? "border-emerald-300 bg-emerald-50"
+              ? "border-purple-300 bg-purple-50"
               : "border-gray-300 hover:border-gray-400 bg-white"
           }`}
         >
-          {preview ? (
+          {uploading ? (
+            <div className="flex flex-col items-center justify-center space-y-3 text-gray-500">
+              <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
+              <p className="text-sm font-medium">Uploading…</p>
+            </div>
+          ) : preview ? (
             <div className="flex flex-col items-center space-y-3 text-center">
               <div className="relative">
                 <img
@@ -181,7 +193,7 @@ const FileUpload = React.memo(
                   alt="Logo Preview"
                   className="w-20 h-20 object-cover rounded-xl shadow-md"
                 />
-                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-1.5 shadow-lg">
+                <div className="absolute -top-1 -right-1 bg-purple-500 text-white rounded-full p-1.5 shadow-lg">
                   <CheckCircle2 className="w-3 h-3" />
                 </div>
               </div>
@@ -189,9 +201,7 @@ const FileUpload = React.memo(
                 <p className="text-sm font-medium text-gray-700">
                   Logo uploaded
                 </p>
-                <p className="text-xs text-emerald-600">
-                  Click to change image
-                </p>
+                <p className="text-xs text-purple-600">Click to change image</p>
               </div>
             </div>
           ) : (
@@ -235,6 +245,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     notes: "",
   });
   const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
+  const [uploadingLogo, setUploadingLogo] = useState(false); // New state
 
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
@@ -481,21 +492,48 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     [error?.field]
   );
 
+  // Updated handleFileChange with Cloudinary upload
   const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          setFormData((prev) => ({
-            ...prev,
-            company_logo: reader.result as string,
-          }));
-        };
-        reader.readAsDataURL(file);
+      if (!file) return;
+
+      // Instant preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        setFormData((prev) => ({
+          ...prev,
+          company_logo: reader.result as string,
+        }));
+      };
+      reader.readAsDataURL(file);
+
+      // Upload to Cloudinary
+      setUploadingLogo(true);
+      try {
+        const formDataCloud = new FormData();
+        formDataCloud.append("file", file);
+        formDataCloud.append("upload_preset", UPLOAD_PRESET);
+        formDataCloud.append("folder", "company_logos");
+
+        const res = await axios.post(
+          `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
+          formDataCloud
+        );
+
+        setFormData((prev) => ({
+          ...prev,
+          company_logo: res.data.secure_url,
+        }));
+      } catch (err) {
+        console.error("Cloudinary upload failed:", err);
+        alert("Logo upload failed. Please try again.");
+        setFormData((prev) => ({ ...prev, company_logo: "" }));
+      } finally {
+        setUploadingLogo(false);
       }
     },
-    []
+    [UPLOAD_PRESET, CLOUD_NAME]
   );
 
   const toggleCrop = (crop: string) => {
@@ -556,9 +594,8 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
 
     try {
       let response;
-      
+
       if (isEditMode && company?.id) {
-        // Update existing company using PATCH
         response = await fetch(`${API_BASE_URL}/po-companies/${company.id}`, {
           method: "PATCH",
           headers: {
@@ -575,12 +612,10 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         console.log("Company updated successfully:", result);
         setSuccess(true);
 
-        // Call onSuccess callback after a short delay
         setTimeout(() => {
           onSuccess?.();
         }, 1500);
       } else {
-        // Create new company using POST
         response = await fetch(`${API_BASE_URL}/po-companies`, {
           method: "POST",
           headers: {
@@ -597,7 +632,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         console.log("Company created successfully:", result);
         setSuccess(true);
 
-        // Reset form
         setFormData({
           companyName: "",
           state: "",
@@ -610,7 +644,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         });
         setSelectedCrops([]);
 
-        // Call onSuccess callback after a short delay
         setTimeout(() => {
           onSuccess?.();
         }, 1500);
@@ -618,7 +651,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     } catch (err) {
       console.error("Error submitting form:", err);
       setError({
-        message: isEditMode 
+        message: isEditMode
           ? "Failed to update company. Please try again."
           : "Failed to create company. Please try again.",
       });
@@ -630,13 +663,23 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
   return (
     <div className="w-full max-w-6xl mx-auto p-0">
       {/* Header */}
-      <div className={`${isEditMode ? "bg-gradient-to-r from-blue-600 to-indigo-700" : "bg-gradient-to-r from-emerald-600 to-green-700"} text-white p-6 rounded-t-2xl shadow-lg`}>
+      <div
+        className={`${
+          isEditMode
+            ? "bg-gradient-to-r from-blue-600 to-indigo-700"
+            : "bg-gradient-to-r from-purple-600 to-purple-700"
+        } text-white p-6 rounded-t-2xl shadow-lg`}
+      >
         <div className="flex items-center justify-center space-x-3 mb-2">
           <Building2 className="w-6 h-6" />
-          <h2 className="text-2xl font-bold">{isEditMode ? "Edit Company" : "Onboard Company"}</h2>
+          <h2 className="text-2xl font-bold">
+            {isEditMode ? "Edit Company" : "Onboard Company"}
+          </h2>
         </div>
-        <p className="text-center text-sm opacity-90 text-emerald-100">
-          {isEditMode ? "Update company information" : "Register a new company with location and crop details"}
+        <p className="text-center text-sm opacity-90 text-purple-100">
+          {isEditMode
+            ? "Update company information"
+            : "Register a new company with location and crop details"}
         </p>
       </div>
 
@@ -658,15 +701,17 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
           )}
 
           {success && (
-            <div className="relative bg-gradient-to-r from-emerald-50 to-green-100 border border-emerald-200 rounded-xl p-4 animate-bounce">
+            <div className="relative bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 animate-bounce">
               <div className="flex items-start space-x-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-emerald-800 font-semibold text-sm">
+                  <p className="text-purple-800 font-semibold text-sm">
                     Success!
                   </p>
-                  <p className="text-emerald-700 text-sm leading-relaxed">
-                    {isEditMode ? "Company updated successfully." : "Company onboarded successfully."}
+                  <p className="text-purple-700 text-sm leading-relaxed">
+                    {isEditMode
+                      ? "Company updated successfully."
+                      : "Company onboarded successfully."}
                   </p>
                 </div>
               </div>
@@ -674,9 +719,9 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
           )}
 
           {/* Company Information Section */}
-          <div className="bg-gray-50/50 rounded-xl p-6 border border-emerald-100">
+          <div className="bg-gray-50/50 rounded-xl p-6 border border-purple-100">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
               <h3 className="text-lg font-bold text-gray-900">
                 Company Information
               </h3>
@@ -700,6 +745,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
                 label="Company Logo (Optional)"
                 onChange={handleFileChange}
                 preview={formData.company_logo}
+                uploading={uploadingLogo}
               />
 
               <div className="lg:col-span-2">
@@ -841,9 +887,9 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
           </div>
 
           {/* Crops Section */}
-          <div className="bg-gray-50/50 rounded-xl p-6 border border-green-100">
+          <div className="bg-gray-50/50 rounded-xl p-6 border border-purple-100">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
               <h3 className="text-lg font-bold text-gray-900">
                 Crops (Optional)
               </h3>
@@ -858,7 +904,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
                     onClick={() => toggleCrop(crop)}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all ${
                       active
-                        ? "bg-emerald-600 text-white border-emerald-700 shadow-md"
+                        ? "bg-purple-600 text-white border-purple-700 shadow-md"
                         : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
                     }`}
                   >
@@ -884,7 +930,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
               onChange={handleChange}
               rows={4}
               placeholder="Any additional information about the company..."
-              className="w-full p-3 bg-white border-2 rounded-xl resize-vertical transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 border-gray-200 hover:border-gray-300 placeholder-gray-400"
+              className="w-full p-3 bg-white border-2 rounded-xl resize-vertical transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 border-gray-200 hover:border-gray-300 placeholder-gray-400"
             />
           </div>
 
@@ -892,22 +938,24 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || uploadingLogo}
               className={`w-full flex items-center justify-center space-x-3 py-4 px-8 rounded-xl font-semibold text-lg transition-all duration-300 transform ${
-                isSubmitting
+                isSubmitting || uploadingLogo
                   ? "bg-gray-400 cursor-not-allowed opacity-70"
-                  : "bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-lg hover:shadow-emerald-500/25 hover:-translate-y-0.5 active:scale-95"
+                  : "bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-purple-500/25 hover:-translate-y-0.5 active:scale-95"
               }`}
             >
-              {isSubmitting ? (
+              {isSubmitting || uploadingLogo ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>{isEditMode ? "Updating Company..." : "Creating Company..."}</span>
+                  <span>{isEditMode ? "Updating..." : "Creating..."}</span>
                 </>
               ) : (
                 <>
                   <Building2 className="w-5 h-5" />
-                  <span>{isEditMode ? "Update Company" : "Create Company"}</span>
+                  <span>
+                    {isEditMode ? "Update Company" : "Create Company"}
+                  </span>
                 </>
               )}
             </button>
@@ -919,4 +967,3 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
 };
 
 export default CompanyForm;
-
