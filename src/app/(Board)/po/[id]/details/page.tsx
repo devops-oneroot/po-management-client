@@ -172,20 +172,22 @@ export default function BuyerDetails() {
               onChange={async (e) => {
                 const newStatus = e.target.value;
                 
-                // Validate quantities before allowing status change
-                const unloaded = buyer?.quantityUnloaded;
-                const rejected = buyer?.rejectedQuantity;
-                
-                // Check if quantities are present and valid
-                if (unloaded == null || rejected == null) {
-                  alert("⚠️ Please enter both unloaded and rejected quantity values before changing status.");
-                  return;
-                }
-                
-                // Check if unloaded is greater than rejected
-                if (Number(unloaded) <= Number(rejected)) {
-                  alert("⚠️ Unloaded quantity must be greater than rejected quantity. Please enter correct values.");
-                  return;
+                // Only validate quantities when changing status to COMPLETED
+                if (newStatus === "COMPLETED") {
+                  const unloaded = buyer?.quantityUnloaded;
+                  const rejected = buyer?.rejectedQuantity;
+                  
+                  // Check if quantities are present and valid
+                  if (unloaded == null || rejected == null) {
+                    alert("⚠️ Please enter both unloaded and rejected quantity values before marking as completed.");
+                    return;
+                  }
+                  
+                  // Check if unloaded is greater than rejected
+                  if (Number(unloaded) <= Number(rejected)) {
+                    alert("⚠️ Unloaded quantity must be greater than rejected quantity. Please enter correct values.");
+                    return;
+                  }
                 }
                 
                 setStatus(newStatus);
