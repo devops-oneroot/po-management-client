@@ -177,73 +177,73 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-xl shadow-xl border border-slate-200">
+    <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4'>
+      <div className='bg-white rounded-lg w-full max-w-xl shadow-xl border border-slate-200'>
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-slate-600" />
-            <h2 className="text-lg font-semibold text-slate-900">
+        <div className='px-6 py-4 border-b border-slate-200 flex items-center justify-between'>
+          <div className='flex items-center gap-2'>
+            <Building2 className='w-5 h-5 text-slate-600' />
+            <h2 className='text-lg font-semibold text-slate-900'>
               Create Purchase Order
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
+            className='text-slate-400 hover:text-slate-600 transition-colors'
           >
-            <X className="w-5 h-5" />
+            <X className='w-5 h-5' />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-4 max-h-[calc(90vh-140px)] overflow-y-auto">
+        <div className='p-6 space-y-4 max-h-[calc(90vh-140px)] overflow-y-auto'>
           {/* Success */}
           {success && (
-            <div className="flex items-center gap-2 p-3 rounded-md bg-green-50 border border-green-200 text-green-700 text-sm font-medium">
-              <CheckCircle2 className="w-4 h-4" />
+            <div className='flex items-center gap-2 p-3 rounded-md bg-green-50 border border-green-200 text-green-700 text-sm font-medium'>
+              <CheckCircle2 className='w-4 h-4' />
               Purchase Order created successfully!
             </div>
           )}
 
           {/* Search Company */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+          <div className='relative'>
+            <label className='block text-sm font-medium text-slate-700 mb-2'>
               Search Company
             </label>
             <input
-              type="text"
+              type='text'
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setSelectedCompany(null);
               }}
-              placeholder="Search company name..."
-              className="w-full border border-slate-200 rounded-md px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:border-slate-300 transition-colors duration-150"
+              placeholder='Search company name...'
+              className='w-full border border-slate-200 rounded-md px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:border-slate-300 transition-colors duration-150'
             />
             {filtered.length > 0 && !selectedCompany && (
-              <div className="absolute w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-20">
+              <div className='absolute w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-20'>
                 {filtered.map((company) => (
                   <div
                     key={company.id}
                     onClick={() => handleCompanySelect(company)}
-                    className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-none"
+                    className='flex items-center gap-3 px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-100 last:border-none'
                   >
                     {company.company_logo ? (
                       <img
                         src={company.company_logo}
-                        alt="logo"
-                        className="w-8 h-8 rounded-full border border-slate-200 object-cover"
+                        alt='logo'
+                        className='w-8 h-8 rounded-full border border-slate-200 object-cover'
                       />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-medium">
+                      <div className='w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-medium'>
                         {company.companyName.charAt(0)}
                       </div>
                     )}
                     <div>
-                      <p className="font-medium text-slate-900">
+                      <p className='font-medium text-slate-900'>
                         {company.companyName}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className='text-xs text-slate-500'>
                         {company.village}, {company.taluk}
                       </p>
                     </div>
@@ -255,32 +255,32 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
 
           {/* Selected Company */}
           {selectedCompany && (
-            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-              <div className="flex items-center gap-3 mb-3">
+            <div className='bg-slate-50 rounded-lg p-4 border border-slate-200'>
+              <div className='flex items-center gap-3 mb-3'>
                 {selectedCompany.company_logo && (
                   <img
                     src={selectedCompany.company_logo}
-                    alt="Company Logo"
-                    className="w-10 h-10 rounded-full border border-slate-200 object-cover"
+                    alt='Company Logo'
+                    className='w-10 h-10 rounded-full border border-slate-200 object-cover'
                   />
                 )}
-                <div className="flex-1">
-                  <label className="text-xs text-slate-500 font-medium">
+                <div className='flex-1'>
+                  <label className='text-xs text-slate-500 font-medium'>
                     Company Name
                   </label>
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className='text-sm font-semibold text-slate-900'>
                     {selectedCompany.companyName}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className='grid grid-cols-3 gap-2'>
                 {["village", "taluk", "district"].map((field) => (
                   <div key={field}>
-                    <label className="text-xs text-slate-500 font-medium capitalize block mb-1">
+                    <label className='text-xs text-slate-500 font-medium capitalize block mb-1'>
                       {field}
                     </label>
-                    <p className="text-sm text-slate-700">
+                    <p className='text-sm text-slate-700'>
                       {selectedCompany[field as keyof Company] as string}
                     </p>
                   </div>
@@ -291,154 +291,154 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
 
           {/* Crop Dropdown */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className='block text-sm font-medium text-slate-700 mb-2'>
               Crop Name
             </label>
             <select
               value={cropName}
               onChange={(e) => setCropName(e.target.value)}
-              className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white hover:border-slate-300 transition-colors duration-150"
+              className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white hover:border-slate-300 transition-colors duration-150'
             >
-              <option value="">Select Crop</option>
-              <option value="Tender Coconut">Tender Coconut</option>
-              <option value="Turmeric">Turmeric</option>
-              <option value="Banana">Banana</option>
-              <option value="Dry Coconut">Dry Coconut</option>
-              <option value="Maize">Maize</option>
-              <option value="Sunflower">Sunflower</option>
+              <option value=''>Select Crop</option>
+              <option value='Tender Coconut'>Tender Coconut</option>
+              <option value='Turmeric'>Turmeric</option>
+              <option value='Banana'>Banana</option>
+              <option value='Dry Coconut'>Dry Coconut</option>
+              <option value='Maize'>Maize</option>
+              <option value='Sunflower'>Sunflower</option>
             </select>
           </div>
 
           {/* Expiry Date */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className='block text-sm font-medium text-slate-700 mb-2'>
               Expiry Date
             </label>
             <input
-              type="date"
+              type='date'
               value={poExpiryDate}
               onChange={(e) => setPoExpiryDate(e.target.value)}
-              className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+              className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150'
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className='block text-sm font-medium text-slate-700 mb-2'>
               Issue Date
             </label>
             <input
-              type="date"
+              type='date'
               value={poIssuedDate}
               onChange={(e) => setPoIssueDate(e.target.value)}
-              className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+              className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150'
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              PO NUmber
+            <label className='block text-sm font-medium text-slate-700 mb-2'>
+              PO Number
             </label>
             <input
-              type="text"
+              type='text'
               value={poNumber}
               onChange={(e) => setPoNumber(e.target.value)}
-              className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+              className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150'
             />
           </div>
 
           {/* Quantity + Measure + Price */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className='grid grid-cols-3 gap-3'>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className='block text-sm font-medium text-slate-700 mb-2'>
                 Quantity
               </label>
               <input
-                type="number"
+                type='number'
                 value={poQuantity}
                 onChange={(e) => setPoQuantity(Number(e.target.value))}
-                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+                className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150'
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className='block text-sm font-medium text-slate-700 mb-2'>
                 Measure
               </label>
               <select
                 value={poQuantityMeasure}
                 onChange={(e) => setPoQuantityMeasure(e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+                className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150'
               >
-                <option value="QUINTAL">QUINTAL</option>
-                <option value="TON">TON</option>
-                <option value="PIECE">PIECE</option>
-                <option value="KILOGRAM">KILOGRAM</option>
-                <option value="GRAM">GRAM</option>
-                <option value="LITRE">LITRE</option>
-                <option value="BAG">BAG</option>
-                <option value="BOX">BOX</option>
+                <option value='QUINTAL'>QUINTAL</option>
+                <option value='TON'>TON</option>
+                <option value='PIECE'>PIECE</option>
+                <option value='KILOGRAM'>KILOGRAM</option>
+                <option value='GRAM'>GRAM</option>
+                <option value='LITRE'>LITRE</option>
+                <option value='BAG'>BAG</option>
+                <option value='BOX'>BOX</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className='block text-sm font-medium text-slate-700 mb-2'>
                 Our Price (₹)
               </label>
               <input
-                type="text"
+                type='text'
                 value={poPrice}
                 onChange={(e) => setPoPrice(e.target.value)}
-                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+                className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150'
               />
             </div>
           </div>
 
           {/* Specification & Terms */}
-          <div className="grid md:grid-cols-2 gap-3">
+          <div className='grid md:grid-cols-2 gap-3'>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className='block text-sm font-medium text-slate-700 mb-2'>
                 Specifications
               </label>
               <textarea
                 value={specification}
                 onChange={(e) => setSpecification(e.target.value)}
                 rows={3}
-                placeholder="Enter specifications..."
-                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150 placeholder-slate-400"
+                placeholder='Enter specifications...'
+                className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150 placeholder-slate-400'
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className='block text-sm font-medium text-slate-700 mb-2'>
                 Terms & Conditions
               </label>
               <textarea
                 value={terms}
                 onChange={(e) => setTerms(e.target.value)}
                 rows={3}
-                placeholder="Enter terms..."
-                className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150 placeholder-slate-400"
+                placeholder='Enter terms...'
+                className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150 placeholder-slate-400'
               />
             </div>
           </div>
 
           {/* File Upload */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className='block text-sm font-medium text-slate-700 mb-2'>
               Upload PO Copy (Optional)
             </label>
-            <label className="flex items-center justify-center gap-2 cursor-pointer border-2 border-dashed border-slate-300 hover:border-slate-400 px-4 py-6 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-all duration-150">
+            <label className='flex items-center justify-center gap-2 cursor-pointer border-2 border-dashed border-slate-300 hover:border-slate-400 px-4 py-6 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-all duration-150'>
               {uploading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  <Loader2 className='w-5 h-5 animate-spin text-blue-600' />
                   <span>Uploading...</span>
                 </>
               ) : (
                 <>
-                  <Upload className="w-5 h-5 text-slate-500" />
+                  <Upload className='w-5 h-5 text-slate-500' />
                   <span>Click to upload</span>
                 </>
               )}
               <input
-                type="file"
-                className="hidden"
+                type='file'
+                className='hidden'
                 onChange={handleFileUpload}
                 disabled={uploading}
               />
@@ -447,34 +447,34 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
 
           {/* Preview Image */}
           {previewUrl && (
-            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-              <div className="flex items-center gap-2 mb-2">
-                <ImageIcon className="w-4 h-4 text-slate-600" />
-                <h4 className="text-sm font-medium text-slate-900">Preview</h4>
+            <div className='bg-slate-50 rounded-lg p-4 border border-slate-200'>
+              <div className='flex items-center gap-2 mb-2'>
+                <ImageIcon className='w-4 h-4 text-slate-600' />
+                <h4 className='text-sm font-medium text-slate-900'>Preview</h4>
               </div>
               <img
                 src={poDocCopy || previewUrl}
-                alt="PO Copy Preview"
-                className="rounded-lg w-full h-32 object-cover border border-slate-200"
+                alt='PO Copy Preview'
+                className='rounded-lg w-full h-32 object-cover border border-slate-200'
               />
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+        <div className='px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3'>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors duration-150"
+            className='px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors duration-150'
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={loading || uploading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+            className='inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm'
           >
-            {loading && <Loader2 className="animate-spin w-4 h-4" />}
+            {loading && <Loader2 className='animate-spin w-4 h-4' />}
             {loading ? "Creating..." : "Create PO"}
           </button>
         </div>
