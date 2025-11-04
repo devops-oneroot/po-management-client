@@ -9,6 +9,7 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  Locate,
 } from "lucide-react";
 
 interface TruckDetailsProps {
@@ -16,6 +17,7 @@ interface TruckDetailsProps {
   truckNo?: string;
   driverName?: string;
   driverPhone?: string;
+  deliveryLocation?: string;
   onUpdate?: () => void;
 }
 
@@ -24,12 +26,14 @@ export default function TruckDetails({
   truckNo = "",
   driverName = "",
   driverPhone = "",
+  deliveryLocation = "",
   onUpdate,
 }: TruckDetailsProps) {
   const [form, setForm] = useState({
     truckNo: "",
     driverName: "",
     driverPhone: "",
+    deliveryLocation: "",
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -39,8 +43,8 @@ export default function TruckDetails({
 
   // prefill form when props change
   useEffect(() => {
-    setForm({ truckNo, driverName, driverPhone });
-  }, [truckNo, driverName, driverPhone]);
+    setForm({ truckNo, driverName, driverPhone, deliveryLocation });
+  }, [truckNo, driverName, driverPhone, deliveryLocation]);
 
   const handleChange = (field: string, value: string) => {
     setForm({ ...form, [field]: value });
@@ -56,6 +60,7 @@ export default function TruckDetails({
           truckNo: form.truckNo,
           driverName: form.driverName,
           driverPhone: form.driverPhone,
+          deliveryLocation: form.deliveryLocation,
         }
       );
       setMessage({
@@ -63,7 +68,7 @@ export default function TruckDetails({
         text: "Truck details updated successfully!",
       });
       console.log("Response:", response.data);
-      
+
       // Trigger parent refetch
       setTimeout(() => {
         onUpdate?.();
@@ -94,6 +99,12 @@ export default function TruckDetails({
       key: "driverPhone",
       placeholder: "9876543210",
       icon: Phone,
+    },
+    {
+      label: "Place  of Delivery",
+      key: "deliveryLocation",
+      placeholder: "location",
+      icon: Locate,
     },
   ];
 

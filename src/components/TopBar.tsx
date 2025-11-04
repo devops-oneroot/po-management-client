@@ -26,7 +26,9 @@ const TopBar: React.FC = () => {
       {/* Page Title */}
       <div>
         <h1 className="text-lg font-semibold text-slate-900">
-          {getPageName(pathname || "")}
+          {getPageName(pathname || "") === "Eois card"
+            ? "EOIs"
+            : getPageName(pathname || "")}
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
           Manage your orders efficiently

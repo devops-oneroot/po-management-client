@@ -2,7 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, CircleUser, Plus, Calendar, Package, IndianRupee } from "lucide-react";
+import {
+  MapPin,
+  CircleUser,
+  Plus,
+  Calendar,
+  Package,
+  IndianRupee,
+} from "lucide-react";
 import POForm from "@/src/components/form/POForm";
 
 interface MasterPO {
@@ -34,9 +41,7 @@ const CompaniesPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/master-po`
-        );
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/master-po`);
         const result = await res.json();
         setPoData(result?.data || []);
       } catch (err) {
@@ -111,7 +116,10 @@ const CompaniesPage = () => {
         {loading ? (
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm animate-pulse">
+              <div
+                key={i}
+                className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm animate-pulse"
+              >
                 <div className="space-y-4">
                   <div className="w-20 h-20 bg-slate-200 rounded-lg mx-auto"></div>
                   <div className="space-y-2">
@@ -160,7 +168,11 @@ const CompaniesPage = () => {
                   {/* Expiry Banner */}
                   <div
                     className={`text-center text-white text-xs font-medium py-2 ${
-                      isExpired ? "bg-red-500" : remainingDays <= 7 ? "bg-amber-500" : "bg-green-500"
+                      isExpired
+                        ? "bg-red-500"
+                        : remainingDays <= 7
+                        ? "bg-amber-500"
+                        : "bg-green-500"
                     }`}
                   >
                     {expiryText}
@@ -194,28 +206,28 @@ const CompaniesPage = () => {
                     {/* Crop Details */}
                     <div className="border-t border-slate-100 pt-3 space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-600 flex items-center gap-1 font-medium">
+                        <span className="text-slate-600 flex items-center gap-64  font-medium">
                           <Package className="w-3.5 h-3.5 text-slate-400" />
                           {po.cropName}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
-                        <span className="text-slate-600 flex items-center gap-1 font-medium">
+                        <span className="text-slate-600 flex items-center gap-64 font-medium">
                           <Package className="w-3.5 h-3.5 text-slate-400" />
                           {po.quantity} Tons
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
-                        <span className="text-slate-600 flex items-center gap-1 font-semibold">
+                        <span className="text-slate-600 flex items-center gap-64 font-semibold">
                           <IndianRupee className="w-3.5 h-3.5 text-slate-600" />
                           {po.poPrice}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
-                        <span className="text-slate-500 flex items-center gap-1">
+                        <span className="text-slate-500 flex items-center gap-64">
                           <Calendar className="w-3 h-3" />
                           {new Date(po.expiryDate).toLocaleDateString("en-IN")}
                         </span>
@@ -224,14 +236,20 @@ const CompaniesPage = () => {
 
                     {/* Status Badge */}
                     <div className="mt-3 pt-3 border-t border-slate-200">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
-                        po.status === "Completed"
-                          ? "bg-green-50 text-green-700 border border-green-200"
-                          : "bg-blue-50 text-blue-700 border border-blue-200"
-                      }`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${
-                          po.status === "Completed" ? "bg-green-500" : "bg-blue-500"
-                        }`}></div>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
+                          po.status === "Completed"
+                            ? "bg-green-50 text-green-700 border border-green-200"
+                            : "bg-blue-50 text-blue-700 border border-blue-200"
+                        }`}
+                      >
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            po.status === "Completed"
+                              ? "bg-green-500"
+                              : "bg-blue-500"
+                          }`}
+                        ></div>
                         {po.status || "In Progress"}
                       </span>
                     </div>
@@ -249,22 +267,36 @@ const CompaniesPage = () => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b border-slate-200 bg-white">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">Create Purchase Order</h2>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Create Purchase Order
+                </h2>
                 <button
                   onClick={() => setShowForm(false)}
                   className="text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </button>
               </div>
             </div>
             <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
-              <POForm onClose={() => {
-                setShowForm(false);
-                setReloadKey((k) => k + 1); // Trigger refetch
-              }} />
+              <POForm
+                onClose={() => {
+                  setShowForm(false);
+                  setReloadKey((k) => k + 1); // Trigger refetch
+                }}
+              />
             </div>
           </div>
         </div>

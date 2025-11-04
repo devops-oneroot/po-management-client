@@ -136,7 +136,9 @@ export default function BuyerDetails() {
             <div className="w-16 h-16 bg-red-50 rounded-lg flex items-center justify-center mx-auto mb-6">
               <Package className="w-8 h-8 text-red-500" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Buyer Not Found</h3>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">
+              Buyer Not Found
+            </h3>
             <p className="text-sm text-slate-600">No buyer details found.</p>
           </div>
         </div>
@@ -160,7 +162,10 @@ export default function BuyerDetails() {
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-slate-600">Status:</span>
             {/* Validation Warning */}
-            {(buyer?.quantityUnloaded == null || buyer?.rejectedQuantity == null || Number(buyer?.quantityUnloaded) <= Number(buyer?.rejectedQuantity)) && (
+            {(buyer?.quantityUnloaded == null ||
+              buyer?.rejectedQuantity == null ||
+              Number(buyer?.quantityUnloaded) <=
+                Number(buyer?.rejectedQuantity)) && (
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-md">
                 <span className="text-xs font-medium text-amber-700">
                   ⚠️ Complete weighment data first
@@ -171,25 +176,29 @@ export default function BuyerDetails() {
               value={status}
               onChange={async (e) => {
                 const newStatus = e.target.value;
-                
+
                 // Only validate quantities when changing status to COMPLETED
                 if (newStatus === "COMPLETED") {
                   const unloaded = buyer?.quantityUnloaded;
                   const rejected = buyer?.rejectedQuantity;
-                  
+
                   // Check if quantities are present and valid
                   if (unloaded == null || rejected == null) {
-                    alert("⚠️ Please enter both unloaded and rejected quantity values before marking as completed.");
+                    alert(
+                      "⚠️ Please enter both unloaded and rejected quantity values before marking as completed."
+                    );
                     return;
                   }
-                  
+
                   // Check if unloaded is greater than rejected
                   if (Number(unloaded) <= Number(rejected)) {
-                    alert("⚠️ Unloaded quantity must be greater than rejected quantity. Please enter correct values.");
+                    alert(
+                      "⚠️ Unloaded quantity must be greater than rejected quantity. Please enter correct values."
+                    );
                     return;
                   }
                 }
-                
+
                 setStatus(newStatus);
                 try {
                   await axios.patch(
@@ -235,7 +244,8 @@ export default function BuyerDetails() {
                   {buyer?.user?.name}
                 </h2>
                 <p className="text-sm text-slate-500 mt-1">
-                  {buyer?.user?.village || "Unknown"}, {buyer?.user?.district || ""}
+                  {buyer?.user?.village || "Unknown"},{" "}
+                  {buyer?.user?.district || ""}
                 </p>
                 <div className="flex items-center gap-2 mt-2 text-sm text-slate-700">
                   <Phone className="w-4 h-4 text-slate-500" />
@@ -249,7 +259,8 @@ export default function BuyerDetails() {
               <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center">
                 <p className="text-xs text-slate-600 mb-1">Quantity</p>
                 <p className="text-lg font-semibold text-slate-900">
-                  {buyer?.promisedQuantity || 0} {buyer?.promisedQuantityMeasure || ""}
+                  {buyer?.promisedQuantity || 0}{" "}
+                  {buyer?.promisedQuantityMeasure || ""}
                 </p>
               </div>
               <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center">
@@ -273,7 +284,10 @@ export default function BuyerDetails() {
           <div className="bg-slate-50 rounded-lg p-5 border border-slate-200">
             <div className="flex items-center gap-4">
               <Image
-                src={buyer?.masterPO?.poCompany?.company_logo || "/default-logo.png"}
+                src={
+                  buyer?.masterPO?.poCompany?.company_logo ||
+                  "/default-logo.png"
+                }
                 alt="Company Logo"
                 width={56}
                 height={56}
@@ -355,10 +369,11 @@ export default function BuyerDetails() {
             truckNo={buyer.truckNo}
             driverName={buyer.driverName}
             driverPhone={buyer.driverPhone}
+            deliveryLocation={buyer.deliveryLocation}
             onUpdate={() => setReloadKey((k) => k + 1)}
           />
-          <UploadReports 
-            id={buyer.id} 
+          <UploadReports
+            id={buyer.id}
             data={buyer}
             onUpdate={() => setReloadKey((k) => k + 1)}
           />
@@ -383,7 +398,7 @@ export default function BuyerDetails() {
             grnImages={buyer.grnImages}
             onUpdate={() => setReloadKey((k) => k + 1)}
           />
-          
+
           <PaymentDetails
             assigneeId={buyer.id}
             onUpdate={() => setReloadKey((k) => k + 1)}

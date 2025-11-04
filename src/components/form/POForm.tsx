@@ -37,6 +37,8 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
   const [poQuantityMeasure, setPoQuantityMeasure] = useState("QUINTAL");
   const [poPrice, setPoPrice] = useState("");
   const [poExpiryDate, setPoExpiryDate] = useState("");
+  const [poIssuedDate, setPoIssueDate] = useState("");
+  const [poNumber, setPoNumber] = useState<number | "">("");
   const [specification, setSpecification] = useState("");
   const [terms, setTerms] = useState("");
   const [poDocCopy, setPoDocCopy] = useState<string>("");
@@ -124,7 +126,9 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
       !cropName ||
       !poQuantity ||
       !poPrice ||
-      !poExpiryDate
+      !poExpiryDate ||
+      !poIssuedDate ||
+      !poNumber
     ) {
       alert("Please fill all required fields");
       return;
@@ -138,6 +142,8 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
       poQuantityMeasure,
       poPrice,
       poExpiryDate,
+      poIssuedDate,
+      poNumber,
       specification,
       termsAndConditions: terms,
       poDocCopy,
@@ -146,14 +152,11 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
 
     try {
       setLoading(true);
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/master-po`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/master-po`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       if (!res.ok) {
         const errData = await res.json();
@@ -319,6 +322,30 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Issue Date
+            </label>
+            <input
+              type="date"
+              value={poIssuedDate}
+              onChange={(e) => setPoIssueDate(e.target.value)}
+              className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              PO NUmber
+            </label>
+            <input
+              type="text"
+              value={poNumber}
+              onChange={(e) => setPoNumber(e.target.value)}
+              className="w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+            />
+          </div>
+
           {/* Quantity + Measure + Price */}
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -353,7 +380,7 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Price (₹)
+                Our Price (₹)
               </label>
               <input
                 type="text"

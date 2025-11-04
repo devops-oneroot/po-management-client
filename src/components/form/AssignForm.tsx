@@ -16,7 +16,13 @@ enum QuantityUnit {
   BOX = "BOX",
 }
 
-const AssignBuyerForm = ({ masterPOId, onClose }: { masterPOId: string; onClose?: () => void }) => {
+const AssignBuyerForm = ({
+  masterPOId,
+  onClose,
+}: {
+  masterPOId: string;
+  onClose?: () => void;
+}) => {
   const [search, setSearch] = useState("");
   const [buyers, setBuyers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -101,7 +107,7 @@ const AssignBuyerForm = ({ masterPOId, onClose }: { masterPOId: string; onClose?
       setSelectedBuyer(null);
       setBuyers([]);
       setSearch("");
-      
+
       // Close modal after 2 seconds if callback provided
       setTimeout(() => {
         onClose?.();
@@ -167,7 +173,7 @@ const AssignBuyerForm = ({ masterPOId, onClose }: { masterPOId: string; onClose?
       </form>
 
       {/* Buyer List */}
-      {buyers.length > 0 && (
+      {/* {buyers.length > 0 && (
         <div className="mb-6 border border-slate-200 rounded-lg divide-y divide-slate-200">
           {buyers.map((buyer) => (
             <div
@@ -191,6 +197,34 @@ const AssignBuyerForm = ({ masterPOId, onClose }: { masterPOId: string; onClose?
               </span>
             </div>
           ))}
+        </div>
+      )} */}
+      {buyers.length > 0 && (
+        <div className="mb-6 border border-slate-200 rounded-lg">
+          <div className="divide-y divide-slate-200 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
+            {buyers.map((buyer) => (
+              <div
+                key={buyer.id}
+                className={`p-4 cursor-pointer flex justify-between items-center hover:bg-slate-50 transition-colors duration-150 ${
+                  selectedBuyer?.id === buyer.id
+                    ? "bg-blue-50 border-l-4 border-blue-500"
+                    : ""
+                }`}
+                onClick={() => setSelectedBuyer(buyer)}
+              >
+                <div>
+                  <p className="font-medium text-slate-900">{buyer.name}</p>
+                  <p className="text-sm text-slate-600">{buyer.mobileNumber}</p>
+                  <p className="text-xs text-slate-500">
+                    {buyer.village}, {buyer.district}
+                  </p>
+                </div>
+                <span className="text-xs bg-slate-100 px-2.5 py-1 rounded-md text-slate-600 border border-slate-200">
+                  {buyer.identity}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
