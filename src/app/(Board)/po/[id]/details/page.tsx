@@ -14,6 +14,8 @@ import {
   Hash,
   ArrowLeft,
   Loader2,
+  Edit2,
+  X,
 } from "lucide-react";
 
 import PaymentDetails from "@/src/components/details/PaymentDetails";
@@ -25,7 +27,7 @@ import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import axios from "axios";
 
-// Utility function to format date
+// Format date helper
 function formatDate(dateString: string) {
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return "Invalid date";
@@ -47,10 +49,15 @@ export default function BuyerDetails() {
   >(null);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // --- Editable Fields ---
+  const [editField, setEditField] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<any>({});
+  const [savingField, setSavingField] = useState<string | null>(null);
+
   const { id } = useParams();
   const router = useRouter();
 
-  // Fetch Buyer Assignment Details (refetches when reloadKey changes)
+  // Fetch data
   useEffect(() => {
     if (!id) return;
     const fetchBuyer = async () => {
@@ -59,12 +66,22 @@ export default function BuyerDetails() {
         const res = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`
         );
-        setBuyer(res.data.data);
-        setStatus(res.data.data?.status || "");
-        setAdditionalNotes(res.data.data?.additionalNotes || "");
-        setDeductionNotes(res.data.data?.deductionNotes || "");
+        const data = res.data.data;
+        setBuyer(data);
+        setStatus(data?.status || "");
+        setAdditionalNotes(data?.additionalNotes || "");
+        setDeductionNotes(data?.deductionNotes || "");
+
+        // Initialize edit values
+        setEditValues({
+          promisedQuantity: data?.promisedQuantity ?? "",
+          promisedQuantityMeasure: data?.promisedQuantityMeasure ?? "QUINTAL",
+          rate: data?.rate ?? "",
+          promisedDate: data?.promisedDate?.split("T")[0] ?? "", // ISO date format
+        });
       } catch (error) {
         console.error("Error fetching buyer details:", error);
+        alert("Failed to load buyer details.");
       } finally {
         setLoading(false);
       }
@@ -72,6 +89,79 @@ export default function BuyerDetails() {
 
     fetchBuyer();
   }, [id, reloadKey]);
+
+  // Start editing
+  const startEdit = (field: string) => {
+    setEditField(field);
+  };
+
+  // Cancel editing
+  const cancelEdit = () => {
+    setEditField(null);
+    setEditValues((prev: any) => ({
+      ...prev,
+      promisedQuantity: buyer?.promisedQuantity ?? "",
+      promisedQuantityMeasure: buyer?.promisedQuantityMeasure ?? "QUINTAL",
+      rate: buyer?.rate ?? "",
+      promisedDate: buyer?.promisedDate?.split("T")[0] ?? "",
+    }));
+  };
+
+  // Save field — CORRECT TYPES
+  const saveField = async (field: string) => {
+    let value = editValues[field];
+
+    // Convert to correct type
+    if (field === "promisedQuantity" || field === "rate") {
+      value = Number(value);
+      if (isNaN(value) || value <= 0) {
+        alert(
+          `${
+            field === "promisedQuantity" ? "Quantity" : "Rate"
+          } must be greater than 0.`
+        );
+        return;
+      }
+    }
+
+    if (field === "promisedDate" && !value) {
+      alert("Please select a valid date.");
+      return;
+    }
+
+    if (field === "promisedQuantityMeasure" && !value) {
+      alert("Please select a unit.");
+      return;
+    }
+
+    setSavingField(field);
+    try {
+      const payload: any = { [field]: value };
+
+      // Send measure with quantity
+      if (field === "promisedQuantity") {
+        payload.promisedQuantityMeasure = editValues.promisedQuantityMeasure;
+      }
+
+      await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
+        payload,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      alert(`${field.replace(/([A-Z])/g, " $1").trim()} updated successfully!`);
+      setEditField(null);
+      setReloadKey((k) => k + 1); // Refetch
+    } catch (error: any) {
+      console.error("Error updating field:", error);
+      const msg =
+        error?.response?.data?.message?.[0] ||
+        "Update failed. Please check input.";
+      alert(msg);
+    } finally {
+      setSavingField(null);
+    }
+  };
 
   // Save Additional Notes
   const handleSaveAdditionalNotes = async () => {
@@ -82,12 +172,11 @@ export default function BuyerDetails() {
         `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
         { additionalNotes }
       );
-      alert("Additional Notes updated successfully ✅");
-      // Refetch data
+      alert("Additional Notes updated");
       setReloadKey((k) => k + 1);
     } catch (error) {
       console.error("Error updating additional notes:", error);
-      alert("Failed to update Additional Notes ❌");
+      alert("Failed to update Additional Notes");
     } finally {
       setSavingNoteType(null);
     }
@@ -102,12 +191,11 @@ export default function BuyerDetails() {
         `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
         { deductionNotes }
       );
-      alert("Deduction Notes updated successfully ✅");
-      // Refetch data
+      alert("Deduction Notes updated");
       setReloadKey((k) => k + 1);
     } catch (error) {
       console.error("Error updating deduction notes:", error);
-      alert("Failed to update Deduction Notes ❌");
+      alert("Failed to update Deduction Notes");
     } finally {
       setSavingNoteType(null);
     }
@@ -161,14 +249,13 @@ export default function BuyerDetails() {
 
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-slate-600">Status:</span>
-            {/* Validation Warning */}
             {(buyer?.quantityUnloaded == null ||
               buyer?.rejectedQuantity == null ||
               Number(buyer?.quantityUnloaded) <=
                 Number(buyer?.rejectedQuantity)) && (
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-md">
                 <span className="text-xs font-medium text-amber-700">
-                  ⚠️ Complete weighment data first
+                  Complete weighment data first
                 </span>
               </div>
             )}
@@ -176,25 +263,17 @@ export default function BuyerDetails() {
               value={status}
               onChange={async (e) => {
                 const newStatus = e.target.value;
-
-                // Only validate quantities when changing status to COMPLETED
                 if (newStatus === "COMPLETED") {
                   const unloaded = buyer?.quantityUnloaded;
                   const rejected = buyer?.rejectedQuantity;
-
-                  // Check if quantities are present and valid
                   if (unloaded == null || rejected == null) {
                     alert(
-                      "⚠️ Please enter both unloaded and rejected quantity values before marking as completed."
+                      "Enter both unloaded and rejected quantity before completing."
                     );
                     return;
                   }
-
-                  // Check if unloaded is greater than rejected
                   if (Number(unloaded) <= Number(rejected)) {
-                    alert(
-                      "⚠️ Unloaded quantity must be greater than rejected quantity. Please enter correct values."
-                    );
+                    alert("Unloaded must be greater than rejected.");
                     return;
                   }
                 }
@@ -205,13 +284,11 @@ export default function BuyerDetails() {
                     `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
                     { status: newStatus }
                   );
-                  alert(`Status updated to ${newStatus} ✅`);
-                  // Refetch data to show updated status
+                  alert(`Status updated to ${newStatus}`);
                   setReloadKey((k) => k + 1);
                 } catch (error) {
                   console.error("Error updating status:", error);
-                  alert("Failed to update status ❌");
-                  // Revert status on error
+                  alert("Failed to update status");
                   setStatus(buyer?.status || "");
                 }
               }}
@@ -254,28 +331,174 @@ export default function BuyerDetails() {
               </div>
             </div>
 
-            {/* Stats */}
+            {/* Editable Stats */}
             <div className="flex gap-3">
-              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center">
+              {/* Quantity */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center relative">
                 <p className="text-xs text-slate-600 mb-1">Quantity</p>
-                <p className="text-lg font-semibold text-slate-900">
-                  {buyer?.promisedQuantity || 0}{" "}
-                  {buyer?.promisedQuantityMeasure || ""}
-                </p>
+                {editField === "promisedQuantity" ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={editValues.promisedQuantity}
+                      onChange={(e) =>
+                        setEditValues({
+                          ...editValues,
+                          promisedQuantity: e.target.value,
+                        })
+                      }
+                      className="w-16 px-1 py-0.5 text-sm border border-slate-300 rounded"
+                      min="0.01"
+                      step="0.01"
+                      autoFocus
+                    />
+                    <select
+                      value={editValues.promisedQuantityMeasure}
+                      onChange={(e) =>
+                        setEditValues({
+                          ...editValues,
+                          promisedQuantityMeasure: e.target.value,
+                        })
+                      }
+                      className="text-xs border border-slate-300 rounded px-1 py-0.5"
+                    >
+                      <option value="QUINTAL">QUINTAL</option>
+                      <option value="KG">KG</option>
+                    </select>
+                    <button
+                      onClick={() => saveField("promisedQuantity")}
+                      disabled={savingField === "promisedQuantity"}
+                      className="p-1 text-green-600 hover:bg-green-50 rounded"
+                    >
+                      {savingField === "promisedQuantity" ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="p-1 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-lg font-semibold text-slate-900">
+                      {buyer?.promisedQuantity || 0}{" "}
+                      {buyer?.promisedQuantityMeasure || ""}
+                    </p>
+                    <button
+                      onClick={() => startEdit("promisedQuantity")}
+                      className="absolute top-1 right-1 p-1 text-slate-500 hover:text-blue-600"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                  </>
+                )}
               </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center">
+
+              {/* Rate */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center relative">
                 <p className="text-xs text-slate-600 mb-1">Rate</p>
-                <p className="text-lg font-semibold text-slate-900">
-                  ₹{buyer?.rate || "N/A"}
-                </p>
+                {editField === "rate" ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm">₹</span>
+                    <input
+                      type="number"
+                      value={editValues.rate}
+                      onChange={(e) =>
+                        setEditValues({ ...editValues, rate: e.target.value })
+                      }
+                      className="w-16 px-1 py-0.5 text-sm border border-slate-300 rounded"
+                      min="0.01"
+                      step="0.01"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => saveField("rate")}
+                      disabled={savingField === "rate"}
+                      className="p-1 text-green-600 hover:bg-green-50 rounded"
+                    >
+                      {savingField === "rate" ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="p-1 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-lg font-semibold text-slate-900">
+                      ₹{buyer?.rate || "N/A"}
+                    </p>
+                    <button
+                      onClick={() => startEdit("rate")}
+                      className="absolute top-1 right-1 p-1 text-slate-500 hover:text-blue-600"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                  </>
+                )}
               </div>
-              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center">
+
+              {/* Promised Date */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-center relative">
                 <p className="text-xs text-slate-600 mb-1">Promised Date</p>
-                <p className="text-sm font-semibold text-slate-900">
-                  {buyer?.promisedDate
-                    ? new Date(buyer.promisedDate).toLocaleDateString()
-                    : "N/A"}
-                </p>
+                {editField === "promisedDate" ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="date"
+                      value={editValues.promisedDate}
+                      onChange={(e) =>
+                        setEditValues({
+                          ...editValues,
+                          promisedDate: e.target.value,
+                        })
+                      }
+                      className="text-sm border border-slate-300 rounded px-1 py-0.5"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => saveField("promisedDate")}
+                      disabled={savingField === "promisedDate"}
+                      className="p-1 text-green-600 hover:bg-green-50 rounded"
+                    >
+                      {savingField === "promisedDate" ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="p-1 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {buyer?.promisedDate
+                        ? formatDate(buyer.promisedDate)
+                        : "N/A"}
+                    </p>
+                    <button
+                      onClick={() => startEdit("promisedDate")}
+                      className="absolute top-1 right-1 p-1 text-slate-500 hover:text-blue-600"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -293,7 +516,6 @@ export default function BuyerDetails() {
                 height={56}
                 className="rounded-lg border border-slate-200 shadow-sm"
               />
-
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-slate-900">
                   {buyer?.masterPO?.poCompany?.name || "Company Name"}
@@ -303,7 +525,6 @@ export default function BuyerDetails() {
                   {buyer?.masterPO?.poCompany?.address || "Company Address"}
                 </p>
               </div>
-
               <div className="flex gap-3">
                 <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 text-center">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -314,7 +535,6 @@ export default function BuyerDetails() {
                     {buyer?.createdAt ? formatDate(buyer.createdAt) : "N/A"}
                   </span>
                 </div>
-
                 <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 text-center">
                   <div className="flex items-center gap-1.5 mb-1">
                     <CalendarDays className="w-4 h-4 text-slate-500" />
@@ -327,7 +547,6 @@ export default function BuyerDetails() {
               </div>
             </div>
 
-            {/* PO Stats */}
             <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-200">
               <div>
                 <div className="flex items-center gap-2 text-slate-600 mb-1">
@@ -338,7 +557,6 @@ export default function BuyerDetails() {
                   ₹{buyer?.masterPO?.poPrice}
                 </p>
               </div>
-
               <div>
                 <div className="flex items-center gap-2 text-slate-600 mb-1">
                   <Package className="w-4 h-4" />
@@ -348,7 +566,6 @@ export default function BuyerDetails() {
                   {buyer?.masterPO?.poQuantity || 0}
                 </p>
               </div>
-
               <div>
                 <div className="flex items-center gap-2 text-slate-600 mb-1">
                   <Hash className="w-4 h-4" />
@@ -389,7 +606,6 @@ export default function BuyerDetails() {
             weighmentImages={buyer.weighmentImages}
             onUpdate={() => setReloadKey((k) => k + 1)}
           />
-
           <GRNDetails
             id={buyer.id}
             grnDate={buyer.grnDate}
@@ -398,16 +614,14 @@ export default function BuyerDetails() {
             grnImages={buyer.grnImages}
             onUpdate={() => setReloadKey((k) => k + 1)}
           />
-
           <PaymentDetails
             assigneeId={buyer.id}
             onUpdate={() => setReloadKey((k) => k + 1)}
           />
         </div>
 
-        {/* Notes Sections */}
+        {/* Notes */}
         <div className="grid md:grid-cols-2 gap-4">
-          {/* Additional Notes */}
           <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
             <label className="block text-sm font-semibold text-slate-900 mb-3">
               Additional Notes
@@ -435,7 +649,6 @@ export default function BuyerDetails() {
             </button>
           </div>
 
-          {/* Deduction Notes */}
           <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200">
             <label className="block text-sm font-semibold text-slate-900 mb-3">
               Deduction Notes
