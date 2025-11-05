@@ -478,7 +478,6 @@ const OrderCard: React.FC = () => {
                   <tr
                     key={order.id}
                     className="hover:bg-slate-50/50 transition-colors cursor-pointer"
-                    onClick={() => window.open(`/eois/${order.id}`, "_blank")}
                   >
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
@@ -604,7 +603,6 @@ const OrderCard: React.FC = () => {
                     <td className="px-4 py-4 text-center">
                       <Link
                         href={`/eois/${order.id}`}
-                        target="_blank"
                         onClick={(e) => e.stopPropagation()}
                         className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium"
                       >

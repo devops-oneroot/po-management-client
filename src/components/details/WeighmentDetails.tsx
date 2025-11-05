@@ -130,24 +130,38 @@ export default function WeighmentDetails({
     }
   };
 
-  // Save to backend
+  // Save to backend - ONLY SEND FIELDS THAT HAVE VALUES
   const handleUpdate = async () => {
     if (!id) return;
 
-    if (!formData.quantityLoadedMeasure || !formData.quantityUnloadedMeasure) {
-      setErrors({ measure: "Please select both measures" });
+    // Validation: if quantity is entered, measure must be selected
+    if (
+      (formData.quantityLoaded && !formData.quantityLoadedMeasure) ||
+      (formData.quantityUnloaded && !formData.quantityUnloadedMeasure)
+    ) {
+      setErrors({ measure: "Please select measure for the entered quantity" });
       return;
     }
 
     try {
       setLoading(true);
-      const payload = {
-        quantityLoaded: Number(formData.quantityLoaded),
-        quantityLoadedMeasure: formData.quantityLoadedMeasure,
-        quantityUnloaded: Number(formData.quantityUnloaded),
-        quantityUnloadedMeasure: formData.quantityUnloadedMeasure,
+
+      // Build payload conditionally
+      const payload: any = {
         weighmentImages: formData.weighmentImages,
       };
+
+      // Only include quantityLoaded if user entered a value
+      if (formData.quantityLoaded) {
+        payload.quantityLoaded = Number(formData.quantityLoaded);
+        payload.quantityLoadedMeasure = formData.quantityLoadedMeasure;
+      }
+
+      // Only include quantityUnloaded if user entered a value
+      if (formData.quantityUnloaded) {
+        payload.quantityUnloaded = Number(formData.quantityUnloaded);
+        payload.quantityUnloadedMeasure = formData.quantityUnloadedMeasure;
+      }
 
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
@@ -159,7 +173,7 @@ export default function WeighmentDetails({
         text: "Weighment details updated!",
       });
       setTimeout(() => setMessage(null), 3000);
-      
+
       // Trigger parent refetch
       setTimeout(() => {
         onUpdate?.();
@@ -185,14 +199,16 @@ export default function WeighmentDetails({
       <div className="flex flex-col gap-4">
         {/* Quantity Loaded */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Loading Quantity</label>
+          <label className="text-sm font-medium text-slate-700">
+            Loading Quantity
+          </label>
           <div className="flex gap-2">
             <input
               type="number"
               name="quantityLoaded"
               value={formData.quantityLoaded}
               onChange={handleChange}
-              placeholder="10.25"
+              placeholder="Leave blank if not loaded"
               className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
             />
             <select
@@ -213,14 +229,16 @@ export default function WeighmentDetails({
 
         {/* Quantity Unloaded */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Unloading Quantity</label>
+          <label className="text-sm font-medium text-slate-700">
+            Unloading Quantity
+          </label>
           <div className="flex gap-2">
             <input
               type="number"
               name="quantityUnloaded"
               value={formData.quantityUnloaded}
               onChange={handleChange}
-              placeholder="10.25"
+              placeholder="e.g. 22"
               className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
             />
             <select
@@ -248,7 +266,9 @@ export default function WeighmentDetails({
 
         {/* Image Upload */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Weighment Images</label>
+          <label className="text-sm font-medium text-slate-700">
+            Weighment Images
+          </label>
           <input
             type="file"
             multiple
