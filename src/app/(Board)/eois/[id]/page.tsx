@@ -39,6 +39,8 @@ import { toast, Toaster } from "react-hot-toast";
 
 import { useRouter } from "next/navigation";
 import OrderForm from "@/src/components/form/OrderForm";
+import Poleads from "@/src/components/chatrace/Poleads";
+import AssignInterestForm from "@/src/components/form/AssignInterestForm";
 
 const cropNamesKannada: Record<string, string> = {
   maize: "ಮೆಕ್ಕೆಜೋಳ",
@@ -240,6 +242,51 @@ const PurchaseOrderDetails: React.FC = () => {
   const [nearbyBuyers, setNearbyBuyers] = useState<any[]>([]);
   const [buyersMeta, setBuyersMeta] = useState<any>(null);
   const [showBuyersModal, setShowBuyersModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<"interests" | "leads">("leads");
+  const [editingInterest, setEditingInterest] = useState<Interest | null>(null);
+  const [isInterestEditOpen, setIsInterestEditOpen] = useState(false);
+  const [editQuantity, setEditQuantity] = useState("");
+  const [editCommitDate, setEditCommitDate] = useState("");
+  const [showModal, setShowModal] = useState(false);
+
+  const updateInterestMutation = useMutation({
+    mutationFn: async (payload: {
+      interestId: string;
+      quantity: number;
+      commitDate: string;
+    }) => {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/po-interested/${payload.interestId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authData.accessToken}`,
+          },
+          body: JSON.stringify({
+            userId: editingInterest?.user.id,
+            poId: order?.id,
+            quantity: payload.quantity,
+            commitDate: payload.commitDate,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to update interest");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchaseOrder", id] });
+      toast.success("Interest updated successfully!");
+      closeInterestEditModal();
+    },
+    onError: (error: any) => {
+      toast.error(`Update failed: ${error.message}`);
+    },
+  });
 
   const {
     data: order,
@@ -249,6 +296,14 @@ const PurchaseOrderDetails: React.FC = () => {
     queryKey: ["purchaseOrder", id],
     queryFn: () => fetchPurchaseOrder(id as string),
   });
+
+  useEffect(() => {
+    if (order && order.interests && order.interests.length > 0) {
+      setActiveTab("interests");
+    } else {
+      setActiveTab("leads");
+    }
+  }, [order]);
 
   // Mock authData (replace with real auth context in production)
   const authData = { accessToken: "mock-token" };
@@ -288,6 +343,20 @@ const PurchaseOrderDetails: React.FC = () => {
     setSelectedOrder(orderData);
     setIsEditMode(true);
     setIsEditModalOpen(true);
+  };
+
+  const openInterestEditModal = (interest: Interest) => {
+    setEditingInterest(interest);
+    setEditQuantity(interest.quantity);
+    setEditCommitDate(interest.commitDate.split("T")[0]); // Format YYYY-MM-DD
+    setIsInterestEditOpen(true);
+  };
+
+  const closeInterestEditModal = () => {
+    setIsInterestEditOpen(false);
+    setEditingInterest(null);
+    setEditQuantity("");
+    setEditCommitDate("");
   };
 
   const closeEditModal = () => {
@@ -996,6 +1065,23 @@ const PurchaseOrderDetails: React.FC = () => {
           )}
         </div>
 
+        {/* Example inside a modal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <AssignInterestForm
+              poId="4a0dd557-a888-4529-b4b6-4acb10e568ec"
+              onClose={() => setShowModal(false)}
+            />
+          </div>
+        )}
+
+        <button
+          onClick={() => setShowModal(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-black mt-10 text-white rounded-md font-medium text-sm"
+        >
+          Add Interest
+        </button>
+
         {/* Buyers Modal */}
         {showBuyersModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1003,7 +1089,8 @@ const PurchaseOrderDetails: React.FC = () => {
               <div className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
                 <div>
                   <h3 className="text-lg font-semibold">
-                    Nearby Buyers ({buyersMeta?.totalItems || nearbyBuyers.length})
+                    Nearby Buyers (
+                    {buyersMeta?.totalItems || nearbyBuyers.length})
                   </h3>
                   <p className="text-sm text-slate-300">
                     Within {distanceKm}km • Page {buyersMeta?.currentPage || 1}
@@ -1082,7 +1169,13 @@ const PurchaseOrderDetails: React.FC = () => {
                                   const cropKey = order.cropName?.toLowerCase();
                                   const message = `🌾 ${
                                     cropNamesKannada[cropKey] || order.cropName
-                                  } ಕ್ಕಾಗಿ, ಈ ಖರೀದಿದಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ 👇\n\n📍 ಗ್ರಾಮ: ${buyer.village}\n🏢 ತಾಲೂಕು: ${buyer.taluk}\n🌆 ಜಿಲ್ಲೆ: ${buyer.district}\n\n🔗 ಲಿಂಕ್: https://oneroot.farm/farmer/buyer/${buyer.id}\nಲಿಂಕ್ ಮೂಲಕ ವ್ಯಾಪಾರಸ್ಥರೊಂದಿಗೆ ನೇರವಾಗಿ ಸಂಪರ್ಕಿಸಿ ಮತ್ತು ವ್ಯವಹರಿಸಿ!\n\n🙏 ಧನ್ಯವಾದಗಳು,\nಮಾರ್ಕೆಟ್ ಆಪ್‌ 🚜`;
+                                  } ಕ್ಕಾಗಿ, ಈ ಖರೀದಿದಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ 👇\n\n📍 ಗ್ರಾಮ: ${
+                                    buyer.village
+                                  }\n🏢 ತಾಲೂಕು: ${buyer.taluk}\n🌆 ಜಿಲ್ಲೆ: ${
+                                    buyer.district
+                                  }\n\n🔗 ಲಿಂಕ್: https://oneroot.farm/farmer/buyer/${
+                                    buyer.id
+                                  }\nಲಿಂಕ್ ಮೂಲಕ ವ್ಯಾಪಾರಸ್ಥರೊಂದಿಗೆ ನೇರವಾಗಿ ಸಂಪರ್ಕಿಸಿ ಮತ್ತು ವ್ಯವಹರಿಸಿ!\n\n🙏 ಧನ್ಯವಾದಗಳು,\nಮಾರ್ಕೆಟ್ ಆಪ್‌ 🚜`;
                                   navigator.clipboard.writeText(message);
                                   toast.success("Message copied!");
                                 }}
@@ -1093,7 +1186,10 @@ const PurchaseOrderDetails: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => {
-                                  window.open(`https://markhet.vercel.app/user/buyer/${buyer.id}`, '_blank');
+                                  window.open(
+                                    `https://markhet.vercel.app/user/buyer/${buyer.id}`,
+                                    "_blank"
+                                  );
                                 }}
                                 className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                               >
@@ -1146,141 +1242,395 @@ const PurchaseOrderDetails: React.FC = () => {
         )}
 
         {/* Interests Table */}
-        {order.interests && order.interests.length > 0 && (
+
+        {/* --------------------------------------------------------------
+     TAB: Interested Buyers  |  Leads for Chatrace
+   -------------------------------------------------------------- */}
+        {(order.interests?.length ?? 0) > 0 || true ? ( // always render the card
           <div className="mt-6 bg-white shadow-sm rounded-lg overflow-hidden border border-slate-200">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200">
-              <div className="flex items-center gap-3">
-                <Users className="w-5 h-5 text-slate-600" />
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900">
-                    Buyer Interests
-                  </h3>
-                  <p className="text-sm text-slate-600">
-                    {order.interests.length} buyer
-                    {order.interests.length !== 1 ? "s" : ""} interested
-                  </p>
+            {/* ----- Tab Header ----- */}
+            <div className="flex border-b border-slate-200">
+              {[
+                {
+                  key: "interests",
+                  label: "Interested Buyers",
+                  count: order.interests?.length ?? 0,
+                  icon: Users,
+                },
+                {
+                  key: "leads",
+                  label: "Leads from Chatrace",
+                  count: null,
+                  icon: Phone,
+                },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`
+            flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium
+            transition-colors duration-150
+            ${
+              activeTab === tab.key
+                ? "bg-white text-slate-900 border-b-2 border-blue-600"
+                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }
+          `}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                  {tab.count !== null && (
+                    <span className="ml-1 text-xs bg-slate-200 text-slate-700 rounded-full px-2 py-0.5">
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Interest Edit Modal */}
+            {isInterestEditOpen && editingInterest && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-md border border-slate-200">
+                  <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Edit Buyer Interest
+                    </h3>
+                    <button
+                      onClick={closeInterestEditModal}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Buyer
+                      </label>
+                      <p className="text-sm text-slate-900 font-medium">
+                        {editingInterest.user.name}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Quantity
+                      </label>
+                      <input
+                        type="number"
+                        value={editQuantity}
+                        onChange={(e) => setEditQuantity(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Commit Date
+                      </label>
+                      <input
+                        type="date"
+                        value={editCommitDate}
+                        onChange={(e) => setEditCommitDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
+                    <button
+                      onClick={closeInterestEditModal}
+                      className="px-4 py-2 text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 font-medium text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!editQuantity || !editCommitDate) {
+                          toast.error("Please fill all fields");
+                          return;
+                        }
+                        updateInterestMutation.mutate({
+                          interestId: editingInterest.id,
+                          quantity: parseFloat(editQuantity),
+                          commitDate: editCommitDate,
+                        });
+                      }}
+                      disabled={updateInterestMutation.isPending}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-md font-medium text-sm flex items-center gap-2"
+                    >
+                      {updateInterestMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                      Buyer
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                      Quantity
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                      Commit Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                      Contact
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                      Location
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {order.interests.map((interest) => {
-                    const user = interest.user;
-                    const statusClass = getStatusColor(user.userStatus);
-                    const initials = getUserInitials(user.name);
-                    const statusDisplay = getStatusDisplay(user.userStatus);
-                    const cropNamesDisplay = getCropNamesDisplay(
-                      user.cropNames
-                    );
+            {/* ----- Tab Body ----- */}
+            <div className="p-0">
+              {/* Interested Buyers Table */}
+              {activeTab === "interests" &&
+                order.interests &&
+                order.interests.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      {/* … SAME TABLE HEAD you already have … */}
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Buyer
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Quantity
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Commit Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Contact
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Location
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Edit
+                          </th>
+                        </tr>
+                      </thead>
 
-                    return (
-                      <tr key={interest.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-shrink-0">
-                              {user.profileImage ? (
-                                <img
-                                  className="w-10 h-10 rounded-full object-cover"
-                                  src={user.profileImage}
-                                  alt={user.name}
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-semibold text-sm">
-                                  {initials}
+                      {/* … SAME TABLE BODY you already have … */}
+                      <tbody className="divide-y divide-slate-200">
+                        {order.interests.map((interest) => {
+                          const user = interest.user;
+                          const statusClass = getStatusColor(user.userStatus);
+                          const initials = getUserInitials(user.name);
+                          const statusDisplay = getStatusDisplay(
+                            user.userStatus
+                          );
+                          const cropNamesDisplay = getCropNamesDisplay(
+                            user.cropNames
+                          );
+
+                          // return (
+                          //   <tr key={interest.id} className="hover:bg-slate-50">
+                          //     {/* ---- Buyer column ---- */}
+                          //     <td className="px-6 py-4">
+                          //       <div className="flex items-center gap-3">
+                          //         <div className="flex-shrink-0">
+                          //           {user.profileImage ? (
+                          //             <img
+                          //               className="w-10 h-10 rounded-full object-cover"
+                          //               src={user.profileImage}
+                          //               alt={user.name}
+                          //             />
+                          //           ) : (
+                          //             <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-semibold text-sm">
+                          //               {initials}
+                          //             </div>
+                          //           )}
+                          //         </div>
+                          //         <div>
+                          //           <div className="text-sm font-medium text-slate-900">
+                          //             {user.name}
+                          //           </div>
+                          //           <div className="text-xs text-slate-500 truncate max-w-32">
+                          //             {cropNamesDisplay}
+                          //           </div>
+                          //         </div>
+                          //       </div>
+                          //     </td>
+
+                          //     {/* ---- Quantity ---- */}
+                          //     <td className="px-6 py-4">
+                          //       <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                          //         {parseFloat(
+                          //           interest.quantity
+                          //         ).toLocaleString()}{" "}
+                          //         {order.measure}
+                          //       </span>
+                          //     </td>
+
+                          //     {/* ---- Commit Date ---- */}
+                          //     <td className="px-6 py-4 text-sm text-slate-700">
+                          //       <div className="flex items-center gap-2">
+                          //         <Clock className="w-4 h-4 text-slate-400" />
+                          //         <span>
+                          //           {formatCommitDate(interest.commitDate)}
+                          //         </span>
+                          //       </div>
+                          //     </td>
+
+                          //     {/* ---- Status ---- */}
+                          //     <td className="px-6 py-4">
+                          //       <span
+                          //         className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${statusClass}`}
+                          //       >
+                          //         {getStatusIcon(user.userStatus)}
+                          //         {statusDisplay}
+                          //       </span>
+                          //     </td>
+
+                          //     {/* ---- Contact ---- */}
+                          //     <td className="px-6 py-4 text-sm text-slate-700">
+                          //       <div className="flex items-center gap-2">
+                          //         <Phone className="w-4 h-4 text-slate-400" />
+                          //         <a
+                          //           href={`tel:${user.mobileNumber}`}
+                          //           className="text-blue-600 hover:text-blue-700 font-medium"
+                          //         >
+                          //           {user.mobileNumber}
+                          //         </a>
+                          //       </div>
+                          //     </td>
+
+                          //     {/* ---- Location ---- */}
+                          //     <td className="px-6 py-4">
+                          //       <div className="flex items-center gap-2">
+                          //         <Map className="w-4 h-4 text-slate-400" />
+                          //         <div className="text-sm">
+                          //           <div className="font-medium text-slate-900">
+                          //             {user.district}
+                          //           </div>
+                          //           <div className="text-xs text-slate-500">
+                          //             {user.village}
+                          //           </div>
+                          //         </div>
+                          //       </div>
+                          //     </td>
+                          //   </tr>
+                          // );
+
+                          return (
+                            <tr key={interest.id} className="hover:bg-slate-50">
+                              {/* ---- Buyer column ---- */}
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-shrink-0">
+                                    {user.profileImage ? (
+                                      <img
+                                        className="w-10 h-10 rounded-full object-cover"
+                                        src={user.profileImage}
+                                        alt={user.name}
+                                      />
+                                    ) : (
+                                      <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-semibold text-sm">
+                                        {initials}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="text-sm font-medium text-slate-900">
+                                      {user.name}
+                                    </div>
+                                    <div className="text-xs text-slate-500 truncate max-w-32">
+                                      {cropNamesDisplay}
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-slate-900">
-                                {user.name}
-                              </div>
-                              <div className="text-xs text-slate-500 truncate max-w-32">
-                                {cropNamesDisplay}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
+                              </td>
 
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                            {parseFloat(interest.quantity).toLocaleString()}{" "}
-                            {order.measure}
-                          </span>
-                        </td>
+                              {/* ---- Quantity ---- */}
+                              <td className="px-6 py-4">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                  {parseFloat(
+                                    interest.quantity
+                                  ).toLocaleString()}{" "}
+                                  {order.measure}
+                                </span>
+                              </td>
 
-                        <td className="px-6 py-4 text-sm text-slate-700">
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-slate-400" />
-                            <span>{formatCommitDate(interest.commitDate)}</span>
-                          </div>
-                        </td>
+                              {/* ---- Commit Date ---- */}
+                              <td className="px-6 py-4 text-sm text-slate-700">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-slate-400" />
+                                  <span>
+                                    {formatCommitDate(interest.commitDate)}
+                                  </span>
+                                </div>
+                              </td>
 
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${statusClass}`}
-                          >
-                            {getStatusIcon(user.userStatus)}
-                            {statusDisplay}
-                          </span>
-                        </td>
+                              {/* ---- Status ---- */}
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${statusClass}`}
+                                >
+                                  {getStatusIcon(user.userStatus)}
+                                  {statusDisplay}
+                                </span>
+                              </td>
 
-                        <td className="px-6 py-4 text-sm text-slate-700">
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-slate-400" />
-                            <a
-                              href={`tel:${user.mobileNumber}`}
-                              className="text-blue-600 hover:text-blue-700 font-medium"
-                            >
-                              {user.mobileNumber}
-                            </a>
-                          </div>
-                        </td>
+                              {/* ---- Contact ---- */}
+                              <td className="px-6 py-4 text-sm text-slate-700">
+                                <div className="flex items-center gap-2">
+                                  <Phone className="w-4 h-4 text-slate-400" />
+                                  <a
+                                    href={`tel:${user.mobileNumber}`}
+                                    className="text-blue-600 hover:text-blue-700 font-medium"
+                                  >
+                                    {user.mobileNumber}
+                                  </a>
+                                </div>
+                              </td>
 
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <Map className="w-4 h-4 text-slate-400" />
-                            <div className="text-sm">
-                              <div className="font-medium text-slate-900">
-                                {user.district}
-                              </div>
-                              <div className="text-xs text-slate-500">
-                                {user.village}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                              {/* ---- Location ---- */}
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <Map className="w-4 h-4 text-slate-400" />
+                                  <div className="text-sm">
+                                    <div className="font-medium text-slate-900">
+                                      {user.district}
+                                    </div>
+                                    <div className="text-xs text-slate-500">
+                                      {user.village}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* ---- Edit Action ---- */}
+                              <td className="px-6 py-4 text-right">
+                                <button
+                                  onClick={() =>
+                                    openInterestEditModal(interest)
+                                  }
+                                  className="text-blue-600 hover:text-blue-800 transition-colors"
+                                  title="Edit Interest"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+              {/* Leads for Chatrace */}
+              {activeTab === "leads" && (
+                <div className="">
+                  {/* Keep the original Poleads component – it already receives the order id */}
+                  {typeof id === "string" && <Poleads id={id} />}
+                </div>
+              )}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Edit Modal */}
@@ -1329,9 +1679,7 @@ const Header: React.FC = () => {
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Order Details
-        </h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Order Details</h1>
         <p className="text-sm text-slate-500 mt-1">Order #{params?.id}</p>
       </div>
       <Link
