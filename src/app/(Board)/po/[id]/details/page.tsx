@@ -364,6 +364,7 @@ export default function BuyerDetails() {
                     >
                       <option value="QUINTAL">QUINTAL</option>
                       <option value="KG">KG</option>
+                      <option value="TON">TON</option>
                     </select>
                     <button
                       onClick={() => saveField("promisedQuantity")}

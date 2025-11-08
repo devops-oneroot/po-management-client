@@ -176,14 +176,15 @@ const Poleads: React.FC<PoleadsProps> = ({ id }) => {
                 Name
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                Rate
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                Created At
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                 Mobile
               </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                Interested At
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                Rate Agreed
+              </th>
+
               <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                 Platform
               </th>
@@ -200,17 +201,13 @@ const Poleads: React.FC<PoleadsProps> = ({ id }) => {
                 <td className="px-6 py-4 text-sm font-medium text-slate-900">
                   {lead.user?.name || "N/A"}
                 </td>
-
                 <td className="px-6 py-4">
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${
-                      lead.rate > 0
-                        ? "bg-green-50 text-green-700 border-green-200"
-                        : "bg-amber-50 text-amber-700 border-amber-200"
-                    }`}
+                  <a
+                    href={`tel:${lead.mobileNumber}`}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    {lead.rate > 0 ? `₹${lead.rate}` : "No Rate"}
-                  </span>
+                    {lead.mobileNumber}
+                  </a>
                 </td>
 
                 <td className="px-6 py-4 text-sm text-slate-700">
@@ -226,12 +223,15 @@ const Poleads: React.FC<PoleadsProps> = ({ id }) => {
                 </td>
 
                 <td className="px-6 py-4">
-                  <a
-                    href={`tel:${lead.mobileNumber}`}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${
+                      lead.rate > 0
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-amber-50 text-amber-700 border-amber-200"
+                    }`}
                   >
-                    {lead.mobileNumber}
-                  </a>
+                    {lead.rate > 0 ? `₹${lead.rate}` : "No Rate"}
+                  </span>
                 </td>
 
                 <td className="px-6 py-4">

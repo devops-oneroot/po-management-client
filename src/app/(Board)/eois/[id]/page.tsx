@@ -1316,7 +1316,7 @@ const PurchaseOrderDetails: React.FC = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Quantity
+                        Quantity in Tons
                       </label>
                       <input
                         type="number"
@@ -1330,7 +1330,7 @@ const PurchaseOrderDetails: React.FC = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Commit Date
+                        Will Filful by
                       </label>
                       <input
                         type="date"
@@ -1389,16 +1389,10 @@ const PurchaseOrderDetails: React.FC = () => {
                       <thead className="bg-slate-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Interest shown on
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                             Buyer
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                            Quantity
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                            Commit Date
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
-                            Status
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                             Contact
@@ -1406,6 +1400,21 @@ const PurchaseOrderDetails: React.FC = () => {
                           <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                             Location
                           </th>
+
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Quantity
+                          </th>
+
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Price
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Will Fulfil by
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
+                            Status
+                          </th>
+
                           <th className="px-6 py-3 text-left text-xs font-semibold text-slate-900 uppercase">
                             Edit
                           </th>
@@ -1543,36 +1552,6 @@ const PurchaseOrderDetails: React.FC = () => {
                                 </div>
                               </td>
 
-                              {/* ---- Quantity ---- */}
-                              <td className="px-6 py-4">
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                                  {parseFloat(
-                                    interest.quantity
-                                  ).toLocaleString()}{" "}
-                                  {order.measure}
-                                </span>
-                              </td>
-
-                              {/* ---- Commit Date ---- */}
-                              <td className="px-6 py-4 text-sm text-slate-700">
-                                <div className="flex items-center gap-2">
-                                  <Clock className="w-4 h-4 text-slate-400" />
-                                  <span>
-                                    {formatCommitDate(interest.commitDate)}
-                                  </span>
-                                </div>
-                              </td>
-
-                              {/* ---- Status ---- */}
-                              <td className="px-6 py-4">
-                                <span
-                                  className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${statusClass}`}
-                                >
-                                  {getStatusIcon(user.userStatus)}
-                                  {statusDisplay}
-                                </span>
-                              </td>
-
                               {/* ---- Contact ---- */}
                               <td className="px-6 py-4 text-sm text-slate-700">
                                 <div className="flex items-center gap-2">
@@ -1599,6 +1578,53 @@ const PurchaseOrderDetails: React.FC = () => {
                                     </div>
                                   </div>
                                 </div>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-slate-700">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-slate-400" />
+                                  <span>
+                                    {formatCommitDate(interest.user.createdAt)}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* ---- Quantity ---- */}
+                              <td className="px-6 py-4">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                  {parseFloat(
+                                    interest.quantity
+                                  ).toLocaleString()}{" "}
+                                  {order.measure}
+                                </span>
+                              </td>
+
+                              {/* ---- price---- */}
+                              <td className="px-6 py-4">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                  {parseFloat(
+                                    order.price_rate
+                                  ).toLocaleString()}{" "}
+                                </span>
+                              </td>
+
+                              {/* ---- Commit Date ---- */}
+                              <td className="px-6 py-4 text-sm text-slate-700">
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-slate-400" />
+                                  <span>
+                                    {formatCommitDate(interest.commitDate)}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* ---- Status ---- */}
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${statusClass}`}
+                                >
+                                  {getStatusIcon(user.userStatus)}
+                                  {statusDisplay}
+                                </span>
                               </td>
 
                               {/* ---- Edit Action ---- */}
