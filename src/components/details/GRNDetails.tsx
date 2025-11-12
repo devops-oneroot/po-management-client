@@ -2,7 +2,17 @@
 
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Scale, Upload, Loader2, CheckCircle2, XCircle, X, AlertCircle } from "lucide-react";
+import {
+  Scale,
+  Upload,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  X,
+  AlertCircle,
+  FileText,
+  ExternalLink,
+} from "lucide-react";
 
 interface GRNDetailsProps {
   id: string;
@@ -38,7 +48,8 @@ export default function GRNDetails({
     rejectedQuantityMeasure: "",
     grnImages: [] as string[],
   });
-  const [file, setFile] = useState<File | null>(null);
+
+  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{
@@ -46,12 +57,12 @@ export default function GRNDetails({
     text: string;
   } | null>(null);
   const [errors, setErrors] = useState<{ measure?: string }>({});
-  const [popupImage, setPopupImage] = useState<string | null>(null);
+  const [popupFile, setPopupFile] = useState<string | null>(null);
 
   const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
   const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
 
-  // Prefill form
+  /* -------------------- Prefill form -------------------- */
   useEffect(() => {
     setForm({
       grnDate,
@@ -61,6 +72,7 @@ export default function GRNDetails({
     });
   }, [grnDate, rejectedQuantity, rejectedQuantityMeasure, grnImages]);
 
+  /* -------------------- Input changes -------------------- */
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -68,30 +80,45 @@ export default function GRNDetails({
     setErrors({});
   };
 
-  // Upload to Cloudinary
-  const handleUploadToCloudinary = async (file: File): Promise<string | null> => {
+  /* -------------------- File selection -------------------- */
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      setFiles((prev) => [...prev, ...selectedFiles]);
+    }
+  };
+
+  /* -------------------- Cloudinary Upload -------------------- */
+  const handleUploadToCloudinary = async (
+    file: File
+  ): Promise<string | null> => {
     try {
+      const isPdf = file.type === "application/pdf";
+      const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${
+        isPdf ? "raw" : "image"
+      }/upload`;
+
       const data = new FormData();
       data.append("file", file);
       data.append("upload_preset", UPLOAD_PRESET);
       data.append("folder", "grn_docs");
 
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-        { method: "POST", body: data }
-      );
-
+      const res = await fetch(endpoint, { method: "POST", body: data });
       const result = await res.json();
+
       if (result.secure_url) return result.secure_url;
-      throw new Error("Failed to upload image");
+      throw new Error("Upload failed");
     } catch (error) {
       console.error("Cloudinary upload error:", error);
-      setMessage({ type: "error", text: "Failed to upload image!" });
+      setMessage({ type: "error", text: "Failed to upload file!" });
       return null;
     }
   };
 
-  // Handle submit
+  const isPdfFile = (url: string) =>
+    url.endsWith(".pdf") || url.startsWith("data:application/pdf");
+
+  /* -------------------- Save / Submit -------------------- */
   const handleSubmit = async () => {
     if (!id) return;
 
@@ -102,15 +129,16 @@ export default function GRNDetails({
 
     try {
       setLoading(true);
-      let imageUrls = [...form.grnImages];
+      let uploadedUrls = [...form.grnImages];
 
-      // Upload new image if selected
-      if (file) {
+      if (files.length > 0) {
         setUploading(true);
-        const uploadedUrl = await handleUploadToCloudinary(file);
-        if (uploadedUrl) {
-          imageUrls.push(uploadedUrl);
+
+        for (const file of files) {
+          const uploadedUrl = await handleUploadToCloudinary(file);
+          if (uploadedUrl) uploadedUrls.push(uploadedUrl);
         }
+
         setUploading(false);
       }
 
@@ -118,7 +146,7 @@ export default function GRNDetails({
         grnDate: form.grnDate,
         rejectedQuantity: Number(form.rejectedQuantity),
         rejectedQuantityMeasure: form.rejectedQuantityMeasure,
-        grnImages: imageUrls,
+        grnImages: uploadedUrls,
       };
 
       await axios.patch(
@@ -126,15 +154,12 @@ export default function GRNDetails({
         payload
       );
 
-      setForm({ ...form, grnImages: imageUrls });
-      setFile(null);
+      setForm({ ...form, grnImages: uploadedUrls });
+      setFiles([]);
       setMessage({ type: "success", text: "GRN details updated!" });
       setTimeout(() => setMessage(null), 3000);
-      
-      // Trigger parent refetch
-      setTimeout(() => {
-        onUpdate?.();
-      }, 1000);
+
+      onUpdate?.();
     } catch (error) {
       console.error(error);
       setMessage({ type: "error", text: "Failed to update!" });
@@ -143,6 +168,7 @@ export default function GRNDetails({
     }
   };
 
+  /* -------------------- UI -------------------- */
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200">
       {/* Header */}
@@ -162,13 +188,15 @@ export default function GRNDetails({
             name="grnDate"
             value={form.grnDate}
             onChange={handleChange}
-            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition"
           />
         </div>
 
         {/* Rejected Quantity */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Rejected Quantity</label>
+          <label className="text-sm font-medium text-slate-700">
+            Rejected Quantity
+          </label>
           <div className="flex gap-2">
             <input
               type="number"
@@ -176,13 +204,13 @@ export default function GRNDetails({
               value={form.rejectedQuantity}
               onChange={handleChange}
               placeholder="10"
-              className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+              className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition"
             />
             <select
               name="rejectedQuantityMeasure"
               value={form.rejectedQuantityMeasure}
               onChange={handleChange}
-              className="border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150"
+              className="border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition"
             >
               <option value="">Measure</option>
               {measureOptions.map((m) => (
@@ -200,28 +228,57 @@ export default function GRNDetails({
           )}
         </div>
 
-        {/* Image Upload */}
+        {/* File Upload */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">GRN Images</label>
+          <label className="text-sm font-medium text-slate-700">
+            Upload GRN File (Image / PDF)
+          </label>
           <input
+            key="file-input"
             type="file"
-            accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+            multiple
+            accept="image/*,application/pdf"
+            onChange={handleFileChange}
+            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm 
+                      file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 
+                      file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
           />
         </div>
 
-        {/* Display Images */}
+        {/* Uploaded Files Preview */}
         {form.grnImages.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {form.grnImages.map((img, i) => (
-              <img
-                key={i}
-                src={img}
-                alt={`GRN-${i}`}
-                className="w-20 h-20 object-cover rounded-lg border border-slate-200 cursor-pointer hover:border-blue-300 transition-colors"
-                onClick={() => setPopupImage(img)}
-              />
+            {form.grnImages.map((url, i) => (
+              <div key={i} className="relative group cursor-pointer">
+                {isPdfFile(url) ? (
+                  <div
+                    onClick={() => setPopupFile(url)}
+                    className="w-20 h-20 flex items-center justify-center bg-red-50 border border-red-200 rounded-lg"
+                  >
+                    <FileText className="w-7 h-7 text-red-500" />
+                  </div>
+                ) : (
+                  <img
+                    src={url}
+                    alt={`GRN-${i}`}
+                    className="w-20 h-20 object-cover rounded-lg border border-slate-200 hover:border-blue-400 transition"
+                    onClick={() => setPopupFile(url)}
+                  />
+                )}
+
+                {isPdfFile(url) && (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute bottom-1 right-1 bg-white rounded-full p-0.5 border border-slate-300 opacity-0 group-hover:opacity-100 transition"
+                    title="Open PDF"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="w-3 h-3 text-blue-600" />
+                  </a>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -232,7 +289,7 @@ export default function GRNDetails({
         <button
           onClick={handleSubmit}
           disabled={loading || uploading}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition"
         >
           {loading || uploading ? (
             <>
@@ -266,21 +323,36 @@ export default function GRNDetails({
         </div>
       )}
 
-      {/* Image Popup */}
-      {popupImage && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="relative">
+      {/* Preview Modal (PDF or Image) */}
+      {popupFile && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => setPopupFile(null)}
+        >
+          <div
+            className="relative bg-white rounded-lg shadow-2xl p-4 max-w-5xl w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => setPopupImage(null)}
-              className="absolute -top-3 -right-3 bg-white hover:bg-slate-100 p-2 rounded-full shadow-lg"
+              onClick={() => setPopupFile(null)}
+              className="absolute top-3 right-3 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100"
             >
               <X className="w-5 h-5 text-slate-700" />
             </button>
-            <img
-              src={popupImage}
-              alt="Preview"
-              className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
-            />
+
+            {isPdfFile(popupFile) ? (
+              <iframe
+                src={popupFile}
+                className="w-full h-[85vh]"
+                title="PDF Preview"
+              />
+            ) : (
+              <img
+                src={popupFile}
+                alt="Preview"
+                className="w-full h-auto max-h-[85vh] object-contain"
+              />
+            )}
           </div>
         </div>
       )}
