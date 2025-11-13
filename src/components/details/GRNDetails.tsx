@@ -88,6 +88,9 @@ export default function GRNDetails({
     }
   };
 
+  const isPdfFile = (url: string) =>
+    url.endsWith(".pdf") || url.includes("application/pdf");
+
   /* -------------------- Cloudinary Upload -------------------- */
   const handleUploadToCloudinary = async (
     file: File
@@ -109,16 +112,37 @@ export default function GRNDetails({
       if (result.secure_url) return result.secure_url;
       throw new Error("Upload failed");
     } catch (error) {
-      console.error("Cloudinary upload error:", error);
-      setMessage({ type: "error", text: "Failed to upload file!" });
+      console.error(error);
+      setMessage({ type: "error", text: "File upload failed!" });
       return null;
     }
   };
 
-  const isPdfFile = (url: string) =>
-    url.endsWith(".pdf") || url.startsWith("data:application/pdf");
+  /* -------------------- REMOVE IMAGE / PDF -------------------- */
+  const handleRemoveFile = async (index: number) => {
+    const updated = [...form.grnImages];
+    updated.splice(index, 1);
 
-  /* -------------------- Save / Submit -------------------- */
+    // Update UI immediately
+    setForm((prev) => ({ ...prev, grnImages: updated }));
+
+    try {
+      await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
+        { grnImages: updated }
+      );
+
+      setMessage({ type: "success", text: "File removed successfully!" });
+      setTimeout(() => setMessage(null), 2000);
+
+      onUpdate?.();
+    } catch (error) {
+      console.error(error);
+      setMessage({ type: "error", text: "Failed to remove file!" });
+    }
+  };
+
+  /* -------------------- SAVE / SUBMIT -------------------- */
   const handleSubmit = async () => {
     if (!id) return;
 
@@ -188,7 +212,7 @@ export default function GRNDetails({
             name="grnDate"
             value={form.grnDate}
             onChange={handleChange}
-            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition"
+            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
@@ -204,13 +228,13 @@ export default function GRNDetails({
               value={form.rejectedQuantity}
               onChange={handleChange}
               placeholder="10"
-              className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition"
+              className="flex-1 border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
             />
             <select
               name="rejectedQuantityMeasure"
               value={form.rejectedQuantityMeasure}
               onChange={handleChange}
-              className="border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition"
+              className="border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Measure</option>
               {measureOptions.map((m) => (
@@ -220,6 +244,7 @@ export default function GRNDetails({
               ))}
             </select>
           </div>
+
           {errors.measure && (
             <p className="text-xs text-red-600 flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />
@@ -234,46 +259,57 @@ export default function GRNDetails({
             Upload GRN File (Image / PDF)
           </label>
           <input
-            key="file-input"
             type="file"
             multiple
             accept="image/*,application/pdf"
             onChange={handleFileChange}
-            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm 
-                      file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 
-                      file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+            className="w-full border rounded-md px-3 py-2.5 text-sm 
+                      file:bg-slate-100 file:px-3 file:py-1 file:rounded"
           />
         </div>
 
-        {/* Uploaded Files Preview */}
+        {/* File Preview */}
         {form.grnImages.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {form.grnImages.map((url, i) => (
               <div key={i} className="relative group cursor-pointer">
+                {/* REMOVE FILE */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveFile(i);
+                  }}
+                  className="absolute top-1 right-1 bg-white p-1 rounded-full shadow border 
+                             opacity-0 group-hover:opacity-100 transition"
+                >
+                  <X className="w-4 h-4 text-red-600" />
+                </button>
+
+                {/* Preview */}
                 {isPdfFile(url) ? (
                   <div
                     onClick={() => setPopupFile(url)}
-                    className="w-20 h-20 flex items-center justify-center bg-red-50 border border-red-200 rounded-lg"
+                    className="w-20 h-20 flex items-center justify-center bg-red-50 
+                               border border-red-200 rounded-lg"
                   >
                     <FileText className="w-7 h-7 text-red-500" />
                   </div>
                 ) : (
                   <img
                     src={url}
-                    alt={`GRN-${i}`}
-                    className="w-20 h-20 object-cover rounded-lg border border-slate-200 hover:border-blue-400 transition"
+                    className="w-20 h-20 object-cover rounded-lg border hover:border-blue-400"
                     onClick={() => setPopupFile(url)}
                   />
                 )}
 
+                {/* PDF Open Icon */}
                 {isPdfFile(url) && (
                   <a
                     href={url}
                     target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute bottom-1 right-1 bg-white rounded-full p-0.5 border border-slate-300 opacity-0 group-hover:opacity-100 transition"
-                    title="Open PDF"
                     onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-1 right-1 bg-white p-1 rounded-full border opacity-0 
+                               group-hover:opacity-100 transition"
                   >
                     <ExternalLink className="w-3 h-3 text-blue-600" />
                   </a>
@@ -289,7 +325,8 @@ export default function GRNDetails({
         <button
           onClick={handleSubmit}
           disabled={loading || uploading}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-md 
+                     hover:bg-slate-800 disabled:bg-slate-400"
         >
           {loading || uploading ? (
             <>
@@ -323,34 +360,29 @@ export default function GRNDetails({
         </div>
       )}
 
-      {/* Preview Modal (PDF or Image) */}
+      {/* Popup Preview */}
       {popupFile && (
         <div
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
           onClick={() => setPopupFile(null)}
         >
           <div
-            className="relative bg-white rounded-lg shadow-2xl p-4 max-w-5xl w-full max-h-[90vh] overflow-auto"
+            className="relative bg-white rounded-lg p-4 max-w-5xl w-full max-h-[90vh] overflow-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setPopupFile(null)}
-              className="absolute top-3 right-3 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100"
+              className="absolute top-3 right-3 p-2 bg-white rounded-full shadow"
             >
-              <X className="w-5 h-5 text-slate-700" />
+              <X className="w-5 h-5" />
             </button>
 
             {isPdfFile(popupFile) ? (
-              <iframe
-                src={popupFile}
-                className="w-full h-[85vh]"
-                title="PDF Preview"
-              />
+              <iframe src={popupFile} className="w-full h-[85vh]" />
             ) : (
               <img
                 src={popupFile}
-                alt="Preview"
-                className="w-full h-auto max-h-[85vh] object-contain"
+                className="w-full max-h-[85vh] object-contain"
               />
             )}
           </div>

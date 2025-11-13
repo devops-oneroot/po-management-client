@@ -65,7 +65,7 @@ export default function WeighmentDetails({
   const [errors, setErrors] = useState<{ measure?: string }>({});
   const [popupFile, setPopupFile] = useState<string | null>(null);
 
-  // Prefill if props change
+  // Update form when props change
   useEffect(() => {
     setFormData({
       quantityLoaded: quantityLoaded?.toString() || "",
@@ -89,7 +89,7 @@ export default function WeighmentDetails({
     setErrors({});
   };
 
-  // Cloudinary Upload (Handles both Image and PDF)
+  // Cloudinary upload for image/pdf
   const handleUploadToCloudinary = async (
     file: File
   ): Promise<string | null> => {
@@ -107,10 +107,8 @@ export default function WeighmentDetails({
       const res = await fetch(endpoint, { method: "POST", body: data });
       const result = await res.json();
 
-      if (result.secure_url) return result.secure_url;
-      throw new Error("Upload failed");
-    } catch (error) {
-      console.error("Cloudinary upload error:", error);
+      return result.secure_url || null;
+    } catch (_) {
       setMessage({ type: "error", text: "File upload failed!" });
       return null;
     }
@@ -119,14 +117,43 @@ export default function WeighmentDetails({
   const isPdfFile = (url: string) =>
     url.endsWith(".pdf") || url.includes("application/pdf");
 
-  // File Selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFiles((prev) => [...prev, ...Array.from(e.target.files)]);
     }
   };
 
-  // Save / Submit
+  // Auto delete single file and update backend
+  const handleRemoveFile = async (index: number) => {
+    const updatedImages = [...formData.weighmentImages];
+    const removedFile = updatedImages[index];
+    updatedImages.splice(index, 1);
+
+    // update UI immediately
+    setFormData((prev) => ({
+      ...prev,
+      weighmentImages: updatedImages,
+    }));
+
+    try {
+      await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
+        {
+          weighmentImages: updatedImages,
+        }
+      );
+
+      setMessage({ type: "success", text: "File removed successfully!" });
+      setTimeout(() => setMessage(null), 2000);
+
+      onUpdate?.();
+    } catch (error) {
+      console.error(error);
+      setMessage({ type: "error", text: "Failed to remove file!" });
+    }
+  };
+
+  // Save all details (images + quantities)
   const handleUpdate = async () => {
     if (!id) return;
 
@@ -151,9 +178,7 @@ export default function WeighmentDetails({
         setUploading(false);
       }
 
-      const payload: any = {
-        weighmentImages: uploadedUrls,
-      };
+      const payload: any = { weighmentImages: uploadedUrls };
 
       if (formData.quantityLoaded) {
         payload.quantityLoaded = Number(formData.quantityLoaded);
@@ -185,210 +210,211 @@ export default function WeighmentDetails({
   };
 
   return (
-    <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-200">
-        <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-          <Scale className="w-5 h-5 text-slate-600" />
-          Weighment Details
-        </h3>
-      </div>
-
-      <div className="flex flex-col gap-4">
-        {/* Loaded */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">
-            Loading Quantity
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              name="quantityLoaded"
-              value={formData.quantityLoaded}
-              onChange={handleChange}
-              placeholder="e.g. 25"
-              className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300"
-            />
-            <select
-              name="quantityLoadedMeasure"
-              value={formData.quantityLoadedMeasure}
-              onChange={handleChange}
-              className="border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300"
-            >
-              <option value="">Measure</option>
-              {measureOptions.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
+    <>
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-200 hover:shadow-md transition-all">
+        <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-200">
+          <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <Scale className="w-5 h-5 text-slate-600" />
+            Weighment Details
+          </h3>
         </div>
 
-        {/* Unloaded */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">
-            Unloading Quantity
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              name="quantityUnloaded"
-              value={formData.quantityUnloaded}
-              onChange={handleChange}
-              placeholder="e.g. 20"
-              className="flex-1 border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300"
-            />
-            <select
-              name="quantityUnloadedMeasure"
-              value={formData.quantityUnloadedMeasure}
-              onChange={handleChange}
-              className="border border-slate-200 rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300"
-            >
-              <option value="">Measure</option>
-              {measureOptions.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-col gap-4">
+          {/* Loaded */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">
+              Loading Quantity
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                name="quantityLoaded"
+                value={formData.quantityLoaded}
+                onChange={handleChange}
+                placeholder="e.g. 25"
+                className="flex-1 border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                name="quantityLoadedMeasure"
+                value={formData.quantityLoadedMeasure}
+                onChange={handleChange}
+                className="border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Measure</option>
+                {measureOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
 
-        {errors.measure && (
-          <p className="text-xs text-red-600 flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" />
-            {errors.measure}
-          </p>
-        )}
-
-        {/* File Upload */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">
-            Upload Weighment File (Image / PDF)
-          </label>
-          <input
-            type="file"
-            multiple
-            accept="image/*,application/pdf"
-            onChange={handleFileChange}
-            className="w-full border border-slate-200 rounded-md px-3 py-2.5 text-sm 
-                      file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 
-                      file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
-          />
-        </div>
-
-        {/* File Previews */}
-        {formData.weighmentImages.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {formData.weighmentImages.map((url, i) => (
-              <div key={i} className="relative group cursor-pointer">
-                {isPdfFile(url) ? (
-                  <div
-                    onClick={() => setPopupFile(url)}
-                    className="w-20 h-20 flex items-center justify-center bg-red-50 border border-red-200 rounded-lg"
-                  >
-                    <FileText className="w-7 h-7 text-red-500" />
-                  </div>
-                ) : (
-                  <img
-                    src={url}
-                    alt={`weighment-${i}`}
-                    className="w-20 h-20 object-cover rounded-lg border border-slate-200 hover:border-blue-400 transition"
-                    onClick={() => setPopupFile(url)}
-                  />
-                )}
-
-                {isPdfFile(url) && (
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute bottom-1 right-1 bg-white rounded-full p-0.5 border border-slate-300 opacity-0 group-hover:opacity-100 transition"
-                    title="Open PDF"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ExternalLink className="w-3 h-3 text-blue-600" />
-                  </a>
-                )}
-              </div>
-            ))}
+          {/* Unloaded */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">
+              Unloading Quantity
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                name="quantityUnloaded"
+                value={formData.quantityUnloaded}
+                onChange={handleChange}
+                placeholder="e.g. 20"
+                className="flex-1 border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                name="quantityUnloadedMeasure"
+                value={formData.quantityUnloadedMeasure}
+                onChange={handleChange}
+                className="border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Measure</option>
+                {measureOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Save Button */}
-      <div className="flex justify-end mt-6 pt-4 border-t border-slate-200">
-        <button
-          onClick={handleUpdate}
-          disabled={loading || uploading}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white rounded-md font-medium shadow-sm transition"
-        >
-          {loading || uploading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              {uploading ? "Uploading..." : "Saving..."}
-            </>
-          ) : (
-            <>
-              <Upload className="w-4 h-4" />
-              Save Details
-            </>
+          {errors.measure && (
+            <p className="text-xs text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {errors.measure}
+            </p>
           )}
-        </button>
+
+          {/* File Upload */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">
+              Upload Weighment File
+            </label>
+            <input
+              type="file"
+              multiple
+              accept="image/*,application/pdf"
+              onChange={handleFileChange}
+              className="w-full border rounded-md px-3 py-2.5 text-sm file:bg-slate-100"
+            />
+          </div>
+
+          {/* File Preview */}
+          {formData.weighmentImages.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {formData.weighmentImages.map((url, i) => (
+                <div key={i} className="relative group cursor-pointer">
+                  {/* Remove Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveFile(i);
+                    }}
+                    className="absolute top-1 right-1 bg-white p-1 rounded-full shadow z-10 opacity-0 group-hover:opacity-100 transition"
+                  >
+                    <X className="w-4 h-4 text-red-600" />
+                  </button>
+
+                  {isPdfFile(url) ? (
+                    <div
+                      onClick={() => setPopupFile(url)}
+                      className="w-20 h-20 flex items-center justify-center bg-red-50 border border-red-200 rounded-lg"
+                    >
+                      <FileText className="w-7 h-7 text-red-500" />
+                    </div>
+                  ) : (
+                    <img
+                      src={url}
+                      className="w-20 h-20 object-cover rounded-lg border hover:border-blue-400"
+                      onClick={() => setPopupFile(url)}
+                    />
+                  )}
+
+                  {isPdfFile(url) && (
+                    <a
+                      href={url}
+                      target="_blank"
+                      className="absolute bottom-1 right-1 bg-white rounded-full p-0.5 border opacity-0 group-hover:opacity-100"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="w-3 h-3 text-blue-600" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Save */}
+        <div className="flex justify-end mt-6 pt-4 border-t">
+          <button
+            onClick={handleUpdate}
+            disabled={loading || uploading}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-md disabled:bg-slate-400"
+          >
+            {loading || uploading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {uploading ? "Uploading..." : "Saving..."}
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                Save Details
+              </>
+            )}
+          </button>
+        </div>
+
+        {message && (
+          <div
+            className={`mt-4 flex items-center gap-2 p-3 rounded-md text-sm ${
+              message.type === "success"
+                ? "bg-green-50 text-green-700 border border-green-200"
+                : "bg-red-50 text-red-700 border border-red-200"
+            }`}
+          >
+            {message.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4" />
+            ) : (
+              <XCircle className="w-4 h-4" />
+            )}
+            {message.text}
+          </div>
+        )}
       </div>
 
-      {/* Message */}
-      {message && (
-        <div
-          className={`mt-4 flex items-center gap-2 p-3 rounded-md text-sm ${
-            message.type === "success"
-              ? "bg-green-50 text-green-700 border border-green-200"
-              : "bg-red-50 text-red-700 border border-red-200"
-          }`}
-        >
-          {message.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4" />
-          ) : (
-            <XCircle className="w-4 h-4" />
-          )}
-          {message.text}
-        </div>
-      )}
-
-      {/* File Preview Modal */}
+      {/* Popup Preview */}
       {popupFile && (
         <div
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
           onClick={() => setPopupFile(null)}
         >
           <div
-            className="relative bg-white rounded-lg shadow-2xl p-4 max-w-5xl w-full max-h-[90vh] overflow-auto"
+            className="relative bg-white rounded-lg p-4 max-w-5xl w-full max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setPopupFile(null)}
-              className="absolute top-3 right-3 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100"
+              className="absolute top-3 right-3 p-2 bg-white rounded-full shadow"
             >
-              <X className="w-5 h-5 text-slate-700" />
+              <X className="w-5 h-5" />
             </button>
 
             {isPdfFile(popupFile) ? (
-              <iframe
-                src={popupFile}
-                className="w-full h-[85vh]"
-                title="PDF Preview"
-              />
+              <iframe src={popupFile} className="w-full h-[85vh]" />
             ) : (
               <img
                 src={popupFile}
-                alt="Preview"
-                className="w-full h-auto max-h-[85vh] object-contain"
+                className="w-full max-h-[85vh] object-contain"
               />
             )}
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
