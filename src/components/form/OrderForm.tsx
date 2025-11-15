@@ -840,22 +840,24 @@ const OrderForm = ({
     };
 
     // Company data (only included when company is selected)
-    const companyData = selectedCompanyId ? {
-      companyId: selectedCompanyId,
-      companyName: formData.companyName,
-      state: formData.state,
-      village: formData.village,
-      taluk: formData.taluk,
-      district: formData.district,
-      coordinates: {
-        type: "Point",
-        coordinates: [
-          parseFloat(formData.coordinates.lon),
-          parseFloat(formData.coordinates.lat),
-        ],
-      },
-      company_logo: formData.company_logo,
-    } : {};
+    const companyData = selectedCompanyId
+      ? {
+          companyId: selectedCompanyId,
+          companyName: formData.companyName,
+          state: formData.state,
+          village: formData.village,
+          taluk: formData.taluk,
+          district: formData.district,
+          coordinates: {
+            type: "Point",
+            coordinates: [
+              parseFloat(formData.coordinates.lon),
+              parseFloat(formData.coordinates.lat),
+            ],
+          },
+          company_logo: formData.company_logo,
+        }
+      : {};
 
     // Merge data
     const formattedData = {
@@ -1143,9 +1145,7 @@ const OrderForm = ({
             <div className="bg-red-50 border border-red-200 rounded-md p-4">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <p className="text-red-800 text-sm flex-1">
-                  {error.message}
-                </p>
+                <p className="text-red-800 text-sm flex-1">{error.message}</p>
               </div>
             </div>
           )}
@@ -1269,7 +1269,9 @@ const OrderForm = ({
 
             {/* Loading or Empty State */}
             {loadingCompanies && (
-              <p className="text-sm text-slate-500 mt-4">Loading companies...</p>
+              <p className="text-sm text-slate-500 mt-4">
+                Loading companies...
+              </p>
             )}
             {!loadingCompanies && companyOptions.length === 0 && (
               <p className="text-sm text-slate-500 mt-4">
@@ -1655,11 +1657,7 @@ const OrderForm = ({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>
-                    {isEditMode
-                      ? "Updating..."
-                      : "Creating..."}
-                  </span>
+                  <span>{isEditMode ? "Updating..." : "Creating..."}</span>
                 </>
               ) : (
                 <>

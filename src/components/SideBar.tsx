@@ -17,6 +17,7 @@ const supervisorNavItems = [
   { label: "Companies", icon: Building2, href: "/company" },
   { label: "EOIs", icon: ShoppingBasket, href: "/eois-card" },
   { label: "POs", icon: ShoppingCart, href: "/po-card" },
+  { label: "Buyer", icon: ShoppingCart, href: "/buyer" },
 ];
 
 const Sidebar: React.FC = () => {
@@ -67,9 +68,7 @@ const Sidebar: React.FC = () => {
               }`}
             />
             {isOpen && (
-              <span className="text-sm font-medium">
-                {item.label}
-              </span>
+              <span className="text-sm font-medium">{item.label}</span>
             )}
             {pathname === item.href && isOpen && (
               <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></div>
