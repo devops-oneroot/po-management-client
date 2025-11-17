@@ -111,17 +111,22 @@ export default function BuyerDetails() {
   const saveField = async (field: string) => {
     let value = editValues[field];
 
-    // Convert to correct type
-    if (field === "promisedQuantity" || field === "rate") {
+    // Handle promisedQuantity → number
+    if (field === "promisedQuantity") {
       value = Number(value);
       if (isNaN(value) || value <= 0) {
-        alert(
-          `${
-            field === "promisedQuantity" ? "Quantity" : "Rate"
-          } must be greater than 0.`
-        );
+        alert("Quantity must be greater than 0.");
         return;
       }
+    }
+
+    // Handle rate → string
+    if (field === "rate") {
+      if (!value || isNaN(Number(value)) || Number(value) <= 0) {
+        alert("Rate must be greater than 0.");
+        return;
+      }
+      value = String(value); // ← Ensure it's a string
     }
 
     if (field === "promisedDate" && !value) {
@@ -151,7 +156,7 @@ export default function BuyerDetails() {
 
       alert(`${field.replace(/([A-Z])/g, " $1").trim()} updated successfully!`);
       setEditField(null);
-      setReloadKey((k) => k + 1); // Refetch
+      setReloadKey((k) => k + 1);
     } catch (error: any) {
       console.error("Error updating field:", error);
       const msg =
