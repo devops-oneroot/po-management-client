@@ -4,13 +4,21 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
-  CircleUser,
   Plus,
-  Calendar,
   Package,
   IndianRupee,
+  Truck,
+  FileText,
 } from "lucide-react";
 import POForm from "@/src/components/form/POForm";
+
+interface Assignee {
+  name: string;
+  promisedQuantity: string;
+  promisedQuantityMeasure: string;
+  assigneeTruckNo: string | null;
+  status: string;
+}
 
 interface MasterPO {
   id: string;
@@ -24,6 +32,13 @@ interface MasterPO {
   status: string;
   quantity: number;
   poPrice: string;
+  suppliedQuantity: number;
+  assignees: Assignee[];
+  po: {
+    id: string;
+    companyName: string;
+    cropName: string;
+  };
 }
 
 const CompaniesPage = () => {
@@ -36,7 +51,6 @@ const CompaniesPage = () => {
   const [reloadKey, setReloadKey] = useState(0);
   const router = useRouter();
 
-  // ✅ Fetch all Master POs (refetches when reloadKey changes)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -50,20 +64,16 @@ const CompaniesPage = () => {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [reloadKey]);
 
-  // ✅ Navigate to PO Details Page
   const handleCardClick = (id: string) => {
     router.push(`/po/${id}`);
   };
 
-  // ✅ Filter POs
   const today = new Date();
   const expiringPOs = poData.filter((po) => new Date(po.expiryDate) >= today);
   const expiredPOs = poData.filter((po) => new Date(po.expiryDate) < today);
-
   const displayedPOs = activeTab === "expiring" ? expiringPOs : expiredPOs;
 
   return (
@@ -81,10 +91,10 @@ const CompaniesPage = () => {
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium shadow-sm transition-colors duration-150 text-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium shadow-sm transition-colors text-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>Create PO</span>
+            Create PO
           </button>
         </div>
 
@@ -92,9 +102,9 @@ const CompaniesPage = () => {
         <div className="mb-6 flex gap-2">
           <button
             onClick={() => setActiveTab("expiring")}
-            className={`px-4 py-2 rounded-md font-medium text-sm transition-colors duration-150 ${
+            className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
               activeTab === "expiring"
-                ? "bg-slate-900 text-white shadow-sm"
+                ? "bg-slate-900 text-white"
                 : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
             }`}
           >
@@ -102,9 +112,9 @@ const CompaniesPage = () => {
           </button>
           <button
             onClick={() => setActiveTab("expired")}
-            className={`px-4 py-2 rounded-md font-medium text-sm transition-colors duration-150 ${
+            className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
               activeTab === "expired"
-                ? "bg-slate-900 text-white shadow-sm"
+                ? "bg-slate-900 text-white"
                 : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
             }`}
           >
@@ -112,147 +122,195 @@ const CompaniesPage = () => {
           </button>
         </div>
 
-        {/* PO List */}
+        {/* Cards */}
         {loading ? (
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {[...Array(8)].map((_, i) => (
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
               <div
                 key={i}
-                className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm animate-pulse"
+                className="bg-white rounded-lg border border-slate-200 p-6 animate-pulse"
               >
-                <div className="space-y-4">
-                  <div className="w-20 h-20 bg-slate-200 rounded-lg mx-auto"></div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-slate-200 rounded w-full"></div>
-                    <div className="h-3 bg-slate-100 rounded w-3/4"></div>
-                  </div>
+                <div className="h-32 bg-slate-200 rounded mb-4"></div>
+                <div className="space-y-3">
+                  <div className="h-5 bg-slate-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-slate-100 rounded w-full"></div>
                 </div>
               </div>
             ))}
           </div>
         ) : displayedPOs.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-lg p-12 text-center max-w-lg mx-auto shadow-sm">
-            <div className="w-16 h-16 bg-slate-100 rounded-lg flex items-center justify-center mx-auto mb-6">
-              <Package className="w-8 h-8 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">
-              {activeTab === "expiring" ? "No Active POs" : "No Expired POs"}
-            </h3>
-            <p className="text-sm text-slate-600 max-w-sm mx-auto">
-              {activeTab === "expiring"
-                ? "No active purchase orders found."
-                : "No expired purchase orders found."}
+          <div className="text-center py-20">
+            <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500">
+              {activeTab === "expiring" ? "No active POs" : "No expired POs"}
             </p>
           </div>
         ) : (
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             {displayedPOs.map((po) => {
-              // 🧮 Calculate remaining days
               const expiry = new Date(po.expiryDate);
-              const diffTime = expiry.getTime() - today.getTime();
-              const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              const diffDays = Math.ceil(
+                (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+              );
+              const isExpired = diffDays <= 0;
 
-              const expiryText =
-                remainingDays > 0
-                  ? `${remainingDays} Day${remainingDays > 1 ? "s" : ""} Left`
-                  : "Expired";
-
-              const isExpired = remainingDays <= 0;
+              // Extract PO Number (short format)
+              const poNumber = po.po?.id
+                ? `PO-${po.po.id.slice(0, 8).toUpperCase()}`
+                : "N/A";
 
               return (
                 <div
                   key={po.id}
                   onClick={() => handleCardClick(po.id)}
-                  className="group cursor-pointer bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 overflow-hidden"
+                  className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-slate-300 transition-all cursor-pointer overflow-hidden"
                 >
                   {/* Expiry Banner */}
                   <div
-                    className={`text-center text-white text-xs font-medium py-2 ${
+                    className={`text-center text-white text-xs font-semibold py-2 ${
                       isExpired
                         ? "bg-red-500"
-                        : remainingDays <= 7
+                        : diffDays <= 7
                         ? "bg-amber-500"
                         : "bg-green-500"
                     }`}
                   >
-                    {expiryText}
+                    {isExpired
+                      ? "Expired"
+                      : `${diffDays} Day${diffDays > 1 ? "s" : ""} Left`}
                   </div>
 
-                  {/* Company Logo */}
-                  <div className="flex justify-center pt-5 pb-3">
-                    {po.companyImage ? (
+                  <div className="p-5">
+                    {/* First Row: Logo + Company + Location + Qty */}
+                    <div className="flex items-start gap-4 mb-4">
                       <img
                         src={po.companyImage}
                         alt={po.companyName}
-                        className="w-20 h-20 rounded-lg object-cover shadow-sm"
+                        className="w-16 h-16 rounded-lg object-cover shadow-sm flex-shrink-0"
                       />
-                    ) : (
-                      <div className="w-20 h-20 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <CircleUser className="w-10 h-10 text-slate-400" />
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-bold text-slate-900 truncate">
+                            {po.companyName}
+                          </h3>
+                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-mono">
+                            {poNumber}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {po.village}, {po.taluk}, {po.district}
+                        </p>
+                        <div className="flex gap-6 mt-2 text-xs">
+                          <div>
+                            <span className="text-slate-500">Required:</span>{" "}
+                            <strong>{po.quantity} TON</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Supplied:</span>{" "}
+                            <strong className="text-green-600">
+                              {po.suppliedQuantity} TON
+                            </strong>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Content */}
-                  <div className="px-5 pb-5">
-                    <h2 className="text-sm font-semibold text-slate-900 text-center mb-1 truncate">
-                      {po.companyName}
-                    </h2>
-                    <p className="text-xs text-slate-500 flex items-center justify-center gap-1 mb-3">
-                      <MapPin className="w-3.5 h-3.5" />
-                      {po.village}, {po.taluk}
-                    </p>
-
-                    {/* Crop Details */}
-                    <div className="border-t border-slate-100 pt-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-600 flex items-center gap-64  font-medium">
-                          <Package className="w-3.5 h-3.5 text-slate-400" />
+                    {/* Second Row: Crop, Quantity, Price */}
+                    <div className="bg-slate-50 rounded-lg p-lg p-4 mb-5 grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <div className="text-xs text-slate-500 mb-1">Crop</div>
+                        <div className="font-bold text-slate-900 text-sm">
                           {po.cropName}
-                        </span>
+                        </div>
                       </div>
-
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
-                        <span className="text-slate-600 flex items-center gap-64 font-medium">
-                          <Package className="w-3.5 h-3.5 text-slate-400" />
-                          {po.quantity} Tons
-                        </span>
+                      <div>
+                        <div className="text-xs text-slate-500 mb-1">
+                          Total Qty
+                        </div>
+                        <div className="font-bold text-slate-900 text-sm">
+                          {po.quantity} TON
+                        </div>
                       </div>
-
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
-                        <span className="text-slate-600 flex items-center gap-64 font-semibold">
-                          <IndianRupee className="w-3.5 h-3.5 text-slate-600" />
-                          {po.poPrice}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
-                        <span className="text-slate-500 flex items-center gap-64">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(po.expiryDate).toLocaleDateString("en-IN")}
-                        </span>
+                      <div>
+                        <div className="text-xs text-slate-500 mb-1">
+                          PO Price
+                        </div>
+                        <div className="font-bold text-slate-900 text-sm flex items-center justify-center gap-1">
+                          <IndianRupee className="w-4 h-4" />
+                          {po.poPrice}/qtl
+                        </div>
                       </div>
                     </div>
 
-                    {/* Status Badge */}
-                    <div className="mt-3 pt-3 border-t border-slate-200">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${
-                          po.status === "Completed"
-                            ? "bg-green-50 text-green-700 border border-green-200"
-                            : "bg-blue-50 text-blue-700 border border-blue-200"
-                        }`}
-                      >
-                        <div
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            po.status === "Completed"
-                              ? "bg-green-500"
-                              : "bg-blue-500"
-                          }`}
-                        ></div>
-                        {po.status || "In Progress"}
-                      </span>
-                    </div>
+                    {/* Assignee Table */}
+                    {po.assignees.length > 0 ? (
+                      <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                        <div className="bg-slate-100 grid grid-cols-4 font-semibold text-slate-700 px-3 py-2.5 border-b border-slate-200">
+                          <div>Name</div>
+                          <div>Promised Qty</div>
+                          <div>Truck No</div>
+                          <div>Status</div>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {po.assignees.map((assignee, idx) => (
+                            <div
+                              key={idx}
+                              className="grid grid-cols-4 px-3 py-2.5 border-t border-slate-100 hover:bg-slate-50 transition"
+                            >
+                              <div className="font-medium truncate">
+                                {assignee.name}
+                              </div>
+                              <div>
+                                {assignee.promisedQuantity}{" "}
+                                <span className="text-slate-500 text-xs">
+                                  {assignee.promisedQuantityMeasure === "TON"
+                                    ? "T"
+                                    : assignee.promisedQuantityMeasure ===
+                                      "QUINTAL"
+                                    ? "Q"
+                                    : "KG"}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {assignee.assigneeTruckNo ? (
+                                  <>
+                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="font-mono text-xs">
+                                      {assignee.assigneeTruckNo}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">
+                                    —
+                                  </span>
+                                )}
+                              </div>
+                              <div>
+                                <span
+                                  className={`px-2 py-1 rounded text-[11px] font-medium ${
+                                    assignee.status === "COMPLETED"
+                                      ? "bg-green-100 text-green-700"
+                                      : assignee.status === "CANCELLED"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {assignee.status === "PO_ASSIGNED"
+                                    ? "Assigned"
+                                    : assignee.status.replace(/_/g, " ")}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-center text-xs text-slate-500 py-6 bg-slate-50 rounded-lg">
+                        No assignees yet
+                      </p>
+                    )}
                   </div>
                 </div>
               );
@@ -261,40 +319,35 @@ const CompaniesPage = () => {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Create PO Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-slate-200">
-            <div className="px-6 py-4 border-b border-slate-200 bg-white">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Create Purchase Order
-                </h2>
-                <button
-                  onClick={() => setShowForm(false)}
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h2 className="text-lg font-semibold">Create Purchase Order</h2>
+              <button
+                onClick={() => setShowForm(false)}
+                className="text-slate-500 hover:text-slate-700"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
+                  <path
+                    strokeLinecap="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
             </div>
-            <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
               <POForm
                 onClose={() => {
                   setShowForm(false);
-                  setReloadKey((k) => k + 1); // Trigger refetch
+                  setReloadKey((k) => k + 1);
                 }}
               />
             </div>
