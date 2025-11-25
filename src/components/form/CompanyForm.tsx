@@ -8,8 +8,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Globe,
   Sprout,
+  Phone,
+  User,
+  FileText,
+  Hash,
 } from "lucide-react";
 
 interface Company {
@@ -21,6 +24,9 @@ interface Company {
   state: string;
   company_logo: string | null;
   company_address: string | null;
+  gstNumber?: string | null;
+  contactPersonName?: string | null;
+  contactPersonNumber?: string | null;
   cropNames?: string[];
   coordinates?: { type: string; coordinates: [number, number] };
   notes?: string | null;
@@ -234,6 +240,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     villages: false,
     coordinates: false,
   });
+
   const [formData, setFormData] = useState({
     companyName: "",
     state: "",
@@ -243,9 +250,14 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     coordinates: { lat: "", lon: "" },
     company_logo: "",
     notes: "",
+    gstNumber: "",
+    contactPersonName: "",
+    contactPersonNumber: "",
+    company_address: "",
   });
+
   const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
-  const [uploadingLogo, setUploadingLogo] = useState(false); // New state
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
@@ -257,7 +269,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Populate form with existing company data when in edit mode
+  // Populate form in edit mode
   useEffect(() => {
     if (isEditMode && company) {
       const [lon, lat] = company.coordinates?.coordinates || [0, 0];
@@ -273,12 +285,16 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         },
         company_logo: company.company_logo || "",
         notes: company.notes || "",
+        gstNumber: (company as any).gstNumber || "",
+        contactPersonName: (company as any).contactPersonName || "",
+        contactPersonNumber: (company as any).contactPersonNumber || "",
+        company_address: company.company_address || "",
       });
       setSelectedCrops(company.cropNames || []);
     }
   }, [isEditMode, company]);
 
-  // Fetch states on mount
+  // Fetch states
   useEffect(() => {
     const fetchStates = async () => {
       setLoading((prev) => ({ ...prev, states: true }));
@@ -287,7 +303,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         setStates(Array.isArray(response.data.data) ? response.data.data : []);
       } catch (error) {
         console.error("Error fetching states:", error);
-        setStates([]);
         setError({ message: "Failed to fetch states" });
       } finally {
         setLoading((prev) => ({ ...prev, states: false }));
@@ -296,7 +311,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     fetchStates();
   }, [API_BASE_URL]);
 
-  // Fetch districts when state changes
+  // Fetch districts, talukas, villages, coordinates (unchanged)
   useEffect(() => {
     if (!formData.state) {
       setDistricts([]);
@@ -309,17 +324,13 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
       try {
         const response = await axios.get(
           `${API_BASE_URL}/newlocations/districts`,
-          {
-            params: { state: formData.state },
-          }
+          { params: { state: formData.state } }
         );
         setDistricts(
           Array.isArray(response.data.data) ? response.data.data : []
         );
       } catch (error) {
         console.error("Error fetching districts:", error);
-        setDistricts([]);
-        setError({ message: "Failed to fetch districts" });
       } finally {
         setLoading((prev) => ({ ...prev, districts: false }));
       }
@@ -327,7 +338,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     fetchDistricts();
   }, [formData.state, API_BASE_URL]);
 
-  // Fetch talukas when district changes
   useEffect(() => {
     if (!formData.district) {
       setTalukas([]);
@@ -346,8 +356,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
       } catch (error) {
         console.error("Error fetching talukas:", error);
-        setTalukas([]);
-        setError({ message: "Failed to fetch talukas" });
       } finally {
         setLoading((prev) => ({ ...prev, talukas: false }));
       }
@@ -355,7 +363,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     fetchTalukas();
   }, [formData.state, formData.district, API_BASE_URL]);
 
-  // Fetch villages when taluk changes
   useEffect(() => {
     if (!formData.taluk) {
       setVillages([]);
@@ -379,8 +386,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         );
       } catch (error) {
         console.error("Error fetching villages:", error);
-        setVillages([]);
-        setError({ message: "Failed to fetch villages" });
       } finally {
         setLoading((prev) => ({ ...prev, villages: false }));
       }
@@ -388,7 +393,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     fetchVillages();
   }, [formData.state, formData.district, formData.taluk, API_BASE_URL]);
 
-  // Fetch coordinates when district, taluk, and village are selected
   useEffect(() => {
     const { district, taluk, village } = formData;
     if (!district || !taluk || !village) {
@@ -401,19 +405,13 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     const fetchCoordinates = async () => {
       setLoading((prev) => ({ ...prev, coordinates: true }));
       try {
-        const address = `${district},${taluk},${village}`;
+        const address = `${village},${taluk},${district},${formData.state}`;
         const response = await axios.get(
           `${API_BASE_URL}/newlocations/coordinates`,
-          {
-            params: { address },
-          }
+          { params: { address } }
         );
         const coords = response?.data?.data;
-        if (
-          coords &&
-          typeof coords.latitude !== "undefined" &&
-          typeof coords.longitude !== "undefined"
-        ) {
+        if (coords?.latitude && coords?.longitude) {
           setFormData((prev) => ({
             ...prev,
             coordinates: {
@@ -421,27 +419,21 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
               lon: String(coords.longitude),
             },
           }));
-        } else {
-          console.warn("Coordinates response missing data:", response.data);
-          setFormData((prev) => ({
-            ...prev,
-            coordinates: { lat: "", lon: "" },
-          }));
-          setError({ message: "Failed to fetch valid coordinates" });
         }
       } catch (err) {
         console.error("Error fetching coordinates:", err);
-        setFormData((prev) => ({
-          ...prev,
-          coordinates: { lat: "", lon: "" },
-        }));
-        setError({ message: "Failed to fetch coordinates" });
       } finally {
         setLoading((prev) => ({ ...prev, coordinates: false }));
       }
     };
     fetchCoordinates();
-  }, [formData.district, formData.taluk, formData.village, API_BASE_URL]);
+  }, [
+    formData.district,
+    formData.taluk,
+    formData.village,
+    formData.state,
+    API_BASE_URL,
+  ]);
 
   const handleChange = useCallback(
     (
@@ -458,47 +450,31 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         }));
       } else {
         setFormData((prev) => {
-          const newFormData = { ...prev, [name]: value };
-          // Reset dependent fields when parent field changes
-          if (name === "state") {
+          const newData = { ...prev, [name]: value };
+          if (["state", "district", "taluk"].includes(name)) {
             return {
-              ...newFormData,
-              district: "",
-              taluk: "",
-              village: "",
-              coordinates: { lat: "", lon: "" },
-            };
-          } else if (name === "district") {
-            return {
-              ...newFormData,
-              taluk: "",
-              village: "",
-              coordinates: { lat: "", lon: "" },
-            };
-          } else if (name === "taluk") {
-            return {
-              ...newFormData,
-              village: "",
+              ...newData,
+              district: name === "state" ? "" : newData.district,
+              taluk: ["state", "district"].includes(name) ? "" : newData.taluk,
+              village: ["state", "district", "taluk"].includes(name)
+                ? ""
+                : newData.village,
               coordinates: { lat: "", lon: "" },
             };
           }
-          return newFormData;
+          return newData;
         });
       }
-      if (error?.field === name) {
-        setError(null);
-      }
+      if (error?.field === name) setError(null);
     },
     [error?.field]
   );
 
-  // Updated handleFileChange with Cloudinary upload
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      // Instant preview
       const reader = new FileReader();
       reader.onload = () => {
         setFormData((prev) => ({
@@ -508,7 +484,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
       };
       reader.readAsDataURL(file);
 
-      // Upload to Cloudinary
       setUploadingLogo(true);
       try {
         const formDataCloud = new FormData();
@@ -520,14 +495,10 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
           `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
           formDataCloud
         );
-
-        setFormData((prev) => ({
-          ...prev,
-          company_logo: res.data.secure_url,
-        }));
+        setFormData((prev) => ({ ...prev, company_logo: res.data.secure_url }));
       } catch (err) {
-        console.error("Cloudinary upload failed:", err);
-        alert("Logo upload failed. Please try again.");
+        console.error("Upload failed:", err);
+        alert("Logo upload failed");
         setFormData((prev) => ({ ...prev, company_logo: "" }));
       } finally {
         setUploadingLogo(false);
@@ -548,15 +519,18 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     setSuccess(false);
     setIsSubmitting(true);
 
-    // Validate mandatory fields
     const requiredFields = [
       { field: "companyName", label: "Company Name" },
       { field: "state", label: "State" },
-      { field: "village", label: "Village" },
-      { field: "taluk", label: "Taluk" },
       { field: "district", label: "District" },
+      { field: "taluk", label: "Taluk" },
+      { field: "village", label: "Village" },
       { field: "coordinates.lat", label: "Latitude" },
       { field: "coordinates.lon", label: "Longitude" },
+      { field: "gstNumber", label: "GST Number" },
+      { field: "contactPersonName", label: "Contact Person Name" },
+      { field: "contactPersonNumber", label: "Contact Person Number" },
+      { field: "company_address", label: "Company Address" },
     ];
 
     for (const { field, label } of requiredFields) {
@@ -564,9 +538,9 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         ? formData.coordinates[
             field.split(".")[1] as keyof typeof formData.coordinates
           ]
-        : formData[field as keyof typeof formData];
+        : (formData as any)[field];
 
-      if (!value || (typeof value === "string" && value.trim() === "")) {
+      if (!value || value.toString().trim() === "") {
         setError({ field, message: `${label} is required` });
         setIsSubmitting(false);
         return;
@@ -576,9 +550,9 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
     const payload = {
       name: formData.companyName,
       state: formData.state,
-      village: formData.village,
-      taluk: formData.taluk,
       district: formData.district,
+      taluk: formData.taluk,
+      village: formData.village,
       coordinates: {
         type: "Point",
         coordinates: [
@@ -587,51 +561,34 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
         ],
       },
       company_logo: formData.company_logo || null,
-      company_address: null,
-      cropNames: selectedCrops,
+      company_address: formData.company_address || null,
+      gstNumber: formData.gstNumber || null,
+      contactPersonName: formData.contactPersonName || null,
+      contactPersonNumber: formData.contactPersonNumber || null,
+      cropNames: selectedCrops.length > 0 ? selectedCrops : null,
       notes: formData.notes || null,
     };
 
     try {
       let response;
-
       if (isEditMode && company?.id) {
         response = await fetch(`${API_BASE_URL}/po-companies/${company.id}`, {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log("Company updated successfully:", result);
-        setSuccess(true);
-
-        setTimeout(() => {
-          onSuccess?.();
-        }, 1500);
       } else {
         response = await fetch(`${API_BASE_URL}/po-companies`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+      }
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const result = await response.json();
-        console.log("Company created successfully:", result);
-        setSuccess(true);
-
+      setSuccess(true);
+      if (!isEditMode) {
         setFormData({
           companyName: "",
           state: "",
@@ -641,19 +598,19 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
           coordinates: { lat: "", lon: "" },
           company_logo: "",
           notes: "",
+          gstNumber: "",
+          contactPersonName: "",
+          contactPersonNumber: "",
+          company_address: "",
         });
         setSelectedCrops([]);
-
-        setTimeout(() => {
-          onSuccess?.();
-        }, 1500);
       }
+      setTimeout(() => onSuccess?.(), 1500);
     } catch (err) {
-      console.error("Error submitting form:", err);
       setError({
         message: isEditMode
-          ? "Failed to update company. Please try again."
-          : "Failed to create company. Please try again.",
+          ? "Failed to update company"
+          : "Failed to create company",
       });
     } finally {
       setIsSubmitting(false);
@@ -662,7 +619,6 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
 
   return (
     <div className="w-full max-w-6xl mx-auto p-0">
-      {/* Header */}
       <div className="bg-slate-50 p-6 border-b border-slate-200">
         <div className="flex items-center gap-3 mb-2">
           <Building2 className="w-5 h-5 text-slate-600" />
@@ -671,9 +627,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
           </h2>
         </div>
         <p className="text-sm text-slate-600">
-          {isEditMode
-            ? "Update company information"
-            : "Register a new company with location and crop details"}
+          {isEditMode ? "Update company details" : "Register a new company"}
         </p>
       </div>
 
@@ -682,37 +636,26 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
           onSubmit={handleSubmit}
           className="p-8 space-y-8 max-h-[70vh] overflow-y-auto"
         >
-          {/* Global Messages */}
           {error && !error.field && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <p className="text-red-800 text-sm flex-1">
-                  {error.message}
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+              <p className="text-red-800 text-sm">{error.message}</p>
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-start gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <div>
+                <p className="text-green-900 font-semibold text-sm">Success!</p>
+                <p className="text-green-700 text-sm">
+                  {isEditMode ? "Company updated" : "Company onboarded"}{" "}
+                  successfully.
                 </p>
               </div>
             </div>
           )}
 
-          {success && (
-            <div className="bg-green-50 border border-green-200 rounded-md p-4">
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
-                <div>
-                  <p className="text-green-900 font-semibold text-sm">
-                    Success!
-                  </p>
-                  <p className="text-green-700 text-sm">
-                    {isEditMode
-                      ? "Company updated successfully."
-                      : "Company onboarded successfully."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Company Information Section */}
+          {/* Company Information */}
           <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
@@ -742,145 +685,161 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
                 uploading={uploadingLogo}
               />
 
-              <div className="lg:col-span-2">
-                <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-4">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  <span>Location Details</span>
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <InputField
-                    label="State"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleChange}
-                    required
-                    isSelect
-                    options={[
-                      { value: "", label: "Select State" },
-                      ...states.map((state) => ({
-                        value: state,
-                        label: state,
-                      })),
-                    ]}
-                    disabled={loading.states}
-                    error={error?.field === "state" ? error.message : undefined}
-                  />
-                  <InputField
-                    label="District"
-                    name="district"
-                    value={formData.district}
-                    onChange={handleChange}
-                    required
-                    isSelect
-                    options={[
-                      { value: "", label: "Select District" },
-                      ...districts.map((district) => ({
-                        value: district,
-                        label: district,
-                      })),
-                    ]}
-                    disabled={!formData.state || loading.districts}
-                    error={
-                      error?.field === "district" ? error.message : undefined
-                    }
-                  />
-                  <InputField
-                    label="Taluk"
-                    name="taluk"
-                    value={formData.taluk}
-                    onChange={handleChange}
-                    required
-                    isSelect
-                    options={[
-                      { value: "", label: "Select Taluk" },
-                      ...talukas.map((taluka) => ({
-                        value: taluka,
-                        label: taluka,
-                      })),
-                    ]}
-                    disabled={!formData.district || loading.talukas}
-                    error={error?.field === "taluk" ? error.message : undefined}
-                  />
-                  <InputField
-                    label="Village"
-                    name="village"
-                    value={formData.village}
-                    onChange={handleChange}
-                    required
-                    isSelect
-                    options={[
-                      { value: "", label: "Select Village" },
-                      ...villages.map((village) => ({
-                        value: village,
-                        label: village,
-                      })),
-                    ]}
-                    disabled={!formData.taluk || loading.villages}
-                    error={
-                      error?.field === "village" ? error.message : undefined
-                    }
-                  />
-                </div>
-              </div>
+              {/* New Fields */}
+              <InputField
+                label="GST Number"
+                name="gstNumber"
+                value={formData.gstNumber}
+                onChange={handleChange}
+                required
+                placeholder="e.g. 27AABCU9603R1ZN"
+                icon={Hash}
+                error={error?.field === "gstNumber" ? error.message : undefined}
+              />
+
+              <InputField
+                label="Contact Person Name"
+                name="contactPersonName"
+                value={formData.contactPersonName}
+                onChange={handleChange}
+                required
+                placeholder="Full name"
+                icon={User}
+                error={
+                  error?.field === "contactPersonName"
+                    ? error.message
+                    : undefined
+                }
+              />
+
+              <InputField
+                label="Contact Person Phone"
+                name="contactPersonNumber"
+                value={formData.contactPersonNumber}
+                onChange={handleChange}
+                type="tel"
+                required
+                placeholder="9876543210"
+                icon={Phone}
+                error={
+                  error?.field === "contactPersonNumber"
+                    ? error.message
+                    : undefined
+                }
+              />
 
               <div className="lg:col-span-2">
-                <label className="flex items-center space-x-2 text-sm font-medium text-slate-700 mb-4">
-                  <MapPin className="w-4 h-4 text-slate-500" />
-                  <span>Geographic Coordinates</span>
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Latitude"
-                    name="coordinates.lat"
-                    value={formData.coordinates.lat}
-                    onChange={handleChange}
-                    type="text"
-                    required
-                    disabled
-                    placeholder="Auto-filled"
-                    error={
-                      error?.field === "coordinates.lat"
-                        ? error.message
-                        : undefined
-                    }
-                  />
-                  <InputField
-                    label="Longitude"
-                    name="coordinates.lon"
-                    value={formData.coordinates.lon}
-                    onChange={handleChange}
-                    type="text"
-                    required
-                    disabled
-                    placeholder="Auto-filled"
-                    error={
-                      error?.field === "coordinates.lon"
-                        ? error.message
-                        : undefined
-                    }
-                  />
-                </div>
-                <div className="mt-2">
-                  {loading.coordinates ? (
-                    <p className="text-sm text-gray-500">
-                      Fetching coordinates...
-                    </p>
-                  ) : formData.coordinates.lat && formData.coordinates.lon ? (
-                    <p className="text-sm text-gray-500">
-                      Coordinates auto-filled from address.
-                    </p>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      Coordinates will be filled automatically after selecting
-                      State, District, Taluk, and Village.
-                    </p>
-                  )}
-                </div>
+                <InputField
+                  label="Company Address (Full)"
+                  name="company_address"
+                  value={formData.company_address}
+                  onChange={handleChange}
+                  required
+                  placeholder="Complete address with pincode"
+                  icon={FileText}
+                  error={
+                    error?.field === "company_address"
+                      ? error.message
+                      : undefined
+                  }
+                />
               </div>
+            </div>
+
+            {/* Location & Coordinates */}
+            <div className="mt-8">
+              <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 mb-4">
+                <MapPin className="w-4 h-4 text-gray-500" />
+                <span>Location Details</span>
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <InputField
+                  label="State"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleChange}
+                  required
+                  isSelect
+                  options={states.map((s) => ({ value: s, label: s }))}
+                  disabled={loading.states}
+                  error={error?.field === "state" ? error.message : undefined}
+                />
+                <InputField
+                  label="District"
+                  name="district"
+                  value={formData.district}
+                  onChange={handleChange}
+                  required
+                  isSelect
+                  options={districts.map((d) => ({ value: d, label: d }))}
+                  disabled={!formData.state || loading.districts}
+                  error={
+                    error?.field === "district" ? error.message : undefined
+                  }
+                />
+                <InputField
+                  label="Taluk"
+                  name="taluk"
+                  value={formData.taluk}
+                  onChange={handleChange}
+                  required
+                  isSelect
+                  options={talukas.map((t) => ({ value: t, label: t }))}
+                  disabled={!formData.district || loading.talukas}
+                  error={error?.field === "taluk" ? error.message : undefined}
+                />
+                <InputField
+                  label="Village"
+                  name="village"
+                  value={formData.village}
+                  onChange={handleChange}
+                  required
+                  isSelect
+                  options={villages.map((v) => ({ value: v, label: v }))}
+                  disabled={!formData.taluk || loading.villages}
+                  error={error?.field === "village" ? error.message : undefined}
+                />
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InputField
+                  label="Latitude"
+                  name="coordinates.lat"
+                  value={formData.coordinates.lat}
+                  onChange={handleChange}
+                  disabled
+                  required
+                  error={
+                    error?.field === "coordinates.lat"
+                      ? error.message
+                      : undefined
+                  }
+                />
+                <InputField
+                  label="Longitude"
+                  name="coordinates.lon"
+                  value={formData.coordinates.lon}
+                  onChange={handleChange}
+                  disabled
+                  required
+                  error={
+                    error?.field === "coordinates.lon"
+                      ? error.message
+                      : undefined
+                  }
+                />
+              </div>
+              <p className="mt-2 text-sm text-gray-500">
+                {loading.coordinates
+                  ? "Fetching coordinates..."
+                  : formData.coordinates.lat
+                  ? "Coordinates auto-filled"
+                  : "Select all location fields to auto-fill coordinates"}
+              </p>
             </div>
           </div>
 
-          {/* Crops Section */}
+          {/* Crops */}
           <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
@@ -889,28 +848,25 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
               </h3>
             </div>
             <div className="flex flex-wrap gap-2">
-              {CROPS.map((crop) => {
-                const active = selectedCrops.includes(crop);
-                return (
-                  <button
-                    key={crop}
-                    type="button"
-                    onClick={() => toggleCrop(crop)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border transition-colors duration-150 ${
-                      active
-                        ? "bg-blue-500 text-white border-blue-600"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <Sprout className="w-4 h-4" />
-                    {crop}
-                  </button>
-                );
-              })}
+              {CROPS.map((crop) => (
+                <button
+                  key={crop}
+                  type="button"
+                  onClick={() => toggleCrop(crop)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border transition-colors ${
+                    selectedCrops.includes(crop)
+                      ? "bg-blue-500 text-white border-blue-600"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  <Sprout className="w-4 h-4" />
+                  {crop}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Notes Section */}
+          {/* Notes */}
           <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
@@ -923,17 +879,17 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
               value={formData.notes}
               onChange={handleChange}
               rows={4}
-              placeholder="Any additional information about the company..."
-              className="w-full p-3 bg-white border rounded-md resize-vertical transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 border-slate-200 hover:border-slate-300 placeholder-slate-400 text-sm"
+              placeholder="Any additional information..."
+              className="w-full p-3 bg-white border rounded-md resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-500 border-slate-200 hover:border-slate-300 placeholder-slate-400 text-sm"
             />
           </div>
 
-          {/* Submit Button */}
+          {/* Submit */}
           <div className="pt-4">
             <button
               type="submit"
               disabled={isSubmitting || uploadingLogo}
-              className={`w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold text-sm transition-colors duration-150 ${
+              className={`w-full flex items-center justify-center gap-2 px-6 py-3 rounded-md font-semibold text-sm transition-colors ${
                 isSubmitting || uploadingLogo
                   ? "bg-slate-400 cursor-not-allowed text-white"
                   : "bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
@@ -942,14 +898,12 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, onSuccess }) => {
               {isSubmitting || uploadingLogo ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>{isEditMode ? "Updating..." : "Creating..."}</span>
+                  {isEditMode ? "Updating..." : "Creating..."}
                 </>
               ) : (
                 <>
                   <Building2 className="w-5 h-5" />
-                  <span>
-                    {isEditMode ? "Update Company" : "Create Company"}
-                  </span>
+                  {isEditMode ? "Update Company" : "Create Company"}
                 </>
               )}
             </button>
