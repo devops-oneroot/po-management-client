@@ -368,7 +368,7 @@ export default function BuyerDetails() {
                       className="text-xs border border-slate-300 rounded px-1 py-0.5"
                     >
                       <option value="QUINTAL">QUINTAL</option>
-                      <option value="KG">KG</option>
+                      <option value="KILOGRAM">KILOGRAM</option>
                       <option value="TON">TON</option>
                     </select>
                     <button
