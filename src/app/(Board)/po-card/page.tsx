@@ -8,10 +8,7 @@ import {
   Package,
   IndianRupee,
   Truck,
-  Calendar,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
+  FileText,
 } from "lucide-react";
 import POForm from "@/src/components/form/POForm";
 
@@ -37,7 +34,7 @@ interface MasterPO {
   quantity: number;
   poPrice: string;
   suppliedQuantity: number;
-  assignees?: Assignee[];
+  assignees: Assignee[];
   po: {
     id: string;
     companyName: string;
@@ -55,30 +52,13 @@ const CompaniesPage = () => {
   const [reloadKey, setReloadKey] = useState(0);
   const router = useRouter();
 
-  // Format date: 29 Nov 2025
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/master-po`);
         const result = await res.json();
-
-        // Normalize data: ensure assignees is always an array
-        const normalizedData = (result?.data || []).map((po: MasterPO) => ({
-          ...po,
-          assignees: Array.isArray(po.assignees) ? po.assignees : [],
-        }));
-
-        setPoData(normalizedData);
+        setPoData(result?.data || []);
       } catch (err) {
         console.error("Error fetching PO data:", err);
       } finally {
@@ -105,43 +85,42 @@ const CompaniesPage = () => {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-8xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">
+            <h1 className="text-2xl font-semibold text-slate-900 mb-1">
               Purchase Orders
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              {poData.length} total • {expiringPOs.length} active •{" "}
-              {expiredPOs.length} expired
+            <p className="text-sm text-slate-500">
+              {poData.length} total POs • {expiringPOs.length} active
             </p>
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium shadow-md transition-all text-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium shadow-sm transition-colors text-sm"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
             Create PO
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="mb-8 flex gap-3 border-b border-slate-200">
+        <div className="mb-6 flex gap-2">
           <button
             onClick={() => setActiveTab("expiring")}
-            className={`pb-3 px-1 font-medium text-sm border-b-2 transition-all ${
+            className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
               activeTab === "expiring"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+                ? "bg-slate-900 text-white"
+                : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
             }`}
           >
             Active ({expiringPOs.length})
           </button>
           <button
             onClick={() => setActiveTab("expired")}
-            className={`pb-3 px-1 font-medium text-sm border-b-2 transition-all ${
+            className={`px-4 py-2 rounded-md font-medium text-sm transition-colors ${
               activeTab === "expired"
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+                ? "bg-slate-900 text-white"
+                : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
             }`}
           >
             Expired ({expiredPOs.length})
@@ -154,28 +133,21 @@ const CompaniesPage = () => {
             {[...Array(6)].map((_, i) => (
               <div
                 key={i}
-                className="bg-white rounded-xl border border-slate-200 p-6 animate-pulse"
+                className="bg-white rounded-lg border border-slate-200 p-6 animate-pulse"
               >
-                <div className="h-10 bg-slate-200 rounded mb-4"></div>
-                <div className="space-y-4">
-                  <div className="flex gap-4">
-                    <div className="w-16 h-16 bg-slate-200 rounded-lg"></div>
-                    <div className="space-y-2 flex-1">
-                      <div className="h-5 bg-slate-200 rounded w-3/4"></div>
-                      <div className="h-4 bg-slate-100 rounded"></div>
-                    </div>
-                  </div>
+                <div className="h-32 bg-slate-200 rounded mb-4"></div>
+                <div className="space-y-3">
+                  <div className="h-5 bg-slate-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-slate-100 rounded w-full"></div>
                 </div>
               </div>
             ))}
           </div>
         ) : displayedPOs.length === 0 ? (
-          <div className="text-center py-24">
-            <Package className="w-20 h-20 text-slate-300 mx-auto mb-4" />
-            <p className="text-lg text-slate-500">
-              {activeTab === "expiring"
-                ? "No active Purchase Orders"
-                : "No expired POs"}
+          <div className="text-center py-20">
+            <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500">
+              {activeTab === "expiring" ? "No active POs" : "No expired POs"}
             </p>
           </div>
         ) : (
@@ -187,6 +159,7 @@ const CompaniesPage = () => {
               );
               const isExpired = diffDays <= 0;
 
+              // Extract PO Number (short format)
               const poNumber = po.po?.id
                 ? `PO-${po.po.id.slice(0, 8).toUpperCase()}`
                 : "N/A";
@@ -195,101 +168,75 @@ const CompaniesPage = () => {
                 <div
                   key={po.id}
                   onClick={() => handleCardClick(po.id)}
-                  className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all cursor-pointer overflow-hidden group"
+                  className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-slate-300 transition-all cursor-pointer overflow-hidden"
                 >
-                  {/* Expiry Banner - Beautiful */}
+                  {/* Expiry Banner */}
                   <div
-                    className={`flex items-center justify-center gap-2 py-2.5 text-white font-semibold text-sm transition-all ${
+                    className={`text-center text-white text-xs font-semibold py-2 ${
                       isExpired
-                        ? "bg-red-600"
+                        ? "bg-red-500"
                         : diffDays <= 7
-                        ? "bg-orange-500"
-                        : "bg-emerald-600"
+                        ? "bg-amber-500"
+                        : "bg-green-500"
                     }`}
                   >
-                    {isExpired ? (
-                      <>
-                        <XCircle className="w-4 h-4" />
-                        <span>Expired</span>
-                      </>
-                    ) : diffDays === 0 ? (
-                      <>
-                        <AlertTriangle className="w-4 h-4" />
-                        <span>Expires Today</span>
-                      </>
-                    ) : diffDays <= 7 ? (
-                      <>
-                        <AlertTriangle className="w-4 h-4" />
-                        <span>
-                          {diffDays} Day{diffDays > 1 ? "s" : ""} Left
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        <span>{diffDays} Days Remaining</span>
-                      </>
-                    )}
+                    {isExpired
+                      ? "Expired"
+                      : `${diffDays} Day${diffDays > 1 ? "s" : ""} Left`}
                   </div>
 
                   <div className="p-5">
-                    {/* Header: Logo + Name + PO# */}
+                    {/* First Row: Logo + Company + Location + Qty */}
                     <div className="flex items-start gap-4 mb-4">
                       <img
                         src={po.companyImage}
                         alt={po.companyName}
-                        className="w-16 h-16 rounded-lg object-cover shadow-sm border border-slate-200"
+                        className="w-16 h-16 rounded-lg object-cover shadow-sm flex-shrink-0"
                       />
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-slate-900 truncate text-lg">
+                          <h3 className="font-bold text-slate-900 truncate">
                             {po.companyName}
                           </h3>
-                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-mono">
+                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-mono">
                             {poNumber}
                           </span>
                         </div>
-                        <p className="text-sm text-slate-500 flex items-center gap-1.5">
-                          <MapPin className="w-4 h-4" />
-                          {po.village}, {po.taluk}
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {po.village}, {po.taluk}, {po.district}
                         </p>
+                        <div className="flex gap-6 mt-2 text-xs">
+                          <div>
+                            <span className="text-slate-500">Required:</span>{" "}
+                            <strong>{po.quantity} TON</strong>
+                          </div>
+                          <div>
+                            <span className="text-slate-500">Supplied:</span>{" "}
+                            <strong className="text-green-600">
+                              {po.suppliedQuantity} TON
+                            </strong>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Stats Row */}
-                    <div className="flex flex-wrap gap-4 mt-4 text-sm">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-slate-600">Required:</span>
-                        <span className="font-bold">{po.quantity} TON</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-slate-600">Supplied:</span>
-                        <span className="font-bold text-green-600">
-                          {po.suppliedQuantity} TON
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-slate-700">
-                        <span>
-                          <strong className="text-slate-900 text-2xl font-heading ml-12">
-                            {formatDate(po.expiryDate)}
-                          </strong>
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Crop, Qty, Price */}
-                    <div className="mt-5 grid grid-cols-3 gap-4 bg-slate-50 rounded-lg p-4 text-center">
+                    {/* Second Row: Crop, Quantity, Price */}
+                    <div className="bg-slate-50 rounded-lg p-lg p-4 mb-5 grid grid-cols-3 gap-4 text-center">
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">Crop</p>
-                        <p className="font-bold text-slate-900">
+                        <div className="text-xs text-slate-500 mb-1">Crop</div>
+                        <div className="font-bold text-slate-900 text-sm">
                           {po.cropName}
-                        </p>
+                        </div>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">Total Qty</p>
-                        <p className="font-bold text-slate-900">
+                        <div className="text-xs text-slate-500 mb-1">
+                          Total Qty
+                        </div>
+                        <div className="font-bold text-slate-900 text-sm">
                           {po.quantity} TON
-                        </p>
+                        </div>
                       </div>
                       <div>
                         <div className="text-xs text-slate-500 mb-1">
@@ -298,7 +245,7 @@ const CompaniesPage = () => {
                         <div className="font-bold text-slate-900 text-sm flex items-center justify-center gap-1">
                           <IndianRupee className="w-4 h-4" />
                           {po.poPrice}/qtl
-                        </p>
+                        </div>
                       </div>
                     </div>
 
@@ -312,123 +259,15 @@ const CompaniesPage = () => {
                           <div>MobileNumber</div>
                           <div>Status</div>
                         </div>
-                        <div className="max-h-44 overflow-y-auto">
-                          {po.assignees.map((assignee, idx) => (
-                            <div
-                              key={idx}
-                              className="grid grid-cols-5 px-3 py-2.5 border-t border-slate-100 hover:bg-slate-50 transition"
-                            >
-                              <div className="font-medium truncate">
-                                {assignee.name}
-                              </div>
-                              <div>
-                                {assignee.promisedQuantity}{" "}
-                                <span className="text-slate-500">
-                                  {assignee.promisedQuantityMeasure === "TON"
-                                    ? "T"
-                                    : assignee.promisedQuantityMeasure ===
-                                      "QUINTAL"
-                                    ? "Q"
-                                    : "KG"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {assignee.assigneeTruckNo ? (
-                                  <>
-                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
-                                    <span className="font-mono text-xs">
-                                      {assignee.assigneeTruckNo}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span className="text-slate-400">—</span>
-                                )}
-                              </div>
-                              <div>
-                                {assignee.assigneeRate ? (
-                                  <span className="font-mono">
-                                    ₹{assignee.assigneeRate}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400">—</span>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                {assignee.mobileNumber ? (
-                                  <>
-                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
-                                    <span className="font-mono text-xs">
-                                      {assignee.mobileNumber}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span className="text-slate-400 text-xs">
-                                    —
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                {assignee.mobileNumber ? (
-                                  <>
-                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
-                                    <span className="font-mono text-xs">
-                                      {assignee.mobileNumber}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span className="text-slate-400 text-xs">
-                                    —
-                                  </span>
-                                )}
-                              </div>
-
-                              <div>
-                                <span
-                                  className={`px-2 py-1 rounded text-xs font-medium ${
-                                    assignee.status === "COMPLETED"
-                                      ? "bg-green-100 text-green-700"
-                                      : assignee.status === "CANCELLED"
-                                      ? "bg-red-100 text-red-700"
-                                      : "bg-blue-100 text-blue-700"
-                                  }`}
-                                >
-                                  {assignee.status === "PO_ASSIGNED"
-                                    ? "Assigned"
-                                    : assignee.status.replace(/_/g, " ")}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-center text-xs text-slate-500 py-6 bg-slate-50 rounded-lg">
-                        No assignees yet
-                      </p>
-                    )} */}
-                    {po.assignees.length > 0 ? (
-                      <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
-                        <div className="bg-slate-100 grid grid-cols-5 font-semibold text-slate-700 px-3 py-2.5 border-b border-slate-200">
-                          <div>Name</div>
-                          <div>Promised Qty</div>
-                          <div>Truck No</div>
-                          <div>Mobile </div>
-                          <div>Status</div>
-                        </div>
                         <div className="max-h-48 overflow-y-auto">
                           {po.assignees.map((assignee, idx) => (
                             <div
                               key={idx}
-                              className="grid grid-cols-5 px-3 py-2.5 border-t border-slate-100 hover:bg-slate-50 transition"
+                              className="grid grid-cols-4 px-3 py-2.5 border-t border-slate-100 hover:bg-slate-50 transition"
                             >
-                              {/* Name */}
                               <div className="font-medium truncate">
                                 {assignee.name}
                               </div>
-
-                              {/* Promised Qty */}
                               <div>
                                 {assignee.promisedQuantity}{" "}
                                 <span className="text-slate-500 text-xs">
@@ -440,8 +279,6 @@ const CompaniesPage = () => {
                                     : "KG"}
                                 </span>
                               </div>
-
-                              {/* Truck No */}
                               <div className="flex items-center gap-1">
                                 {assignee.assigneeTruckNo ? (
                                   <>
@@ -457,28 +294,22 @@ const CompaniesPage = () => {
                                 )}
                               </div>
 
-                              {/* Mobile Number - CLICKABLE */}
-                              <div
-                                className="flex items-center gap-1 cursor-pointer text-blue-600 hover:text-blue-800 hover:underline font-mono text-xs"
-                                onClick={(e) => {
-                                  e.stopPropagation(); // This is the key!
-                                  if (assignee.mobileNumber) {
-                                    handleAssigneeClick(assignee.mobileNumber);
-                                  }
-                                }}
-                              >
+                              <div className="flex items-center gap-1">
                                 {assignee.mobileNumber ? (
                                   <>
-                                    <FileText className="w-3.5 h-3.5 text-blue-500" />
-                                    <span>{assignee.mobileNumber}</span>
+                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="font-mono text-xs">
+                                      {assignee.mobileNumber}
+                                    </span>
                                   </>
                                 ) : (
-                                  <span className="text-slate-400">—</span>
+                                  <span className="text-slate-400 text-xs">
+                                    —
+                                  </span>
                                 )}
                               </div>
 
-                              {/* Status */}
-                              <div className="px-4">
+                              <div>
                                 <span
                                   className={`px-2 py-1 rounded text-[11px] font-medium ${
                                     assignee.status === "COMPLETED"
@@ -592,7 +423,7 @@ const CompaniesPage = () => {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-center text-sm text-slate-500 py-8 bg-slate-50 rounded-lg mt-5">
+                      <p className="text-center text-xs text-slate-500 py-6 bg-slate-50 rounded-lg">
                         No assignees yet
                       </p>
                     )}
@@ -606,15 +437,26 @@ const CompaniesPage = () => {
 
       {/* Create PO Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Create Purchase Order</h2>
+              <h2 className="text-lg font-semibold">Create Purchase Order</h2>
               <button
                 onClick={() => setShowForm(false)}
-                className="text-slate-500 hover:text-slate-700 transition"
+                className="text-slate-500 hover:text-slate-700"
               >
-                <XCircle className="w-6 h-6" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
             </div>
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
