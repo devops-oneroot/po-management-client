@@ -20,7 +20,7 @@ interface Assignee {
   promisedQuantity: string;
   promisedQuantityMeasure: string;
   assigneeTruckNo: string | null;
-  assigneeRate: string | null;
+  mobileNumber: string | null;
   status: string;
 }
 
@@ -90,6 +90,10 @@ const CompaniesPage = () => {
 
   const handleCardClick = (id: string) => {
     router.push(`/po/${id}`);
+  };
+
+  const handleAssigneeClick = (mobile: string) => {
+    router.push(`/assignee/${mobile}`);
   };
 
   const today = new Date();
@@ -288,22 +292,24 @@ const CompaniesPage = () => {
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">PO Price</p>
-                        <p className="font-bold text-slate-900 flex items-center justify-center gap-1">
+                        <div className="text-xs text-slate-500 mb-1">
+                          Company Price
+                        </div>
+                        <div className="font-bold text-slate-900 text-sm flex items-center justify-center gap-1">
                           <IndianRupee className="w-4 h-4" />
                           {po.poPrice}/qtl
                         </p>
                       </div>
                     </div>
 
-                    {/* Assignees */}
-                    {po.assignees && po.assignees.length > 0 ? (
-                      <div className="mt-5 border border-slate-200 rounded-lg overflow-hidden text-xs">
+                    {/* Assignee Table */}
+                    {/* {po.assignees.length > 0 ? (
+                      <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
                         <div className="bg-slate-100 grid grid-cols-5 font-semibold text-slate-700 px-3 py-2.5 border-b border-slate-200">
                           <div>Name</div>
-                          <div>Qty</div>
-                          <div>Truck</div>
-                          <div>Rate</div>
+                          <div>Promised Qty</div>
+                          <div>Truck No</div>
+                          <div>MobileNumber</div>
                           <div>Status</div>
                         </div>
                         <div className="max-h-44 overflow-y-auto">
@@ -347,9 +353,228 @@ const CompaniesPage = () => {
                                   <span className="text-slate-400">—</span>
                                 )}
                               </div>
+
+                              <div className="flex items-center gap-1">
+                                {assignee.mobileNumber ? (
+                                  <>
+                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="font-mono text-xs">
+                                      {assignee.mobileNumber}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">
+                                    —
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                {assignee.mobileNumber ? (
+                                  <>
+                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="font-mono text-xs">
+                                      {assignee.mobileNumber}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">
+                                    —
+                                  </span>
+                                )}
+                              </div>
+
                               <div>
                                 <span
                                   className={`px-2 py-1 rounded text-xs font-medium ${
+                                    assignee.status === "COMPLETED"
+                                      ? "bg-green-100 text-green-700"
+                                      : assignee.status === "CANCELLED"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {assignee.status === "PO_ASSIGNED"
+                                    ? "Assigned"
+                                    : assignee.status.replace(/_/g, " ")}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-center text-xs text-slate-500 py-6 bg-slate-50 rounded-lg">
+                        No assignees yet
+                      </p>
+                    )} */}
+                    {po.assignees.length > 0 ? (
+                      <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                        <div className="bg-slate-100 grid grid-cols-5 font-semibold text-slate-700 px-3 py-2.5 border-b border-slate-200">
+                          <div>Name</div>
+                          <div>Promised Qty</div>
+                          <div>Truck No</div>
+                          <div>Mobile </div>
+                          <div>Status</div>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {po.assignees.map((assignee, idx) => (
+                            <div
+                              key={idx}
+                              className="grid grid-cols-5 px-3 py-2.5 border-t border-slate-100 hover:bg-slate-50 transition"
+                            >
+                              {/* Name */}
+                              <div className="font-medium truncate">
+                                {assignee.name}
+                              </div>
+
+                              {/* Promised Qty */}
+                              <div>
+                                {assignee.promisedQuantity}{" "}
+                                <span className="text-slate-500 text-xs">
+                                  {assignee.promisedQuantityMeasure === "TON"
+                                    ? "T"
+                                    : assignee.promisedQuantityMeasure ===
+                                      "QUINTAL"
+                                    ? "Q"
+                                    : "KG"}
+                                </span>
+                              </div>
+
+                              {/* Truck No */}
+                              <div className="flex items-center gap-1">
+                                {assignee.assigneeTruckNo ? (
+                                  <>
+                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="font-mono text-xs">
+                                      {assignee.assigneeTruckNo}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">
+                                    —
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Mobile Number - CLICKABLE */}
+                              <div
+                                className="flex items-center gap-1 cursor-pointer text-blue-600 hover:text-blue-800 hover:underline font-mono text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // This is the key!
+                                  if (assignee.mobileNumber) {
+                                    handleAssigneeClick(assignee.mobileNumber);
+                                  }
+                                }}
+                              >
+                                {assignee.mobileNumber ? (
+                                  <>
+                                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                                    <span>{assignee.mobileNumber}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </div>
+
+                              {/* Status */}
+                              <div className="px-4">
+                                <span
+                                  className={`px-2 py-1 rounded text-[11px] font-medium ${
+                                    assignee.status === "COMPLETED"
+                                      ? "bg-green-100 text-green-700"
+                                      : assignee.status === "CANCELLED"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {assignee.status === "PO_ASSIGNED"
+                                    ? "Assigned"
+                                    : assignee.status.replace(/_/g, " ")}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-center text-xs text-slate-500 py-6 bg-slate-50 rounded-lg">
+                        No assignees yet
+                      </p>
+                    )} */}
+                    {po.assignees.length > 0 ? (
+                      <div className="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                        <div className="bg-slate-100 grid grid-cols-5 font-semibold text-slate-700 px-3 py-2.5 border-b border-slate-200">
+                          <div>Name</div>
+                          <div>Promised Qty</div>
+                          <div>Truck No</div>
+                          <div>Mobile </div>
+                          <div>Status</div>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {po.assignees.map((assignee, idx) => (
+                            <div
+                              key={idx}
+                              className="grid grid-cols-5 px-3 py-2.5 border-t border-slate-100 hover:bg-slate-50 transition"
+                            >
+                              {/* Name */}
+                              <div className="font-medium truncate">
+                                {assignee.name}
+                              </div>
+
+                              {/* Promised Qty */}
+                              <div>
+                                {assignee.promisedQuantity}{" "}
+                                <span className="text-slate-500 text-xs">
+                                  {assignee.promisedQuantityMeasure === "TON"
+                                    ? "T"
+                                    : assignee.promisedQuantityMeasure ===
+                                      "QUINTAL"
+                                    ? "Q"
+                                    : "KG"}
+                                </span>
+                              </div>
+
+                              {/* Truck No */}
+                              <div className="flex items-center gap-1">
+                                {assignee.assigneeTruckNo ? (
+                                  <>
+                                    <Truck className="w-3.5 h-3.5 text-slate-400" />
+                                    <span className="font-mono text-xs">
+                                      {assignee.assigneeTruckNo}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">
+                                    —
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Mobile Number - CLICKABLE */}
+                              <div
+                                className="flex items-center gap-1 cursor-pointer text-blue-600 hover:text-blue-800 hover:underline font-mono text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation(); // This is the key!
+                                  if (assignee.mobileNumber) {
+                                    handleAssigneeClick(assignee.mobileNumber);
+                                  }
+                                }}
+                              >
+                                {assignee.mobileNumber ? (
+                                  <>
+                                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                                    <span>{assignee.mobileNumber}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </div>
+
+                              {/* Status */}
+                              <div className="px-4">
+                                <span
+                                  className={`px-2 py-1 rounded text-[11px] font-medium ${
                                     assignee.status === "COMPLETED"
                                       ? "bg-green-100 text-green-700"
                                       : assignee.status === "CANCELLED"

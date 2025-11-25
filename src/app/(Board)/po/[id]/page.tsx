@@ -310,7 +310,7 @@ const BuyerDetails = () => {
               <div className="flex items-center gap-2 mb-2">
                 <IndianRupee className="w-5 h-5 text-slate-600" />
                 <span className="text-sm font-medium text-slate-600">
-                  Price
+                  Company Price
                 </span>
               </div>
               <p className="text-2xl font-semibold text-slate-900">
