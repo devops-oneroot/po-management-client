@@ -76,10 +76,21 @@ export default function AssigneeDetailPage() {
         const active = transformed.filter((a) => a.status !== "CANCELLED");
         const cancelledCount = transformed.length - active.length;
 
-        const totalQuintal = active.reduce((sum, a) => {
-          return a.promisedQuantityMeasure === "QUINTAL"
-            ? sum + a.promisedQuantity
-            : sum + a.promisedQuantity * 10;
+        // Aggregate quantity in kilograms for all assignments
+        const totalKg = active.reduce((sum, a) => {
+          if (a.promisedQuantityMeasure === "KILOGRAM") {
+            return sum + a.promisedQuantity;
+          }
+
+          // Backwards compatibility for older data that may still be in QUINTAL or TON
+          if (a.promisedQuantityMeasure === "QUINTAL") {
+            return sum + a.promisedQuantity * 100;
+          }
+          if (a.promisedQuantityMeasure === "TON") {
+            return sum + a.promisedQuantity * 1000;
+          }
+
+          return sum + a.promisedQuantity;
         }, 0);
 
         setAssignments(transformed);
@@ -91,7 +102,8 @@ export default function AssigneeDetailPage() {
           totalPOs: transformed.length,
           activePOs: active.length,
           cancelledPOs: cancelledCount,
-          totalQuantityTon: Number((totalQuintal / 10).toFixed(1)),
+          // Store summary quantity normalized to TONs
+          totalQuantityTon: Number((totalKg / 1000).toFixed(1)),
           avatar: user.profileImage,
         });
       })
@@ -233,9 +245,11 @@ export default function AssigneeDetailPage() {
                           <p className="text-xl font-bold text-slate-800 flex items-center gap-2 justify-end md:justify-start">
                             <Weight className="w-5 h-5 text-cyan-600" />
                             {po.promisedQuantity}{" "}
-                            {po.promisedQuantityMeasure === "QUINTAL"
+                            {po.promisedQuantityMeasure === "KILOGRAM"
+                              ? "Kg"
+                              : po.promisedQuantityMeasure === "QUINTAL"
                               ? "Qtl"
-                              : "TON"}
+                              : "Ton"}
                           </p>
                         </div>
                         <div>

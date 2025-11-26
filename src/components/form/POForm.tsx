@@ -34,7 +34,8 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
   // Form fields
   const [cropName, setCropName] = useState("");
   const [poQuantity, setPoQuantity] = useState<number | "">("");
-  const [poQuantityMeasure, setPoQuantityMeasure] = useState("QUINTAL");
+  // Master PO quantity should always be in TONs
+  const [poQuantityMeasure, setPoQuantityMeasure] = useState("TON");
   const [poPrice, setPoPrice] = useState("");
   const [poExpiryDate, setPoExpiryDate] = useState("");
   const [poIssuedDate, setPoIssueDate] = useState("");
@@ -363,19 +364,13 @@ const POForm = ({ onClose }: { onClose: () => void }) => {
               <label className='block text-sm font-medium text-slate-700 mb-2'>
                 Measure
               </label>
+              {/* Master PO is always measured in TONs */}
               <select
                 value={poQuantityMeasure}
                 onChange={(e) => setPoQuantityMeasure(e.target.value)}
                 className='w-full border border-slate-200 rounded-md px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 hover:border-slate-300 transition-colors duration-150'
               >
-                <option value='QUINTAL'>QUINTAL</option>
                 <option value='TON'>TON</option>
-                <option value='PIECE'>PIECE</option>
-                <option value='KILOGRAM'>KILOGRAM</option>
-                <option value='GRAM'>GRAM</option>
-                <option value='LITRE'>LITRE</option>
-                <option value='BAG'>BAG</option>
-                <option value='BOX'>BOX</option>
               </select>
             </div>
             <div>

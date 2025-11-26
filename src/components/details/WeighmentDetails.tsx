@@ -24,17 +24,6 @@ interface WeighmentProps {
   onUpdate?: () => void;
 }
 
-const measureOptions = [
-  "QUINTAL",
-  "TON",
-  "PIECE",
-  "KILOGRAM",
-  "GRAM",
-  "LITRE",
-  "BAG",
-  "BOX",
-];
-
 export default function WeighmentDetails({
   id,
   quantityLoaded,
@@ -49,9 +38,11 @@ export default function WeighmentDetails({
 
   const [formData, setFormData] = useState({
     quantityLoaded: quantityLoaded?.toString() || "",
-    quantityLoadedMeasure: quantityLoadedMeasure || "",
+    // Loading quantity is always captured in kilograms
+    quantityLoadedMeasure: quantityLoadedMeasure || "KILOGRAM",
     quantityUnloaded: quantityUnloaded?.toString() || "",
-    quantityUnloadedMeasure: quantityUnloadedMeasure || "",
+    // Unloading quantity is always captured in kilograms
+    quantityUnloadedMeasure: quantityUnloadedMeasure || "KILOGRAM",
     weighmentImages: weighmentImages || [],
   });
 
@@ -69,9 +60,9 @@ export default function WeighmentDetails({
   useEffect(() => {
     setFormData({
       quantityLoaded: quantityLoaded?.toString() || "",
-      quantityLoadedMeasure: quantityLoadedMeasure || "",
+      quantityLoadedMeasure: quantityLoadedMeasure || "KILOGRAM",
       quantityUnloaded: quantityUnloaded?.toString() || "",
-      quantityUnloadedMeasure: quantityUnloadedMeasure || "",
+      quantityUnloadedMeasure: quantityUnloadedMeasure || "KILOGRAM",
       weighmentImages: weighmentImages || [],
     });
   }, [
@@ -157,14 +148,6 @@ export default function WeighmentDetails({
   const handleUpdate = async () => {
     if (!id) return;
 
-    if (
-      (formData.quantityLoaded && !formData.quantityLoadedMeasure) ||
-      (formData.quantityUnloaded && !formData.quantityUnloadedMeasure)
-    ) {
-      setErrors({ measure: "Please select measure for the entered quantity" });
-      return;
-    }
-
     try {
       setLoading(true);
       let uploadedUrls = [...formData.weighmentImages];
@@ -182,12 +165,14 @@ export default function WeighmentDetails({
 
       if (formData.quantityLoaded) {
         payload.quantityLoaded = Number(formData.quantityLoaded);
-        payload.quantityLoadedMeasure = formData.quantityLoadedMeasure;
+        // Always send loading quantity in kilograms
+        payload.quantityLoadedMeasure = "KILOGRAM";
       }
 
       if (formData.quantityUnloaded) {
         payload.quantityUnloaded = Number(formData.quantityUnloaded);
-        payload.quantityUnloadedMeasure = formData.quantityUnloadedMeasure;
+        // Always send unloading quantity in kilograms
+        payload.quantityUnloadedMeasure = "KILOGRAM";
       }
 
       await axios.patch(
@@ -234,19 +219,10 @@ export default function WeighmentDetails({
                 placeholder="e.g. 25"
                 className="flex-1 border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
               />
-              <select
-                name="quantityLoadedMeasure"
-                value={formData.quantityLoadedMeasure}
-                onChange={handleChange}
-                className="border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Measure</option>
-                {measureOptions.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+              {/* Hardcoded to kilograms */}
+              <span className="inline-flex items-center px-3 py-2.5 border rounded-md text-sm bg-slate-50">
+                Kg
+              </span>
             </div>
           </div>
 
@@ -264,19 +240,10 @@ export default function WeighmentDetails({
                 placeholder="e.g. 20"
                 className="flex-1 border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
               />
-              <select
-                name="quantityUnloadedMeasure"
-                value={formData.quantityUnloadedMeasure}
-                onChange={handleChange}
-                className="border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Measure</option>
-                {measureOptions.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+              {/* Hardcoded to kilograms */}
+              <span className="inline-flex items-center px-3 py-2.5 border rounded-md text-sm bg-slate-50">
+                Kg
+              </span>
             </div>
           </div>
 

@@ -23,17 +23,6 @@ interface GRNDetailsProps {
   onUpdate?: () => void;
 }
 
-const measureOptions = [
-  "QUINTAL",
-  "TON",
-  "PIECE",
-  "KILOGRAM",
-  "GRAM",
-  "LITRE",
-  "BAG",
-  "BOX",
-];
-
 export default function GRNDetails({
   id,
   grnDate = "",
@@ -67,7 +56,8 @@ export default function GRNDetails({
     setForm({
       grnDate,
       rejectedQuantity: rejectedQuantity ? String(rejectedQuantity) : "",
-      rejectedQuantityMeasure,
+      // Rejected quantity is always in kilograms
+      rejectedQuantityMeasure: rejectedQuantityMeasure || "KILOGRAM",
       grnImages: grnImages || [],
     });
   }, [grnDate, rejectedQuantity, rejectedQuantityMeasure, grnImages]);
@@ -146,11 +136,6 @@ export default function GRNDetails({
   const handleSubmit = async () => {
     if (!id) return;
 
-    if (!form.rejectedQuantityMeasure) {
-      setErrors({ measure: "Please select a measure" });
-      return;
-    }
-
     try {
       setLoading(true);
       let uploadedUrls = [...form.grnImages];
@@ -169,7 +154,8 @@ export default function GRNDetails({
       const payload = {
         grnDate: form.grnDate,
         rejectedQuantity: Number(form.rejectedQuantity),
-        rejectedQuantityMeasure: form.rejectedQuantityMeasure,
+        // Always send rejected quantity in kilograms
+        rejectedQuantityMeasure: "KILOGRAM",
         grnImages: uploadedUrls,
       };
 
@@ -230,19 +216,10 @@ export default function GRNDetails({
               placeholder="10"
               className="flex-1 border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
             />
-            <select
-              name="rejectedQuantityMeasure"
-              value={form.rejectedQuantityMeasure}
-              onChange={handleChange}
-              className="border rounded-md px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Measure</option>
-              {measureOptions.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+            {/* Hardcoded to kilograms */}
+            <span className="inline-flex items-center px-3 py-2.5 border rounded-md text-sm bg-slate-50">
+              Kg
+            </span>
           </div>
 
           {errors.measure && (

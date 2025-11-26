@@ -4,16 +4,9 @@ import React, { useState } from "react";
 import axios from "axios";
 import { Search, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
-// 📦 Quantity Enum
+// 📦 Quantity Unit – for assignments we only allow Kilograms
 enum QuantityUnit {
-  QUINTAL = "QUINTAL",
-  TON = "TON",
-  PIECE = "PIECE",
   KILOGRAM = "KILOGRAM",
-  GRAM = "GRAM",
-  LITRE = "LITRE",
-  BAG = "BAG",
-  BOX = "BOX",
 }
 
 const AssignBuyerForm = ({
@@ -38,7 +31,8 @@ const AssignBuyerForm = ({
     userId: selectedBuyer ? selectedBuyer.id : "",
     promisedDate: "",
     promisedQuantity: "",
-    promisedQuantityMeasure: "",
+    // Promised quantity for assignments is always measured in kilograms
+    promisedQuantityMeasure: QuantityUnit.KILOGRAM,
     rate: "",
   });
 
@@ -101,7 +95,7 @@ const AssignBuyerForm = ({
         userId: "",
         promisedDate: "",
         promisedQuantity: "",
-        promisedQuantityMeasure: "",
+        promisedQuantityMeasure: QuantityUnit.KILOGRAM,
         rate: "",
       });
       setSelectedBuyer(null);
@@ -267,6 +261,7 @@ const AssignBuyerForm = ({
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Measure
               </label>
+              {/* Assignment promised quantity is always in KILOGRAM */}
               <select
                 value={formData.promisedQuantityMeasure}
                 onChange={(e) =>
@@ -277,12 +272,7 @@ const AssignBuyerForm = ({
                 }
                 className="w-full border border-slate-200 rounded-md px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:border-slate-300 transition-colors duration-150"
               >
-                <option value="">Select measure</option>
-                {Object.values(QuantityUnit).map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
-                  </option>
-                ))}
+                <option value={QuantityUnit.KILOGRAM}>KILOGRAM</option>
               </select>
             </div>
 

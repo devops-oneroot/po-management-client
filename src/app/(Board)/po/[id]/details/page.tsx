@@ -75,7 +75,9 @@ export default function BuyerDetails() {
         // Initialize edit values
         setEditValues({
           promisedQuantity: data?.promisedQuantity ?? "",
-          promisedQuantityMeasure: data?.promisedQuantityMeasure ?? "QUINTAL",
+          // Default to KILOGRAM when measure is missing
+          promisedQuantityMeasure:
+            data?.promisedQuantityMeasure ?? "KILOGRAM",
           rate: data?.rate ?? "",
           promisedDate: data?.promisedDate?.split("T")[0] ?? "", // ISO date format
         });
@@ -101,7 +103,8 @@ export default function BuyerDetails() {
     setEditValues((prev: any) => ({
       ...prev,
       promisedQuantity: buyer?.promisedQuantity ?? "",
-      promisedQuantityMeasure: buyer?.promisedQuantityMeasure ?? "QUINTAL",
+      promisedQuantityMeasure:
+        buyer?.promisedQuantityMeasure ?? "KILOGRAM",
       rate: buyer?.rate ?? "",
       promisedDate: buyer?.promisedDate?.split("T")[0] ?? "",
     }));
@@ -367,9 +370,8 @@ export default function BuyerDetails() {
                       }
                       className="text-xs border border-slate-300 rounded px-1 py-0.5"
                     >
-                      <option value="QUINTAL">QUINTAL</option>
+                      {/* Promised quantity for assignments is always in KILOGRAM */}
                       <option value="KILOGRAM">KILOGRAM</option>
-                      <option value="TON">TON</option>
                     </select>
                     <button
                       onClick={() => saveField("promisedQuantity")}

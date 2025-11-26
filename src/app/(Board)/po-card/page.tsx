@@ -357,12 +357,24 @@ const CompaniesPage = () => {
                               <div>
                                 {assignee.promisedQuantity}{" "}
                                 <span className="text-slate-500 text-xs">
-                                  {assignee.promisedQuantityMeasure === "TON"
-                                    ? "T"
+                                  {assignee.promisedQuantityMeasure === "KILOGRAM"
+                                    ? "Kg"
                                     : assignee.promisedQuantityMeasure ===
                                       "QUINTAL"
                                     ? "Q"
-                                    : "KG"}
+                                    : "T"}
+                                </span>
+                              </div>
+                              {/* Promised Qty */}
+                              <div>
+                                {assignee.promisedQuantity}{" "}
+                                <span className="text-slate-500 text-xs">
+                                  {assignee.promisedQuantityMeasure === "KILOGRAM"
+                                    ? "Kg"
+                                    : assignee.promisedQuantityMeasure ===
+                                      "QUINTAL"
+                                    ? "Q"
+                                    : "T"}
                                 </span>
                               </div>
 
