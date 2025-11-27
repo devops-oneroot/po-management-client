@@ -36,7 +36,7 @@ export default function UploadReports({
     { title: "E-Way Bill", key: "eWayBillImages" },
     { title: "APMC", key: "apmcImages" },
     { title: "Sales Invoice", key: "salesInvoiceImages" },
-    { title: "Miscellaneous", key: "miscellaneousDocs" },
+    { title: "Purchase Bill", key: "miscellaneousDocs" },
   ];
 
   // State for uploaded files (local + saved)
