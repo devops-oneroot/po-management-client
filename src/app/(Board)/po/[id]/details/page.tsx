@@ -370,8 +370,9 @@ export default function BuyerDetails() {
                       }
                       className="text-xs border border-slate-300 rounded px-1 py-0.5"
                     >
-                      {/* Promised quantity for assignments is always in KILOGRAM */}
+                      {/* Promised quantity for assignments can be in KILOGRAM or TON */}
                       <option value="KILOGRAM">KILOGRAM</option>
+                      <option value="TON">TON</option>
                     </select>
                     <button
                       onClick={() => saveField("promisedQuantity")}

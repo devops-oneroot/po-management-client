@@ -4,9 +4,10 @@ import React, { useState } from "react";
 import axios from "axios";
 import { Search, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
-// 📦 Quantity Unit – for assignments we only allow Kilograms
+// 📦 Quantity Unit – for assignments we support both Kilograms and Tons
 enum QuantityUnit {
   KILOGRAM = "KILOGRAM",
+  TON = "TON",
 }
 
 const AssignBuyerForm = ({
@@ -31,7 +32,7 @@ const AssignBuyerForm = ({
     userId: selectedBuyer ? selectedBuyer.id : "",
     promisedDate: "",
     promisedQuantity: "",
-    // Promised quantity for assignments is always measured in kilograms
+    // Promised quantity for assignments can be measured in kilograms or tons
     promisedQuantityMeasure: QuantityUnit.KILOGRAM,
     rate: "",
   });
@@ -261,7 +262,7 @@ const AssignBuyerForm = ({
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Measure
               </label>
-              {/* Assignment promised quantity is always in KILOGRAM */}
+              {/* Assignment promised quantity can be in KILOGRAM or TON */}
               <select
                 value={formData.promisedQuantityMeasure}
                 onChange={(e) =>
@@ -273,6 +274,7 @@ const AssignBuyerForm = ({
                 className="w-full border border-slate-200 rounded-md px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm hover:border-slate-300 transition-colors duration-150"
               >
                 <option value={QuantityUnit.KILOGRAM}>KILOGRAM</option>
+                <option value={QuantityUnit.TON}>TON</option>
               </select>
             </div>
 
