@@ -76,8 +76,7 @@ export default function BuyerDetails() {
         setEditValues({
           promisedQuantity: data?.promisedQuantity ?? "",
           // Default to KILOGRAM when measure is missing
-          promisedQuantityMeasure:
-            data?.promisedQuantityMeasure ?? "KILOGRAM",
+          promisedQuantityMeasure: data?.promisedQuantityMeasure ?? "KILOGRAM",
           rate: data?.rate ?? "",
           promisedDate: data?.promisedDate?.split("T")[0] ?? "", // ISO date format
         });
@@ -103,8 +102,7 @@ export default function BuyerDetails() {
     setEditValues((prev: any) => ({
       ...prev,
       promisedQuantity: buyer?.promisedQuantity ?? "",
-      promisedQuantityMeasure:
-        buyer?.promisedQuantityMeasure ?? "KILOGRAM",
+      promisedQuantityMeasure: buyer?.promisedQuantityMeasure ?? "KILOGRAM",
       rate: buyer?.rate ?? "",
       promisedDate: buyer?.promisedDate?.split("T")[0] ?? "",
     }));
@@ -278,10 +276,6 @@ export default function BuyerDetails() {
                     alert(
                       "Enter both unloaded and rejected quantity before completing."
                     );
-                    return;
-                  }
-                  if (Number(unloaded) <= Number(rejected)) {
-                    alert("Unloaded must be greater than rejected.");
                     return;
                   }
                 }
