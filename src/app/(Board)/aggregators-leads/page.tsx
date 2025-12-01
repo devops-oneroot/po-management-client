@@ -11,7 +11,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-
 interface AggregatorData {
   id: string | number | null;
   userId?: string | null;
@@ -299,7 +298,6 @@ function NewAggregatorModal({
               <div>
                 <label className="text-xs text-gray-500">Tag</label>
                 <div className="space-y-2 mt-1">
-                  
                   {(() => {
                     const option = [
                       "VLA",
@@ -315,13 +313,11 @@ function NewAggregatorModal({
                           onChange={(e) => {
                             const v = e.target.value;
                             if (v === "Other") {
-                              
                               if (
                                 !["VLA", "Potential Partner", "Other"].includes(
                                   draft.tag || ""
                                 )
                               ) {
-                           
                                 updateDraftField("tag", draft.tag || "");
                               } else {
                                 updateDraftField("tag", "");
@@ -797,8 +793,6 @@ const AggregatorTable = () => {
       payload.isInterestedToWork =
         String(row.interestTo).toLowerCase() === "yes";
     }
-
-    
 
     // ✅ FIX: Map tAndC to isTcCompliant as boolean
     if (row.tAndC !== undefined) {
@@ -1898,101 +1892,17 @@ const AggregatorTable = () => {
                           <div className="text-base font-bold text-black-400">
                             Location
                           </div>
-                          {!isEditing ? (
-                            <div className="font-medium">
-                              {[
-                                draft.village,
-                                draft.taluk,
-                                draft.district,
-                                draft.state,
-                              ]
-                                .filter(Boolean)
-                                .join(", ") || "-"}
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 gap-2">
-                              <select
-                                value={draft.state || ""}
-                                onChange={async (e) => {
-                                  const s = e.target.value || null;
-                                  updateDraftField("state", s);
-                                  updateDraftField("district", null);
-                                  updateDraftField("taluk", null);
-                                  updateDraftField("village", null);
-                                  await loadDistricts(s);
-                                }}
-                                className="w-full px-2 py-1 border rounded text-sm"
-                              >
-                                <option value="">Select State</option>
-                                {states.map((s) => (
-                                  <option key={s} value={s}>
-                                    {s}
-                                  </option>
-                                ))}
-                              </select>
 
-                              <div className="flex gap-2">
-                                <select
-                                  value={draft.district || ""}
-                                  onChange={async (e) => {
-                                    const d = e.target.value || null;
-                                    updateDraftField("district", d);
-                                    updateDraftField("taluk", null);
-                                    updateDraftField("village", null);
-                                    await loadTaluks(draft.state || null, d);
-                                  }}
-                                  className="flex-1 px-2 py-1 border rounded text-sm"
-                                >
-                                  <option value="">Select District</option>
-                                  {districts.map((d) => (
-                                    <option key={d} value={d}>
-                                      {d}
-                                    </option>
-                                  ))}
-                                </select>
-
-                                <select
-                                  value={draft.taluk || ""}
-                                  onChange={async (e) => {
-                                    const t = e.target.value || null;
-                                    updateDraftField("taluk", t);
-                                    updateDraftField("village", null);
-                                    await loadVillages(
-                                      draft.state || null,
-                                      draft.district || null,
-                                      t
-                                    );
-                                  }}
-                                  className="w-36 px-2 py-1 border rounded text-sm"
-                                >
-                                  <option value="">Select Taluk</option>
-                                  {taluks.map((t) => (
-                                    <option key={t} value={t}>
-                                      {t}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              <select
-                                value={draft.village || ""}
-                                onChange={(e) =>
-                                  updateDraftField(
-                                    "village",
-                                    e.target.value || null
-                                  )
-                                }
-                                className="w-full px-2 py-1 border rounded text-sm"
-                              >
-                                <option value="">Select Village</option>
-                                {villages.map((v) => (
-                                  <option key={v} value={v}>
-                                    {v}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
+                          <div className="font-medium">
+                            {[
+                              draft.village,
+                              draft.taluk,
+                              draft.district,
+                              draft.state,
+                            ]
+                              .filter(Boolean)
+                              .join(", ") || "-"}
+                          </div>
                         </div>
 
                         <div className="w-36">
