@@ -10,6 +10,7 @@ import {
   ShoppingBasket,
   ShoppingCart,
   LayoutDashboard,
+  UserCog,
 } from "lucide-react";
 
 const supervisorNavItems = [
@@ -17,6 +18,7 @@ const supervisorNavItems = [
   { label: "Companies", icon: Building2, href: "/company" },
   { label: "EOIs", icon: ShoppingBasket, href: "/eois-card" },
   { label: "POs", icon: ShoppingCart, href: "/po-card" },
+  { label: "Buyers", icon: UserCog , href: "/aggregators-leads" },
 ];
 
 const Sidebar: React.FC = () => {
