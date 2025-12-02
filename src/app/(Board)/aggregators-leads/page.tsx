@@ -1777,8 +1777,8 @@ async function fetchAllCompanies() {
     // Transform companies to include concatenated name + address
     return companies.map((company: any) => ({
       ...company,
-      name: company.company_address 
-        ? `${company.name} - ${company.company_address}`
+      name: company.taluk && company.district 
+        ? `${company.name} - ${company.taluk}, ${company.district}`
         : company.name
     }));
   } catch (err) {
