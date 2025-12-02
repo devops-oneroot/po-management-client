@@ -11,39 +11,113 @@ import {
   Trash2,
 } from "lucide-react";
 
+<style jsx>{`
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+`}</style>;
+
+/* ----------------------
+   Types / Interfaces
+   ---------------------- */
+type QuantityUnit =
+  | "QUINTAL"
+  | "TON"
+  | "PIECE"
+  | "KILOGRAM"
+  | "GRAM"
+  | "LITRE"
+  | "BAG"
+  | "BOX"
+  | "";
+
+type LoadFrequency =
+  | "DAILY"
+  | "WEEKLY"
+  | "BIWEEKLY"
+  | "MONTHLY"
+  | "SEASONAL"
+  | string;
+
+type ToastType = "success" | "error" | "info";
+
+interface ToastProps {
+  show: boolean;
+  message: string;
+  type: ToastType;
+  onClose: () => void;
+}
+/* ----------------------
+   Confirmation Modal Component
+   ---------------------- */
+interface ConfirmModalProps {
+  show: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmText?: string;
+  cancelText?: string;
+  type?: "danger" | "warning" | "info";
+}
+
 interface AggregatorData {
   id: string | number | null;
   userId?: string | null;
   onboarded?: string | null;
   name?: string | null;
   number?: string | null;
+  // location fields kept in UI context but NOT sent to backend
   state?: string | null;
   district?: string | null;
   taluk?: string | null;
   village?: string | null;
+
   experience?: string | null;
   capacity?: string | null;
-  capacityUnit?: string | null;
-  tAndC?: string | null;
+  capacityUnit?: QuantityUnit | null;
+  tAndC?: string | null; // maps to isTcCompliant
   nextAction?: string | null;
-  interestTo?: string | null;
-  readyToSupply?: string | null;
+  nextActionDueDate?: string | null;
+  interestTo?: string | null; // maps to isInterestedToWork
+  readyToSupply?: string | null; // UI date, maps to nextReadyDate
   tag?: string | null;
-  confidence?: string | null;
-  lastInteracted?: string | null;
+  confidence?: string | null; // maps to operationScore
+  lastInteracted?: string | null; // UI date -> lastInteractedAt
   interestedCompanies?: string | null; // Display string for table
   interestsCompaniesIds?: string[];
+  // feVisited is UI-only: DO NOT send to backend
   feVisited?: string | null;
-  hasStock?: string | null;
+  hasStock?: "Yes" | "No" | null;
   notes?: string | null;
-  radius?: string | null;
+  radius?: string | null; // display string; accurateRadius will be numeric in payload
   otherCrops?: string[];
   isVisited?: boolean;
   cropName?: string | null;
   buyerType?: string | null;
   updatedAt?: string | null;
+  frequency?: LoadFrequency | null;
+  currentStock?: number | null;
+  currentStockUnit?: QuantityUnit | null;
+  // new entity fields
+  accurateRadius?: number | null;
+  isInterestedToWork?: boolean | null;
+  nextActionDueDateRaw?: string | null;
+
   // raw backend object can be stored if needed
   __raw?: any;
+  __rawUserFromLookup?: any;
 }
 
 interface ColumnSelection {
@@ -77,9 +151,122 @@ interface ColumnSelection {
   updatedAt: boolean;
 }
 
+/* ----------------------
+   Small Spinner component
+   ---------------------- */
+function Spinner({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      className="animate-spin inline-block"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="3"
+        opacity="0.2"
+      ></circle>
+      <path
+        d="M22 12a10 10 0 00-10-10"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      ></path>
+    </svg>
+  );
+}
+
+function Toast({ show, message, type, onClose }: ToastProps) {
+  if (!show) return null;
+
+  const bgColor =
+    type === "success"
+      ? "bg-green-500"
+      : type === "error"
+      ? "bg-red-500"
+      : "bg-blue-500";
+
+  return (
+    <div className="fixed top-4 right-4 z-[100] animate-fadeIn">
+      <div
+        className={`${bgColor} text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 min-w-[300px]`}
+      >
+        <div className="flex-1">
+          <p className="font-medium">{message}</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-white hover:text-gray-200 transition-colors"
+        >
+          <X size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmModal({
+  show,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  type = "info",
+}: ConfirmModalProps) {
+  if (!show) return null;
+
+  const confirmButtonColor =
+    type === "danger"
+      ? "bg-red-600 hover:bg-red-700"
+      : type === "warning"
+      ? "bg-yellow-600 hover:bg-yellow-700"
+      : "bg-blue-600 hover:bg-blue-700";
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[90]">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 animate-fadeIn">
+        <h3 className="text-xl font-semibold mb-3">{title}</h3>
+        <p className="text-gray-600 mb-6">{message}</p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+          >
+            {cancelText}
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`px-4 py-2 text-white rounded transition-colors ${confirmButtonColor}`}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+/* ============================
+   Date helpers
+   ============================ */
+function toDisplayDateDDMMYYYY(isoOrYmd: string | null | undefined) {
+  if (!isoOrYmd) return null;
+  const d = new Date(isoOrYmd);
+  if (Number.isNaN(d.getTime())) return isoOrYmd;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 /* ===================================================================
-   NewAggregatorModal - moved outside of AggregatorTable to avoid
-   remounts (fixes caret / focus jumping)
+   NewAggregatorModal
    =================================================================== */
 type NewAggregatorModalProps = {
   show: boolean;
@@ -101,6 +288,14 @@ type NewAggregatorModalProps = {
     district: string | null,
     taluk: string | null
   ) => Promise<void>;
+
+  findUserByPhone: (phone: string) => Promise<any | null>;
+
+  // location lists from parent
+  states: string[];
+  districts: string[];
+  taluks: string[];
+  villages: string[];
 };
 
 function NewAggregatorModal({
@@ -115,15 +310,206 @@ function NewAggregatorModal({
   loadDistricts,
   loadTaluks,
   loadVillages,
+  findUserByPhone,
+  states,
+  districts,
+  taluks,
+  villages,
 }: NewAggregatorModalProps) {
   if (!show || !draft) return null;
 
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [locLoading, setLocLoading] = useState({
+    districts: false,
+    taluks: false,
+    villages: false,
+  });
+  const [companySearch, setCompanySearch] = useState("");
+  const [localCompaniesLoading, setLocalCompaniesLoading] = useState(false);
+
+  // whenever a user is fetched from lookup, default to read-only location view
+  useEffect(() => {
+    if (draft?.__rawUserFromLookup) {
+      setEditingLocation(false);
+    }
+  }, [draft?.__rawUserFromLookup]);
+
+  // Helper to map user object returned from /users to draft fields
+  const applyUserToDraft = (user: any) => {
+    if (!user) return;
+
+    // common mappings - tolerant to snake_case or camelCase
+    updateDraftField("userId", (user.id ?? draft?.userId ?? null) as any);
+    updateDraftField("name", (user.name ?? draft?.name ?? "") as any);
+    updateDraftField(
+      "number",
+      (user.mobileNumber ?? user.phone ?? draft?.number ?? "") as any
+    );
+
+    // store raw user so you can submit additional fields if needed
+    updateDraftField("__raw", { ...(draft?.__raw || {}), ...user } as any);
+    updateDraftField("__rawUserFromLookup", user as any);
+
+    // set location in draft for display only (we will NOT send these to backend)
+    updateDraftField("village", (user.village ?? draft?.village ?? "") as any);
+    updateDraftField("taluk", (user.taluk ?? draft?.taluk ?? "") as any);
+    updateDraftField(
+      "district",
+      (user.district ?? draft?.district ?? "") as any
+    );
+    updateDraftField("state", (user.state ?? draft?.state ?? "") as any);
+
+    // map user-provided capacity and frequency into draft if present
+    const capacityVal =
+      user.loadingCapacity ??
+      user.loading_capacity ??
+      user.capacity ??
+      user.loadingCapacityValue ??
+      user.loading_capacity_value ??
+      null;
+    if (capacityVal !== null && capacityVal !== undefined) {
+      updateDraftField("capacity", String(capacityVal) as any);
+    }
+
+    const capacityUnitVal =
+      user.loadingCapacityMeasure ??
+      user.loading_capacity_measure ??
+      user.capacityUnit ??
+      user.loadingCapacityUnit ??
+      user.loading_capacity_unit ??
+      null;
+    if (capacityUnitVal) {
+      updateDraftField("capacityUnit", String(capacityUnitVal) as any);
+    }
+
+    if (user.experience !== undefined && user.experience !== null) {
+      updateDraftField("experience", String(user.experience) as any);
+    } else if (user.yearsExperience) {
+      updateDraftField("experience", String(user.yearsExperience) as any);
+    }
+
+    const freq =
+      user.loadingFrequency ?? user.frequency ?? user.loadFrequency ?? null;
+    if (freq) updateDraftField("frequency", String(freq) as any);
+  };
+
+  const lookupUser = async () => {
+    setLookupError(null);
+    if (!draft?.number) {
+      setLookupError("Enter phone number first");
+      return;
+    }
+    try {
+      setLookupLoading(true);
+      const user = await findUserByPhone(String(draft.number));
+      if (!user) {
+        setLookupError("No user found for this number");
+        return;
+      }
+      applyUserToDraft(user);
+
+      // preload locations lists if available on user
+      try {
+        if (user.state) {
+          setLocLoading((s) => ({ ...s, districts: true }));
+          await loadDistricts(user.state);
+          setLocLoading((s) => ({ ...s, districts: false }));
+          if (user.district) {
+            setLocLoading((s) => ({ ...s, taluks: true }));
+            await loadTaluks(user.state, user.district);
+            setLocLoading((s) => ({ ...s, taluks: false }));
+            if (user.taluk) {
+              setLocLoading((s) => ({ ...s, villages: true }));
+              await loadVillages(user.state, user.district, user.taluk);
+              setLocLoading((s) => ({ ...s, villages: false }));
+            }
+          }
+        }
+      } catch (err) {
+        setLocLoading({ districts: false, taluks: false, villages: false });
+      }
+      // Default to read-only location UI
+      setEditingLocation(false);
+    } catch (err: any) {
+      console.error("Lookup failed:", err);
+      setLookupError(err?.message || "Lookup failed");
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  // local wrapper to call loadDistricts and set loading flag
+  const onSelectState = async (s: string) => {
+    updateDraftField("state", s || "");
+    updateDraftField("district", "");
+    updateDraftField("taluk", "");
+    updateDraftField("village", "");
+    if (s) {
+      try {
+        setLocLoading((x) => ({ ...x, districts: true }));
+        await loadDistricts(s);
+      } finally {
+        setLocLoading((x) => ({ ...x, districts: false }));
+      }
+    }
+  };
+
+  const onSelectDistrict = async (d: string) => {
+    updateDraftField("district", d || "");
+    updateDraftField("taluk", "");
+    updateDraftField("village", "");
+    if (d && draft?.state) {
+      try {
+        setLocLoading((x) => ({ ...x, taluks: true }));
+        await loadTaluks(draft.state, d);
+      } finally {
+        setLocLoading((x) => ({ ...x, taluks: false }));
+      }
+    }
+  };
+
+  const onSelectTaluk = async (t: string) => {
+    updateDraftField("taluk", t || "");
+    updateDraftField("village", "");
+    if (t && draft?.state && draft?.district) {
+      try {
+        setLocLoading((x) => ({ ...x, villages: true }));
+        await loadVillages(draft.state, draft.district, t);
+      } finally {
+        setLocLoading((x) => ({ ...x, villages: false }));
+      }
+    }
+  };
+
+  const capacityUnits: QuantityUnit[] = [
+    "QUINTAL",
+    "TON",
+    "PIECE",
+    "KILOGRAM",
+    "GRAM",
+    "LITRE",
+    "BAG",
+    "BOX",
+  ];
+
+  // filtered companies list for the search bar in modal
+  const filteredCompanies = useMemo(() => {
+    if (!companySearch) return availableCompanies;
+    const s = companySearch.toLowerCase();
+    return availableCompanies.filter((c) => c.name.toLowerCase().includes(s));
+  }, [availableCompanies, companySearch]);
+
   return (
+    //create aggregator modal 
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Create New Aggregator Lead</h2>
+          <h2 className="text-xl font-semibold">
+            Create Aggregator Lead
+          </h2>
           <button
             onClick={cancelNewAggregator}
             className="p-1 rounded hover:bg-gray-100"
@@ -151,13 +537,153 @@ function NewAggregatorModal({
               </div>
               <div>
                 <label className="text-xs text-gray-500">Phone Number *</label>
-                <input
-                  value={draft.number || ""}
-                  onChange={(e) => updateDraftField("number", e.target.value)}
-                  className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  placeholder="Enter phone number"
-                />
+                <div className="flex gap-2 mt-1">
+                  <input
+                    value={draft.number || ""}
+                    onChange={(e) => updateDraftField("number", e.target.value)}
+                    className="flex-1 px-3 py-2 border rounded text-sm"
+                    placeholder="Enter phone number"
+                  />
+                  <button
+                    onClick={lookupUser}
+                    disabled={lookupLoading}
+                    className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+                    title="Lookup user by phone"
+                  >
+                    {lookupLoading ? (
+                      <Spinner size={14} />
+                    ) : (
+                      <Search size={14} />
+                    )}
+                    <span>{lookupLoading ? "Looking..." : "Lookup"}</span>
+                  </button>
+                </div>
+                {lookupError && (
+                  <div className="text-xs text-red-600 mt-1">{lookupError}</div>
+                )}
               </div>
+            </div>
+
+            {/* Location block: read-only when lookup provided, else selects */}
+            <div className="grid grid-cols-1 gap-2 mt-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold text-gray-700">
+                  Location (display only)
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingLocation((s) => !s)}
+                    className="text-xs px-2 py-1 border rounded text-gray-600 hover:bg-gray-100"
+                  >
+                    {editingLocation ? "View" : "Edit"}
+                  </button>
+                </div>
+              </div>
+
+              {!editingLocation && draft.__rawUserFromLookup ? (
+                <div className="bg-white border rounded p-3 text-sm space-y-2">
+                  <div>
+                    <div className="text-xs text-gray-500">Village</div>
+                    <div className="font-medium">{draft.village || "-"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">Taluk</div>
+                    <div className="font-medium">{draft.taluk || "-"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">District</div>
+                    <div className="font-medium">{draft.district || "-"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500">State</div>
+                    <div className="font-medium">{draft.state || "-"}</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500">State</label>
+                    <select
+                      value={draft.state || ""}
+                      onChange={(e) => onSelectState(e.target.value)}
+                      className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    >
+                      <option value="">Select State</option>
+                      {states.map((st) => (
+                        <option key={st} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                    </select>
+                    {locLoading.districts && (
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                        <Spinner size={12} /> Loading districts...
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-500">District</label>
+                    <select
+                      value={draft.district || ""}
+                      onChange={(e) => onSelectDistrict(e.target.value)}
+                      className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    >
+                      <option value="">Select District</option>
+                      {districts.map((dt) => (
+                        <option key={dt} value={dt}>
+                          {dt}
+                        </option>
+                      ))}
+                    </select>
+                    {locLoading.taluks && (
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                        <Spinner size={12} /> Loading taluks...
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-500">Taluk</label>
+                    <select
+                      value={draft.taluk || ""}
+                      onChange={(e) => onSelectTaluk(e.target.value)}
+                      className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    >
+                      <option value="">Select Taluk</option>
+                      {taluks.map((ta) => (
+                        <option key={ta} value={ta}>
+                          {ta}
+                        </option>
+                      ))}
+                    </select>
+                    {locLoading.villages && (
+                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                        <Spinner size={12} /> Loading villages...
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-gray-500">Village</label>
+                    <select
+                      value={draft.village || ""}
+                      onChange={(e) =>
+                        updateDraftField("village", e.target.value)
+                      }
+                      className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    >
+                      <option value="">Select Village</option>
+                      {villages.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -201,19 +727,19 @@ function NewAggregatorModal({
                   <select
                     value={draft.capacityUnit || ""}
                     onChange={(e) =>
-                      updateDraftField("capacityUnit", e.target.value)
+                      updateDraftField(
+                        "capacityUnit",
+                        e.target.value as QuantityUnit
+                      )
                     }
                     className="w-full px-3 py-2 border rounded text-sm mt-1"
                   >
                     <option value="">Unit</option>
-                    <option value="QUINTAL">Qtl</option>
-                    <option value="TON">Ton</option>
-                    <option value="PIECE">Pc</option>
-                    <option value="KILOGRAM">Kg</option>
-                    <option value="GRAM">Gm</option>
-                    <option value="LITRE">Ltr</option>
-                    <option value="BAG">Bag</option>
-                    <option value="BOX">Box</option>
+                    {capacityUnits.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -248,16 +774,28 @@ function NewAggregatorModal({
                     placeholder="Enter years"
                   />
                 </div>
+
                 <div>
-                  <label className="text-xs text-gray-500">Radius (km)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={draft.radius || ""}
-                    onChange={(e) => updateDraftField("radius", e.target.value)}
+                  <label className="text-xs text-gray-500">
+                    Load Frequency
+                  </label>
+                  <select
+                    value={draft.frequency || ""}
+                    onChange={(e) =>
+                      updateDraftField(
+                        "frequency",
+                        e.target.value as LoadFrequency
+                      )
+                    }
                     className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="Enter radius"
-                  />
+                  >
+                    <option value="">Select Frequency</option>
+                    <option value="DAILY">Daily</option>
+                    <option value="WEEKLY">Weekly</option>
+                    <option value="BIWEEKLY">Biweekly</option>
+                    <option value="MONTHLY">Monthly</option>
+                    <option value="SEASONAL">Seasonal</option>
+                  </select>
                 </div>
               </div>
 
@@ -267,14 +805,21 @@ function NewAggregatorModal({
                     T & C Compliant?
                   </label>
                   <select
-                    value={draft.tAndC || "No"}
-                    onChange={(e) => updateDraftField("tAndC", e.target.value)}
+                    value={draft.tAndC ?? ""}
+                    onChange={(e) =>
+                      updateDraftField(
+                        "tAndC",
+                        e.target.value === "" ? null : e.target.value
+                      )
+                    }
                     className="w-full px-3 py-2 border rounded text-sm mt-1"
                   >
+                    <option value="">Select</option>
                     <option value="Yes">Yes - Compliant</option>
                     <option value="No">No - Not Compliant</option>
                   </select>
                 </div>
+
                 <div>
                   <label className="text-xs text-gray-500">Buyer Type</label>
                   <select
@@ -294,7 +839,75 @@ function NewAggregatorModal({
                 </div>
               </div>
 
-              {/* Tag (NewAggregatorModal) */}
+              {/* Has stock boolean + conditional currentStock + unit */}
+              <div className="grid grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className="text-xs text-gray-500">Has Stock?</label>
+                  <select
+                    value={draft.hasStock ?? ""}
+                    onChange={(e) =>
+                      updateDraftField(
+                        "hasStock",
+                        e.target.value === ""
+                          ? null
+                          : (e.target.value as "Yes" | "No")
+                      )
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                  >
+                    <option value="">Select</option>
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500">Current Stock</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={draft.currentStock ?? ""}
+                    onChange={(e) =>
+                      updateDraftField(
+                        "currentStock",
+                        e.target.value === "" ? null : Number(e.target.value)
+                      )
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    placeholder="0"
+                    disabled={draft.hasStock !== "Yes"}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500">
+                    Current Stock Unit
+                  </label>
+                  <select
+                    value={draft.currentStockUnit || ""}
+                    onChange={(e) =>
+                      updateDraftField(
+                        "currentStockUnit",
+                        e.target.value === ""
+                          ? null
+                          : (e.target.value as QuantityUnit)
+                      )
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    disabled={draft.hasStock !== "Yes"}
+                  >
+                    <option value="">Select Unit</option>
+                    {capacityUnits.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Tag input */}
               <div>
                 <label className="text-xs text-gray-500">Tag</label>
                 <div className="space-y-2 mt-1">
@@ -305,14 +918,18 @@ function NewAggregatorModal({
                       "Other",
                     ].includes(draft.tag || "")
                       ? draft.tag
-                      : "Other";
+                      : draft.tag
+                      ? "Other"
+                      : "";
                     return (
                       <>
                         <select
                           value={option || ""}
                           onChange={(e) => {
                             const v = e.target.value;
-                            if (v === "Other") {
+                            if (v === "") {
+                              updateDraftField("tag", null);
+                            } else if (v === "Other") {
                               if (
                                 !["VLA", "Potential Partner", "Other"].includes(
                                   draft.tag || ""
@@ -328,6 +945,7 @@ function NewAggregatorModal({
                           }}
                           className="w-full px-2 py-1 border rounded text-sm"
                         >
+                          <option value="">Select</option>
                           <option value="VLA">VLA</option>
                           <option value="Potential Partner">
                             Potential Partner
@@ -335,7 +953,6 @@ function NewAggregatorModal({
                           <option value="Other">Other</option>
                         </select>
 
-                        {/* show textbox when select is Other (covers both blank custom and existing custom tag) */}
                         {option === "Other" && (
                           <input
                             type="text"
@@ -355,88 +972,221 @@ function NewAggregatorModal({
             </div>
           </div>
 
-          {/* Additional Details */}
+          {/* Additional Details: interested companies with search, notes, other crops */}
           <div className="bg-gray-50 p-4 rounded">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">
               Additional Details
             </h3>
             <div className="grid grid-cols-1 gap-4">
+              {/* Interested Companies: search + list when editing; bullet points when not editing */}
               <div>
-                <label className="text-xs text-gray-500">
-                  Interested Companies
-                </label>
-                <div className="border rounded p-2 max-h-32 overflow-y-auto bg-white mt-1">
-                  {availableCompanies.length === 0 ? (
-                    <div className="text-xs text-gray-400">
-                      Loading companies...
+                <div className="flex justify-between items-baseline">
+                  <label className="text-xs text-gray-500">
+                    Interested Companies
+                  </label>
+                  <div className="text-xs text-gray-400">
+                    {(draft.interestsCompaniesIds || []).length} selected
+                  </div>
+                </div>
+
+                {!isEditing ? (
+                  // show bullet points when not editing
+                  <div className="mt-2 text-sm">
+                    {draft.interestsCompaniesIds &&
+                    draft.interestsCompaniesIds.length > 0 ? (
+                      <ul className="list-disc ml-5">
+                        {draft.interestsCompaniesIds.map((id) => {
+                          const c = availableCompanies.find((x) => x.id === id);
+                          return <li key={id}>{c ? c.name : id}</li>;
+                        })}
+                      </ul>
+                    ) : (
+                      <div className="text-xs text-gray-400 mt-1">None</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        placeholder="Search companies..."
+                        value={companySearch}
+                        onChange={(e) => setCompanySearch(e.target.value)}
+                        className="flex-1 px-3 py-2 border rounded text-sm"
+                      />
+                      {localCompaniesLoading ? (
+                        <div className="px-3 py-2 border rounded flex items-center gap-2 text-sm text-gray-600">
+                          <Spinner size={14} /> Loading
+                        </div>
+                      ) : null}
                     </div>
-                  ) : (
-                    availableCompanies.map((company) => (
-                      <label
-                        key={company.id}
-                        className="flex items-center gap-2 py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={(draft.interestsCompaniesIds || []).includes(
-                            company.id
-                          )}
-                          onChange={(e) => {
-                            const currentIds =
-                              draft.interestsCompaniesIds || [];
-                            if (e.target.checked) {
-                              updateDraftField("interestsCompaniesIds", [
-                                ...currentIds,
-                                company.id,
-                              ]);
-                            } else {
-                              updateDraftField(
-                                "interestsCompaniesIds",
-                                currentIds.filter((id) => id !== company.id)
-                              );
-                            }
-                          }}
-                          className="w-4 h-4 text-blue-600"
-                        />
-                        <span className="text-sm">{company.name}</span>
-                      </label>
-                    ))
-                  )}
+
+                    <div className="border rounded p-2 max-h-40 overflow-y-auto bg-white">
+                      {filteredCompanies.length === 0 ? (
+                        <div className="text-xs text-gray-400">
+                          No companies
+                        </div>
+                      ) : (
+                        filteredCompanies.map((company) => (
+                          <label
+                            key={company.id}
+                            className="flex items-center gap-2 py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={(
+                                draft.interestsCompaniesIds || []
+                              ).includes(company.id)}
+                              onChange={(e) => {
+                                const currentIds =
+                                  draft.interestsCompaniesIds || [];
+                                if (e.target.checked) {
+                                  updateDraftField("interestsCompaniesIds", [
+                                    ...currentIds,
+                                    company.id,
+                                  ]);
+                                } else {
+                                  updateDraftField(
+                                    "interestsCompaniesIds",
+                                    currentIds.filter((id) => id !== company.id)
+                                  );
+                                }
+                              }}
+                              className="w-4 h-4 text-blue-600"
+                            />
+                            <span className="text-sm">{company.name}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-500">Notes</label>
+                  <textarea
+                    value={draft.notes || ""}
+                    onChange={(e) => updateDraftField("notes", e.target.value)}
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    rows={3}
+                    placeholder="Add any notes..."
+                  />
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {(draft.interestsCompaniesIds || []).length} selected
+
+                <div>
+                  <label className="text-xs text-gray-500">
+                    Other Crops (comma separated)
+                  </label>
+                  <input
+                    value={(draft.otherCrops || []).join(", ")}
+                    onChange={(e) =>
+                      updateDraftField(
+                        "otherCrops",
+                        e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      )
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    placeholder="Rice, Wheat, Corn"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs text-gray-500">Notes</label>
-                <textarea
-                  value={draft.notes || ""}
-                  onChange={(e) => updateDraftField("notes", e.target.value)}
-                  className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  rows={3}
-                  placeholder="Add any notes..."
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-500">
+                    Ready to Supply
+                  </label>
+                  <input
+                    type="date"
+                    value={draft.readyToSupply || ""}
+                    onChange={(e) =>
+                      updateDraftField("readyToSupply", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    {draft.readyToSupply
+                      ? toDisplayDateDDMMYYYY(draft.readyToSupply)
+                      : "-"}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500">Next Action</label>
+                  <input
+                    type="text"
+                    value={draft.nextAction || ""}
+                    onChange={(e) =>
+                      updateDraftField("nextAction", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    placeholder="Enter next action"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500">
+                    Next Action Due
+                  </label>
+                  <input
+                    type="date"
+                    value={draft.nextActionDueDate || ""}
+                    onChange={(e) =>
+                      updateDraftField("nextActionDueDate", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    {draft.nextActionDueDate
+                      ? toDisplayDateDDMMYYYY(draft.nextActionDueDate)
+                      : "-"}
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="text-xs text-gray-500">
-                  Other Crops (comma separated)
-                </label>
-                <input
-                  value={(draft.otherCrops || []).join(", ")}
-                  onChange={(e) =>
-                    updateDraftField(
-                      "otherCrops",
-                      e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean)
-                    )
-                  }
-                  className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  placeholder="Rice, Wheat, Corn"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-500">
+                    Is Interested To Work?
+                  </label>
+                  <select
+                    value={
+                      draft.interestTo ??
+                      (draft.isInterestedToWork === true
+                        ? "Yes"
+                        : draft.isInterestedToWork === false
+                        ? "No"
+                        : "")
+                    }
+                    onChange={(e) =>
+                      updateDraftField(
+                        "interestTo",
+                        e.target.value === ""
+                          ? null
+                          : (e.target.value as AggregatorData["interestTo"])
+                      )
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                  >
+                    <option value="">Select</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Radius (km)</label>
+                  <input
+                    value={draft.radius ?? ""}
+                    onChange={(e) => updateDraftField("radius", e.target.value)}
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    placeholder="Radius in km"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -454,8 +1204,7 @@ function NewAggregatorModal({
             onClick={saveDraft}
             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
           >
-            <Save size={16} />
-            Create Aggregator
+            <Save size={16} /> Create / Save
           </button>
         </div>
       </div>
@@ -464,7 +1213,7 @@ function NewAggregatorModal({
 }
 
 /* ===================================================================
-   AggregatorTable - main component 
+   AggregatorTable - main component
    =================================================================== */
 const AggregatorTable = () => {
   // ======== API CONFIGURATION =========
@@ -484,7 +1233,6 @@ const AggregatorTable = () => {
       ...(options.headers as Record<string, string>),
     };
 
-    // If body is JSON and content-type not set, set it
     if (
       options.body &&
       !(options.body instanceof FormData) &&
@@ -504,7 +1252,6 @@ const AggregatorTable = () => {
     });
 
     const text = await res.text().catch(() => "");
-    // Try parse JSON if any
     let payload: any = null;
     try {
       payload = text ? JSON.parse(text) : null;
@@ -513,7 +1260,6 @@ const AggregatorTable = () => {
     }
 
     if (!res.ok) {
-      // Try to provide useful error message
       const message =
         payload?.message || payload?.error || res.statusText || "API error";
       const err: any = new Error(message);
@@ -528,7 +1274,6 @@ const AggregatorTable = () => {
   // Add this helper function to format "time ago"
   const getTimeAgo = (date: string | null | undefined): string => {
     if (!date) return "-";
-
     const now = new Date();
     const past = new Date(date);
     const diffMs = now.getTime() - past.getTime();
@@ -552,11 +1297,17 @@ const AggregatorTable = () => {
       return `${diffMonths} month${diffMonths > 1 ? "s" : ""} ago`;
     return `${diffYears} year${diffYears > 1 ? "s" : ""} ago`;
   };
+
   // ======== DATA STATE =========
   const [data, setData] = useState<AggregatorData[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(40);
+
+  // loading flags for interactivity
+  const [loadingLeads, setLoadingLeads] = useState(false);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+
   // Companies list for multi-select
   const [availableCompanies, setAvailableCompanies] = useState<
     Array<{ id: string; name: string }>
@@ -610,7 +1361,7 @@ const AggregatorTable = () => {
     updatedAt: true,
   });
 
-  // Filters (UI). We'll map these to backend query params when fetching.
+  // Filters (UI)
   const [searchName, setSearchName] = useState("");
   const [searchCompany, setSearchCompany] = useState("");
   const [selectedCrop, setSelectedCrop] = useState("");
@@ -626,6 +1377,7 @@ const AggregatorTable = () => {
     setDraft(null);
     setIsEditing(false);
   };
+
   const allColumns = [
     { key: "onboarded" as keyof ColumnSelection, label: "Onboarded" },
     { key: "name" as keyof ColumnSelection, label: "Name" },
@@ -669,7 +1421,6 @@ const AggregatorTable = () => {
     { key: "updatedAt" as keyof ColumnSelection, label: "Last Updated" },
   ];
 
-  // kept crops list as before
   const crops = [
     "Tender Coconut",
     "Turmeric",
@@ -680,17 +1431,49 @@ const AggregatorTable = () => {
     "Jowar",
   ];
 
-  // ======= UTILS: mapping backend AggregatorLeads -> UI row =======
+  // Toast/Alert states
+  const [toast, setToast] = useState<{
+    show: boolean;
+    message: string;
+    type: ToastType;
+  }>({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  // Confirmation modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: "danger" | "warning" | "info";
+  }>({
+    show: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "info",
+  });
+
+  // Helper function to show toast
+  const showToast = (message: string, type: ToastType = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: "", type: "success" });
+    }, 3000);
+  };
+
+  /* ======= UTILS: mapping backend AggregatorLeads -> UI row ======= */
   function mapLeadToRow(lead: any): AggregatorData {
     const user = lead?.user || lead?.userId || null;
-    // Extract company names for display
     const interestedCompanies = Array.isArray(lead?.interestsCompanies)
       ? lead.interestsCompanies
           .map((c: any) => c.name || c.title || c.companyName || c.id)
           .join(", ")
       : lead?.interestsCompanies || "";
 
-    // Extract company IDs for editing
     const interestsCompaniesIds = Array.isArray(lead?.interestsCompanies)
       ? lead.interestsCompanies.map((c: any) => c.id).filter(Boolean)
       : [];
@@ -704,41 +1487,66 @@ const AggregatorTable = () => {
       updatedAt: lead.updatedAt ?? null,
       name: lead.user?.name ?? lead.name ?? (user?.name || null),
       number: lead.user?.mobileNumber ?? lead.mobileNumber ?? null,
+      // keep location in UI for display but DO NOT send to backend
       village: lead.user?.village ?? lead.village ?? null,
       district: lead.user?.district ?? lead.district ?? null,
       state: lead.user?.state ?? lead.state ?? null,
       taluk: lead.user?.taluk ?? lead.taluk ?? null,
-      // ✅ Extract buyerType from user
       buyerType: lead.user?.buyerType ?? user?.buyerType ?? null,
       experience:
         lead.experience != null ? String(lead.experience) : lead.experience,
       capacity: lead.capacity != null ? String(lead.capacity) : null,
       capacityUnit: lead.capacityUnit ?? null,
-      tAndC: lead.isTcCompliant ? "Yes" : "No",
+      tAndC:
+        lead.isTcCompliant === true
+          ? "Yes"
+          : lead.isTcCompliant === false
+          ? "No"
+          : null,
       nextAction: lead.nextAction ?? null,
-      interestTo: lead.isInterestedToWork ? "Yes" : "No",
+      nextActionDueDate: lead.nextActionDueDate
+        ? new Date(lead.nextActionDueDate).toISOString().split("T")[0]
+        : null,
+      interestTo:
+        lead.isInterestedToWork === true
+          ? "Yes"
+          : lead.isInterestedToWork === false
+          ? "No"
+          : null,
       readyToSupply: lead.nextReadyDate
-        ? new Date(lead.nextReadyDate).toISOString().split("T")[0] // YYYY-MM-DD format for date input
+        ? new Date(lead.nextReadyDate).toISOString().split("T")[0]
         : null,
       tag: lead.label ?? null,
       confidence: lead.operationScore != null ? `${lead.operationScore}` : null,
       lastInteracted: lead.lastInteractedAt
         ? new Date(lead.lastInteractedAt).toISOString().split("T")[0]
         : null,
-      interestedCompanies, // Display string
+      interestedCompanies,
       interestsCompaniesIds,
-      feVisited: lead.feVisited ? "Yes" : "No",
+      feVisited:
+        lead.feVisited === true
+          ? "Yes"
+          : lead.feVisited === false
+          ? "No"
+          : null,
+
       hasStock:
-        lead.hasStock === true
-          ? lead.currentStock != null
-            ? `Yes, ${lead.currentStock} ${lead.currentStockUnit ?? ""}`
-            : "Yes"
-          : "No",
+        lead.hasStock === true ? "Yes" : lead.hasStock === false ? "No" : null,
       notes: lead.notes ?? null,
-      radius: lead.accurateRadius != null ? `${lead.accurateRadius}` : null,
+      radius: lead.accurateRadius != null ? String(lead.accurateRadius) : null,
+      accurateRadius: lead.accurateRadius ?? null,
       otherCrops: lead.otherCrop ?? [],
       isVisited: !!lead.isVisited,
       cropName: lead.cropName ?? null,
+      frequency: lead.frequency ?? null,
+      currentStock: lead.currentStock ?? null,
+      currentStockUnit: lead.currentStockUnit ?? null,
+      // isInterestedToWork:
+      //   lead.isInterestedToWork === true
+      //     ? true
+      //     : lead.isInterestedToWork === false
+      //     ? false
+      //     : null,
       __raw: lead,
     };
   }
@@ -746,73 +1554,149 @@ const AggregatorTable = () => {
   // Reverse mapper: take UI draft and produce payload for backend create/update
   function mapRowToBackendPayload(row: AggregatorData) {
     const payload: any = {};
-    if (row.userId) payload.userId = row.userId;
-    if (row.cropName) payload.cropName = row.cropName;
-    if (row.otherCrops) payload.otherCrop = row.otherCrops;
-    if (row.notes !== undefined) payload.notes = row.notes;
-    if (row.tag !== undefined) payload.label = row.tag;
-    if (row.experience !== undefined)
-      payload.experience = row.experience
-        ? Number(String(row.experience).replace(/\D/g, ""))
-        : 0;
 
-    if (row.capacity) {
+    // only include fields that exist on AggregatorLeads entity
+    if (row.userId) payload.userId = row.userId;
+
+    // crop & label & notes
+    payload.cropName = row.cropName ?? null;
+    payload.label = row.tag ?? null;
+    payload.notes = row.notes ?? null;
+
+    // experience numeric
+    if (
+      row.experience !== undefined &&
+      row.experience !== null &&
+      row.experience !== ""
+    ) {
+      const n = Number(String(row.experience).replace(/[^\d.-]/g, ""));
+      payload.experience = Number.isFinite(n) ? n : null;
+    } else {
+      payload.experience = null;
+    }
+
+    // capacity numeric
+    if (
+      row.capacity !== undefined &&
+      row.capacity !== null &&
+      row.capacity !== ""
+    ) {
       const clean = String(row.capacity).replace(/[^0-9.]/g, "");
       const num = Number(clean);
-      if (!Number.isNaN(num)) payload.capacity = num;
+      payload.capacity = Number.isFinite(num) ? num : null;
+    } else {
+      payload.capacity = null;
     }
 
-    if (row.capacityUnit) {
-      payload.capacityUnit = row.capacityUnit;
+    payload.capacityUnit = row.capacityUnit ?? null;
+
+    // hasStock boolean or null
+    if (row.hasStock !== undefined && row.hasStock !== null) {
+      payload.hasStock = String(row.hasStock).toLowerCase() === "yes";
+    } else {
+      payload.hasStock = null;
     }
 
-    if (row.hasStock) {
-      payload.hasStock = String(row.hasStock).toLowerCase().startsWith("yes");
-      const m = String(row.hasStock).match(/(\d+)/);
-      if (m) payload.currentStock = Number(m[1]);
+    // currentStock must be number or null
+    if (row.currentStock !== undefined && row.currentStock !== null) {
+      const cs = Number(row.currentStock);
+      payload.currentStock = Number.isFinite(cs) ? cs : null;
+    } else {
+      payload.currentStock = null;
     }
-    if (row.nextAction) payload.nextAction = row.nextAction;
+
+    payload.currentStockUnit = row.currentStockUnit ?? null;
+
+    // frequency
+    payload.frequency = row.frequency ?? null;
+
+    // nextAction
+    payload.nextAction = row.nextAction ?? null;
+
+    // nextActionDueDate (convert to ISO)
+    if (row.nextActionDueDate) {
+      const d = new Date(row.nextActionDueDate);
+      payload.nextActionDueDate = !Number.isNaN(d.getTime())
+        ? d.toISOString()
+        : null;
+    } else {
+      payload.nextActionDueDate = null;
+    }
+
+    // lastInteracted
     if (row.lastInteracted) {
       const d = new Date(row.lastInteracted);
-      if (!Number.isNaN(d.getTime()))
-        payload.lastInteractedAt = d.toISOString();
-    }
-    if (row.readyToSupply) {
-      const d = new Date(row.readyToSupply);
-      if (!Number.isNaN(d.getTime())) payload.nextReadyDate = d.toISOString();
-    }
-    if (row.confidence) {
-      const n = parseInt(String(row.confidence).replace(/\D/g, ""), 10);
-      if (!Number.isNaN(n)) payload.operationScore = n;
-    }
-    if (row.radius) {
-      const m = String(row.radius).match(/(\d+)/);
-      if (m) payload.accurateRadius = Number(m[1]);
-    }
-    if (row.interestTo !== undefined) {
-      payload.isInterestedToWork =
-        String(row.interestTo).toLowerCase() === "yes";
+      payload.lastInteractedAt = !Number.isNaN(d.getTime())
+        ? d.toISOString()
+        : null;
+    } else {
+      payload.lastInteractedAt = null;
     }
 
-    // ✅ FIX: Map tAndC to isTcCompliant as boolean
-    if (row.tAndC !== undefined) {
+    // readyToSupply -> nextReadyDate
+    if (row.readyToSupply) {
+      const d = new Date(row.readyToSupply);
+      payload.nextReadyDate = !Number.isNaN(d.getTime())
+        ? d.toISOString()
+        : null;
+    } else {
+      payload.nextReadyDate = null;
+    }
+
+    // confidence -> operationScore
+    if (row.confidence !== undefined && row.confidence !== "") {
+      const n = parseInt(String(row.confidence).replace(/\D/g, ""), 10);
+      payload.operationScore = !Number.isNaN(n) ? n : null;
+    } else {
+      payload.operationScore = null;
+    }
+
+    // accurateRadius numeric -> accurateRadius
+    if (row.radius !== undefined && row.radius !== null && row.radius !== "") {
+      const r = Number(String(row.radius).replace(/[^\d.]/g, ""));
+      payload.accurateRadius = Number.isFinite(r) ? r : null;
+    } else if (row.accurateRadius !== undefined) {
+      payload.accurateRadius = row.accurateRadius ?? null;
+    } else {
+      payload.accurateRadius = null;
+    }
+
+    // isInterestedToWork - FIXED (removed else-if block)
+    if (
+      row.interestTo !== undefined &&
+      row.interestTo !== null &&
+      row.interestTo !== ""
+    ) {
+      payload.isInterestedToWork =
+        String(row.interestTo).toLowerCase() === "yes";
+    } else {
+      payload.isInterestedToWork = null;
+    }
+
+    // isTcCompliant from tAndC - FIXED (added empty string check)
+    if (row.tAndC !== undefined && row.tAndC !== null && row.tAndC !== "") {
       payload.isTcCompliant = String(row.tAndC).toLowerCase() === "yes";
+    } else {
+      payload.isTcCompliant = null;
     }
-    if (row.interestsCompaniesIds && row.interestsCompaniesIds.length > 0) {
-      payload.interestsCompaniesIds = row.interestsCompaniesIds;
-    }
+
+    // otherCrop
+    payload.otherCrop = Array.isArray(row.otherCrops) ? row.otherCrops : [];
+
+    // interestsCompaniesIds -> send array (or empty array)
+    payload.interestsCompaniesIds = Array.isArray(row.interestsCompaniesIds)
+      ? row.interestsCompaniesIds
+      : [];
 
     return payload;
   }
 
-  // ======= API FUNCTIONS (inline) =======
-  // Build query params based on UI filters
+  // ======= API FUNCTIONS =======
   function buildListParams() {
     const params: Record<string, any> = {
       page,
       limit,
     };
-
     if (searchName) params.search = searchName;
     if (searchCompany) params.search = searchCompany;
     if (selectedCrop) params.cropName = selectedCrop;
@@ -825,8 +1709,8 @@ const AggregatorTable = () => {
 
   async function fetchLeads() {
     try {
+      setLoadingLeads(true);
       const params = buildListParams();
-      // Convert params object to query string
       const qp = new URLSearchParams();
       Object.entries(params).forEach(([k, v]) => {
         if (v === undefined || v === null || v === "") return;
@@ -840,7 +1724,6 @@ const AggregatorTable = () => {
       }`;
       const res = await callApi(path, { method: "GET" });
 
-      // map backend leads to UI rows
       const rows = Array.isArray(res.data)
         ? res.data.map((lead: any) => mapLeadToRow(lead))
         : (res as any).map((lead: any) => mapLeadToRow(lead));
@@ -848,12 +1731,16 @@ const AggregatorTable = () => {
       setTotal(res.total ?? rows.length);
     } catch (err: any) {
       console.error("Failed to fetch aggregator leads:", err);
+    } finally {
+      setLoadingLeads(false);
     }
   }
 
   async function findUserByPhone(phone: string) {
     try {
-      const res = await callApi(`/users?search=${phone}`, { method: "GET" });
+      const res = await callApi(`/users?search=${encodeURIComponent(phone)}`, {
+        method: "GET",
+      });
       if (Array.isArray(res) && res.length > 0) return res[0];
       if (res?.data?.length) return res.data[0];
       return null;
@@ -881,19 +1768,27 @@ const AggregatorTable = () => {
     return await callApi(`/aggregator-leads/${id}`, { method: "DELETE" });
   }
 
-  // Add this near your other API functions
-  async function fetchAllCompanies() {
-    try {
-      const res = await callApi(`/po-companies`, { method: "GET" });
-      // Adjust based on your actual response structure
-      return Array.isArray(res) ? res : res.data || [];
-    } catch (err) {
-      console.error("Failed to fetch companies:", err);
-      return [];
-    }
+async function fetchAllCompanies() {
+  try {
+    setLoadingCompanies(true);
+    const res = await callApi(`/po-companies`, { method: "GET" });
+    const companies = Array.isArray(res) ? res : res.data || [];
+    
+    // Transform companies to include concatenated name + address
+    return companies.map((company: any) => ({
+      ...company,
+      name: company.company_address 
+        ? `${company.name} - ${company.company_address}`
+        : company.name
+    }));
+  } catch (err) {
+    console.error("Failed to fetch companies:", err);
+    return [];
+  } finally {
+    setLoadingCompanies(false);
   }
+}
 
-  // Add this near your other API functions
   async function updateBuyerType(
     userId: string,
     buyerType: string | { buyerType?: string | null }
@@ -902,7 +1797,6 @@ const AggregatorTable = () => {
       typeof buyerType === "string"
         ? { buyerType }
         : buyerType ?? { buyerType: null };
-
     return await callApi(`/users/update-buyer/${userId}`, {
       method: "PUT",
       body: JSON.stringify(payload),
@@ -913,7 +1807,6 @@ const AggregatorTable = () => {
   const loadStates = async () => {
     try {
       const res = await callApi(`/newlocations/states`, { method: "GET" });
-      // expecting an array of strings or objects; normalize to strings
       if (Array.isArray(res)) {
         setStates(
           res.map((s: any) =>
@@ -1054,7 +1947,6 @@ const AggregatorTable = () => {
     selectedVillage,
   ]);
 
-  // Add this useEffect to load companies and location states on mount
   useEffect(() => {
     const load = async () => {
       const companies = await fetchAllCompanies();
@@ -1064,15 +1956,10 @@ const AggregatorTable = () => {
     load();
   }, []);
 
-  // NOTE: Removed the automatic fetching effects that triggered when
-  // selectedState/selectedDistrict/selectedTaluk filter inputs changed.
-  // Those behaviors are retained for draft/modal flows only (see draft useEffect below).
-
-  // When draft changes (openDetails / create), preload location lists based on draft values.
+  // When draft changes, preload location lists as before
   useEffect(() => {
     if (!draft) return;
     (async () => {
-      // ensure states loaded (they usually are), but call to be safe
       if (states.length === 0) await loadStates();
       if (draft.state) {
         await loadDistricts(draft.state);
@@ -1089,10 +1976,7 @@ const AggregatorTable = () => {
 
   // ======= Column helper & filters =======
   const toggleColumn = (key: keyof ColumnSelection) => {
-    setSelectedColumns((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setSelectedColumns((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const clearAllFilters = () => {
@@ -1120,7 +2004,6 @@ const AggregatorTable = () => {
           : (row.interestedCompanies || "").toLowerCase()
         ).includes(searchCompany.toLowerCase());
 
-      // --- changed matching to case-insensitive substring matching ---
       const matchesState =
         selectedState === "" ||
         (row.state || "").toLowerCase().includes(selectedState.toLowerCase());
@@ -1203,7 +2086,45 @@ const AggregatorTable = () => {
     setSelectedRowId(id);
     setIsEditing(false);
     const row = data.find((r) => r.id === id) || null;
-    setDraft(row ? { ...row } : null);
+    if (!row) {
+      setDraft(null);
+      return;
+    }
+
+    // Make sure draft contains all entity fields (so inputs are editable)
+    const fullDraft: AggregatorData = {
+      ...row,
+      userId: row.userId ?? null,
+      cropName: row.cropName ?? null,
+      notes: row.notes ?? null,
+      isVisited: row.isVisited ?? false,
+      tAndC: row.tAndC ?? null,
+      nextAction: row.nextAction ?? null,
+      nextActionDueDate: row.nextActionDueDate ?? null,
+      readyToSupply: row.readyToSupply ?? null,
+      tag: row.tag ?? null,
+      experience: row.experience ?? null,
+      capacity: row.capacity ?? null,
+      capacityUnit: row.capacityUnit ?? null,
+      frequency: row.frequency ?? null,
+      currentStock: row.currentStock ?? null,
+      currentStockUnit: row.currentStockUnit ?? null,
+      accurateRadius: row.accurateRadius ?? null,
+      otherCrops: row.otherCrops ?? [],
+      isInterestedToWork: row.isInterestedToWork ?? null,
+      interestsCompaniesIds: row.interestsCompaniesIds ?? [],
+      confidence: row.confidence ?? null,
+      lastInteracted: row.lastInteracted ?? null,
+      // keep UI-only location for display but won't be sent
+      state: row.state ?? null,
+      district: row.district ?? null,
+      taluk: row.taluk ?? null,
+      village: row.village ?? null,
+      __raw: row.__raw ?? null,
+      __rawUserFromLookup: row.__rawUserFromLookup ?? null,
+    };
+
+    setDraft(fullDraft);
   };
 
   const closeDetails = () => {
@@ -1220,24 +2141,25 @@ const AggregatorTable = () => {
   // Save: If draft.id exists -> update; else -> create
   const saveDraft = async () => {
     if (!draft) return;
-
     try {
-      // ✅ CREATE MODE
+      const payload = mapRowToBackendPayload(draft);
+
       if (!draft.id) {
+        // create
         if (!draft.number) {
-          alert("Mobile number is required");
+          showToast("Mobile number is required", "error");
           return;
         }
-
         const user = await findUserByPhone(draft.number);
-
         if (!user?.id) {
-          alert(
-            "User not found! Please first create user on Markhet dashboard, then come here."
+          showToast(
+            "User not found! Please create user on Markhet dashboard first.",
+            "error"
           );
           return;
         }
 
+        // update buyer type if needed
         if (
           draft.buyerType !== undefined &&
           draft.buyerType !== user.buyerType
@@ -1245,20 +2167,18 @@ const AggregatorTable = () => {
           await updateBuyerType(user.id, { buyerType: draft.buyerType });
         }
 
-        const payload = mapRowToBackendPayload(draft);
         payload.userId = user.id;
-
         await createAggregatorLead(payload);
 
         await fetchLeads();
         setIsEditing(false);
-        setShowNewAggregatorModal(false); // ✅ Close modal
+        setShowNewAggregatorModal(false);
         setDraft(null);
+        showToast("Aggregator created successfully!", "success");
         return;
       }
 
-      // ====== UPDATE MODE ======
-      const payload = mapRowToBackendPayload(draft);
+      // update existing
       await patchAggregatorLead(String(draft.id), payload);
 
       if (draft.userId && draft.buyerType !== undefined) {
@@ -1270,9 +2190,13 @@ const AggregatorTable = () => {
 
       await fetchLeads();
       setIsEditing(false);
+      showToast("Aggregator updated successfully!", "success");
     } catch (err) {
       console.error("Save failed:", err);
-      alert("Save failed");
+      showToast(
+        "Failed to save: " + ((err as any)?.message ?? "Unknown error"),
+        "error"
+      );
     }
   };
 
@@ -1288,17 +2212,28 @@ const AggregatorTable = () => {
   };
 
   const deleteRow = async (id: string | number) => {
-    if (!confirm("Delete this aggregator? This action cannot be undone."))
-      return;
-    try {
-      await deleteAggregatorLead(String(id));
-      // optimistic UI: remove locally
-      setData((prev) => prev.filter((r) => r.id !== id));
-      if (selectedRowId === id) closeDetails();
-    } catch (err: any) {
-      console.error("Delete failed:", err);
-      alert(err.message || "Delete failed");
-    }
+    setConfirmModal({
+      show: true,
+      title: "Delete Aggregator",
+      message:
+        "Are you sure you want to delete this aggregator? This action cannot be undone.",
+      type: "danger",
+      onConfirm: async () => {
+        setConfirmModal((prev) => ({ ...prev, show: false }));
+        try {
+          await deleteAggregatorLead(String(id));
+          setData((prev) => prev.filter((r) => r.id !== id));
+          if (selectedRowId === id) closeDetails();
+          showToast("Aggregator deleted successfully!", "success");
+        } catch (err: any) {
+          console.error("Delete failed:", err);
+          showToast(
+            "Failed to delete: " + (err.message || "Unknown error"),
+            "error"
+          );
+        }
+      },
+    });
   };
 
   // Helpers to update draft fields
@@ -1309,7 +2244,6 @@ const AggregatorTable = () => {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
   };
 
-  // column visibility helpers
   const isColumnVisible = (key: keyof ColumnSelection) => {
     if (selectedRowId == null) return true;
     return !!selectedColumns[key];
@@ -1328,49 +2262,66 @@ const AggregatorTable = () => {
   const createNewAggregator = () => {
     const empty: AggregatorData = {
       id: null,
-      userId: undefined,
+      userId: null,
       name: "",
       number: "",
       state: "",
       district: "",
       taluk: "",
       village: "",
-      buyerType: "",
-      cropName: "",
-      experience: "",
-      capacity: "",
-      capacityUnit: "",
-      tAndC: "Yes",
-      nextAction: "",
-      interestTo: "",
-      readyToSupply: "",
-      tag: "VLA",
-      confidence: "",
-      lastInteracted: "",
+      buyerType: null,
+      cropName: null,
+      experience: null,
+      capacity: null,
+      capacityUnit: null,
+      tAndC: null,
+      nextAction: null,
+      nextActionDueDate: null,
+      interestTo: null,
+      readyToSupply: null,
+      tag: null,
+      confidence: null,
+      lastInteracted: null,
       interestedCompanies: "",
       interestsCompaniesIds: [],
-      feVisited: "No",
-      hasStock: "No",
-      notes: "",
-      radius: "",
+      feVisited: null,
+      hasStock: null,
+      currentStock: null,
+      currentStockUnit: null,
+      notes: null,
+      radius: null,
+      accurateRadius: null,
       otherCrops: [],
       isVisited: false,
+      isInterestedToWork: null,
+      frequency: null,
+      __raw: null,
+      __rawUserFromLookup: null,
+      updatedAt: null,
     };
     setDraft(empty);
     setSelectedRowId(null);
     setIsEditing(true);
     setShowNewAggregatorModal(true);
-    // preload states (already loaded on mount) and clear dependent lists
     setDistricts([]);
     setTaluks([]);
     setVillages([]);
+  };
+
+  // Pagination controls
+  const onPrevPage = () => {
+    setPage((p) => Math.max(1, p - 1));
+  };
+  const onNextPage = () => {
+    const lastPage = Math.max(1, Math.ceil((total || 0) / limit));
+    setPage((p) => Math.min(lastPage, p + 1));
   };
 
   // ========== RENDER ==========
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-[1600px] mx-auto flex gap-6">
-        {/* Left: Table + Controls (flex-grow) */}
+        {/* Left: Table + Controls */}
         <div className="flex-1">
           {/* Header Controls */}
           <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
@@ -1388,6 +2339,7 @@ const AggregatorTable = () => {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+
               <div className="relative flex-1 min-w-[200px]">
                 <Search
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -1401,6 +2353,7 @@ const AggregatorTable = () => {
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+
               <select
                 value={selectedCrop}
                 onChange={(e) => setSelectedCrop(e.target.value)}
@@ -1413,6 +2366,7 @@ const AggregatorTable = () => {
                   </option>
                 ))}
               </select>
+
               <select
                 value={selectedCapacity}
                 onChange={(e) => setSelectedCapacity(e.target.value)}
@@ -1423,6 +2377,7 @@ const AggregatorTable = () => {
                 <option value="20">&gt; 20 capacity</option>
                 <option value="10">&gt; 10 capacity</option>
               </select>
+
               <select
                 value={selectedScore}
                 onChange={(e) => setSelectedScore(e.target.value)}
@@ -1433,6 +2388,7 @@ const AggregatorTable = () => {
                 <option value="70">&lt; 70% Score</option>
                 <option value="90">&lt; 90% Score</option>
               </select>
+
               <button
                 onClick={createNewAggregator}
                 className="px-4 py-2 bg-black text-white rounded-md text-sm flex items-center gap-2 ml-auto hover:bg-gray-800 transition-colors"
@@ -1443,31 +2399,24 @@ const AggregatorTable = () => {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {/* STATE filter : now a free text input */}
               <input
                 value={selectedState}
                 onChange={(e) => setSelectedState(e.target.value)}
                 placeholder="State"
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-
-              {/* DISTRICT filter : now a free text input */}
               <input
                 value={selectedDistrict}
                 onChange={(e) => setSelectedDistrict(e.target.value)}
                 placeholder="District"
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-
-              {/* TALUK filter : now a free text input */}
               <input
                 value={selectedTaluk}
                 onChange={(e) => setSelectedTaluk(e.target.value)}
                 placeholder="Taluk"
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-
-              {/* VILLAGE filter : now a free text input */}
               <input
                 value={selectedVillage}
                 onChange={(e) => setSelectedVillage(e.target.value)}
@@ -1566,7 +2515,7 @@ const AggregatorTable = () => {
             )}
           </div>
 
-          {/* Column Selector Modal */}
+          {/* Column Selector */}
           {showColumnSelector && (
             <div className="bg-white rounded-lg shadow-lg p-4 mb-4 border border-gray-200 animate-fadeIn">
               <h3 className="font-semibold mb-3">Select Columns to Display</h3>
@@ -1589,9 +2538,15 @@ const AggregatorTable = () => {
             </div>
           )}
 
-          {/* Results count */}
-          <div className="mb-3 text-sm text-gray-600">
-            Showing {filteredData.length} of {total} aggregators
+          {/* Results count + loading */}
+          <div className="mb-3 text-sm text-gray-600 flex items-center gap-3">
+            {loadingLeads ? (
+              <>
+                <Spinner size={14} /> Loading aggregators...
+              </>
+            ) : (
+              `Showing ${filteredData.length} of ${total} aggregators`
+            )}
           </div>
 
           {/* Table */}
@@ -1631,7 +2586,6 @@ const AggregatorTable = () => {
                         Capacity
                       </th>
                     )}
-
                     {isColumnVisible("tAndC") && (
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
                         T & C agreed?
@@ -1740,7 +2694,12 @@ const AggregatorTable = () => {
                           )}
                           {isColumnVisible("nextAction") && (
                             <td className="px-4 py-3 text-sm text-gray-900">
-                              {row.nextAction}
+                              <div>{row.nextAction || "-"}</div>
+                              <div className="text-xs text-gray-500">
+                                {row.nextActionDueDate
+                                  ? toDisplayDateDDMMYYYY(row.nextActionDueDate)
+                                  : ""}
+                              </div>
                             </td>
                           )}
                           {isColumnVisible("interestTo") && (
@@ -1756,7 +2715,9 @@ const AggregatorTable = () => {
                           )}
                           {isColumnVisible("readyToSupply") && (
                             <td className="px-4 py-3 text-sm text-gray-900">
-                              {row.readyToSupply}
+                              {row.readyToSupply
+                                ? toDisplayDateDDMMYYYY(row.readyToSupply)
+                                : "-"}
                             </td>
                           )}
                           {isColumnVisible("tag") && (
@@ -1780,9 +2741,45 @@ const AggregatorTable = () => {
               </table>
             </div>
           </div>
+
+          {/* Pagination controls */}
+          <div className="mt-3 flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Page {page} • {total} results
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onPrevPage}
+                disabled={page <= 1}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <button
+                onClick={onNextPage}
+                disabled={page >= Math.ceil((total || 0) / limit)}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="px-2 py-1 border rounded"
+              >
+                <option value={10}>10 / page</option>
+                <option value={20}>20 / page</option>
+                <option value={40}>40 / page</option>
+                <option value={100}>100 / page</option>
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* Right: Details Panel (REARRANGED, Primary Crop next to Location + read-only Name/Phone) */}
+        {/* Right: Details Panel */}
         <aside className="w-[420px]">
           <div className="bg-blue-50 rounded-lg shadow-sm p-4 sticky top-6 max-h-[calc(100vh-96px)] overflow-y-auto">
             <div className="flex items-start justify-between gap-2">
@@ -1846,170 +2843,219 @@ const AggregatorTable = () => {
 
               {draft && (
                 <div className="space-y-4">
-                  {/* 1) HEADER: Primary info (Name, Onboarded date, Location + Primary Crop, Phone) */}
-                  <div className="bg-green-100 p-3 rounded">
-                    <div className="text-base text-blue-500 mb-2 font-bold">
+                  {/* 1. Primary Info */}
+                  <div className="bg-green-50 p-3 rounded">
+                    <div className="text-base text-blue-600 mb-3 font-semibold">
                       Primary Info
                     </div>
-                    <div className="grid grid-cols-1 gap-2 text-sm">
-                      <div>
-                        <div className="text-base font-bold text-black-400">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="col-span-2">
+                        <div className="text-xs font-semibold text-teal-600">
                           Name
                         </div>
-                        {/* Name is now read-only always */}
                         <div className="font-medium">{draft.name}</div>
                       </div>
 
-                      <div className="flex gap-2">
-                        <div className="flex-1">
-                          <div className="text-base font-bold text-black-400">
-                            Phone
-                          </div>
-                          {/* Phone is read-only always */}
-                          <div className="font-medium">{draft.number}</div>
-                        </div>
-
-                        <div className="w-36">
-                          <div className="text-base font-bold text-black-400">
-                            Onboarded
-                          </div>
-                          {!isEditing ? (
-                            <div className="font-medium">{draft.onboarded}</div>
-                          ) : (
-                            <input
-                              value={draft.onboarded || ""}
-                              onChange={(e) =>
-                                updateDraftField("onboarded", e.target.value)
-                              }
-                              className="w-full px-2 py-1 border rounded text-sm"
-                            />
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2 items-start">
-                        <div className="flex-1">
-                          <div className="text-base font-bold text-black-400">
-                            Location
-                          </div>
-
-                          <div className="font-medium">
-                            {[
-                              draft.village,
-                              draft.taluk,
-                              draft.district,
-                              draft.state,
-                            ]
-                              .filter(Boolean)
-                              .join(", ") || "-"}
-                          </div>
-                        </div>
-
-                        <div className="w-36">
-                          <div className="text-base font-bold text-black-400">
-                            Primary Crop
-                          </div>
-                          {!isEditing ? (
-                            <div className="font-medium">
-                              {draft.cropName || "-"}
-                            </div>
-                          ) : (
-                            <select
-                              value={draft.cropName || ""}
-                              onChange={(e) =>
-                                updateDraftField("cropName", e.target.value)
-                              }
-                              className="w-full px-2 py-1 border rounded text-sm"
-                            >
-                              <option value="">Select Crop</option>
-                              {crops.map((crop) => (
-                                <option key={crop} value={crop}>
-                                  {crop}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2) COMPANIES DETAILS: Interested Companies + Ready to Supply */}
-                  <div className="bg-green-100 p-3 rounded">
-                    <div className="text-base text-blue-500 mb-2 font-bold">
-                      Companies
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 text-sm">
                       <div>
-                        <div className="text-base font-bold text-black-400">
-                          Interested Companies
+                        <div className="text-xs font-semibold text-teal-600">
+                          Phone
+                        </div>
+                        <div className="font-medium">{draft.number}</div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
+                          Onboarded
                         </div>
                         {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.interestedCompanies || "-"}
-                          </div>
+                          <div className="font-medium">{draft.onboarded}</div>
                         ) : (
-                          <div>
-                            <div className="border rounded p-2 max-h-40 overflow-y-auto bg-white">
-                              {availableCompanies.length === 0 ? (
-                                <div className="text-xs text-gray-400">
-                                  Loading companies...
-                                </div>
-                              ) : (
-                                availableCompanies.map((company) => (
-                                  <label
-                                    key={company.id}
-                                    className="flex items-center gap-2 py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={(
-                                        draft.interestsCompaniesIds || []
-                                      ).includes(company.id)}
-                                      onChange={(e) => {
-                                        const currentIds =
-                                          draft.interestsCompaniesIds || [];
-                                        if (e.target.checked) {
-                                          updateDraftField(
-                                            "interestsCompaniesIds",
-                                            [...currentIds, company.id]
-                                          );
-                                        } else {
-                                          updateDraftField(
-                                            "interestsCompaniesIds",
-                                            currentIds.filter(
-                                              (id) => id !== company.id
-                                            )
-                                          );
-                                        }
-                                      }}
-                                      className="w-4 h-4 text-blue-600"
-                                    />
-                                    <span className="text-sm">
-                                      {company.name}
-                                    </span>
-                                  </label>
-                                ))
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {(draft.interestsCompaniesIds || []).length}{" "}
-                              selected
-                            </div>
-                          </div>
+                          <input
+                            value={draft.onboarded || ""}
+                            onChange={(e) =>
+                              updateDraftField("onboarded", e.target.value)
+                            }
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          />
                         )}
                       </div>
 
                       <div>
-                        <div className="text-base font-bold text-black-400">
+                        <div className="text-xs font-semibold text-teal-600">
+                          Location
+                        </div>
+                        <div className="font-medium text-xs">
+                          {[
+                            draft.village,
+                            draft.taluk,
+                            draft.district,
+                            draft.state,
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || "-"}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
+                          Primary Crop
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.cropName || "-"}
+                          </div>
+                        ) : (
+                          <select
+                            value={draft.cropName || ""}
+                            onChange={(e) =>
+                              updateDraftField("cropName", e.target.value)
+                            }
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          >
+                            <option value="">Select Crop</option>
+                            {crops.map((crop) => (
+                              <option key={crop} value={crop}>
+                                {crop}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      <div className="col-span-2">
+                        <div className="text-xs font-semibold text-teal-600">
+                          Other Crops
+                        </div>
+                        {!isEditing ? (
+                          <div className="flex gap-1 flex-wrap mt-1">
+                            {(draft.otherCrops || []).length === 0 ? (
+                              <div className="text-xs text-gray-500">None</div>
+                            ) : (
+                              (draft.otherCrops || []).map((c, i) => (
+                                <span
+                                  key={i}
+                                  className="text-xs bg-white px-2 py-0.5 rounded border border-gray-200"
+                                >
+                                  {c}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        ) : (
+                          <input
+                            value={(draft.otherCrops || []).join(", ")}
+                            onChange={(e) =>
+                              updateDraftField(
+                                "otherCrops",
+                                e.target.value
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean)
+                              )
+                            }
+                            className="w-full px-2 py-1 border rounded text-sm"
+                            placeholder="Rice, Wheat, Corn"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Interested Companies */}
+                  <div className="bg-green-50 p-3 rounded">
+                    <div className="text-base text-blue-600 mb-3 font-semibold">
+                      Companies
+                    </div>
+                    <div className="text-sm">
+                      <div className="text-xs font-semibold text-teal-600 mb-1">
+                        Interested Companies
+                      </div>
+                      {!isEditing ? (
+                        <div className="font-medium">
+                          {draft.interestsCompaniesIds &&
+                          draft.interestsCompaniesIds.length > 0 ? (
+                            <ul className="list-disc ml-5">
+                              {draft.interestsCompaniesIds.map((id) => {
+                                const c = availableCompanies.find(
+                                  (x) => x.id === id
+                                );
+                                return (
+                                  <li key={id} className="text-xs">
+                                    {c ? c.name : id}
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          ) : (
+                            "-"
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="border rounded p-2 max-h-32 overflow-y-auto bg-white">
+                            {loadingCompanies ? (
+                              <div className="text-xs text-gray-400 flex items-center gap-2">
+                                <Spinner size={12} /> Loading companies...
+                              </div>
+                            ) : (
+                              availableCompanies.map((company) => (
+                                <label
+                                  key={company.id}
+                                  className="flex items-center gap-2 py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={(
+                                      draft.interestsCompaniesIds || []
+                                    ).includes(company.id)}
+                                    onChange={(e) => {
+                                      const currentIds =
+                                        draft.interestsCompaniesIds || [];
+                                      if (e.target.checked)
+                                        updateDraftField(
+                                          "interestsCompaniesIds",
+                                          [...currentIds, company.id]
+                                        );
+                                      else
+                                        updateDraftField(
+                                          "interestsCompaniesIds",
+                                          currentIds.filter(
+                                            (id) => id !== company.id
+                                          )
+                                        );
+                                    }}
+                                    className="w-3 h-3 text-blue-600"
+                                  />
+                                  <span className="text-xs">
+                                    {company.name}
+                                  </span>
+                                </label>
+                              ))
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {(draft.interestsCompaniesIds || []).length}{" "}
+                            selected
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3. Supply Information */}
+                  <div className="bg-green-50 p-3 rounded">
+                    <div className="text-base text-blue-600 mb-3 font-semibold">
+                      Ready to Supply
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
                           Ready to Supply
                         </div>
                         {!isEditing ? (
                           <div className="font-medium">
                             {draft.readyToSupply
-                              ? new Date(
-                                  draft.readyToSupply
-                                ).toLocaleDateString()
+                              ? toDisplayDateDDMMYYYY(draft.readyToSupply)
                               : "-"}
                           </div>
                         ) : (
@@ -2020,97 +3066,211 @@ const AggregatorTable = () => {
                               updateDraftField("readyToSupply", e.target.value)
                             }
                             min={new Date().toISOString().split("T")[0]}
-                            className="w-full px-2 py-1 border rounded text-sm"
+                            className="w-full px-2 py-1 border rounded text-xs"
                           />
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
+                          Radius (km)
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.radius ? `${draft.radius} km` : "-"}
+                          </div>
+                        ) : (
+                          <input
+                            type="number"
+                            value={draft.radius || ""}
+                            onChange={(e) =>
+                              updateDraftField("radius", e.target.value)
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                            placeholder="50"
+                          />
+                        )}
+                      </div>
+
+                      <div className="col-span-2">
+                        <div className="text-xs font-semibold text-teal-600">
+                          Has Stock
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.hasStock || "-"}
+                            {draft.hasStock === "Yes" &&
+                            draft.currentStock != null
+                              ? ` — ${draft.currentStock} ${
+                                  draft.currentStockUnit || ""
+                                }`
+                              : ""}
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 mt-1">
+                            <select
+                              value={draft.hasStock || ""}
+                              onChange={(e) =>
+                                updateDraftField(
+                                  "hasStock",
+                                  e.target.value === ""
+                                    ? null
+                                    : (e.target.value as "Yes" | "No")
+                                )
+                              }
+                              className="w-20 px-2 py-1 border rounded text-xs"
+                            >
+                              <option value="">Select</option>
+                              <option value="Yes">Yes</option>
+                              <option value="No">No</option>
+                            </select>
+                            {draft.hasStock === "Yes" && (
+                              <>
+                                <input
+                                  type="number"
+                                  value={draft.currentStock || ""}
+                                  onChange={(e) =>
+                                    updateDraftField(
+                                      "currentStock",
+                                      e.target.value === ""
+                                        ? null
+                                        : Number(e.target.value)
+                                    )
+                                  }
+                                  className="w-24 px-2 py-1 border rounded text-xs"
+                                  placeholder="100"
+                                />
+                                <select
+                                  value={draft.currentStockUnit || ""}
+                                  onChange={(e) =>
+                                    updateDraftField(
+                                      "currentStockUnit",
+                                      e.target.value === ""
+                                        ? null
+                                        : (e.target.value as QuantityUnit)
+                                    )
+                                  }
+                                  className="w-24 px-2 py-1 border rounded text-xs"
+                                >
+                                  <option value="">Select Unit</option>
+                                  {[
+                                    "QUINTAL",
+                                    "TON",
+                                    "PIECE",
+                                    "KILOGRAM",
+                                    "GRAM",
+                                    "LITRE",
+                                    "BAG",
+                                    "BOX",
+                                  ].map((u) => (
+                                    <option key={u} value={u}>
+                                      {u}
+                                    </option>
+                                  ))}
+                                </select>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="col-span-2">
+                        <div className="text-xs font-semibold text-teal-600">
+                          Load Frequency
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.frequency || "-"}
+                          </div>
+                        ) : (
+                          <select
+                            value={draft.frequency || ""}
+                            onChange={(e) =>
+                              updateDraftField(
+                                "frequency",
+                                e.target.value as LoadFrequency
+                              )
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                          >
+                            <option value="">Select Frequency</option>
+                            <option value="DAILY">Daily</option>
+                            <option value="WEEKLY">Weekly</option>
+                            <option value="BIWEEKLY">Biweekly</option>
+                            <option value="MONTHLY">Monthly</option>
+                            <option value="SEASONAL">Seasonal</option>
+                          </select>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* 3) QUALIFYING QUESTIONS / BUSINESS DETAILS */}
-                  <div className="bg-green-100 p-3 rounded">
-                    <div className="text-base text-blue-500 mb-2 font-bold">
+                  {/* 4. Business Details */}
+                  <div className="bg-green-50 p-3 rounded">
+                    <div className="text-base text-blue-600 mb-3 font-semibold">
                       Qualifying / Business Details
                     </div>
-                    <div className="grid grid-cols-1 gap-3 text-sm">
-                      <div className="flex gap-2 items-end">
-                        <div className="flex-1">
-                          <div className="text-base font-bold text-black-400">
-                            Capacity
-                          </div>
-                          {!isEditing ? (
-                            <div className="font-medium">
-                              {draft.capacity && draft.capacityUnit
-                                ? `${draft.capacity} ${draft.capacityUnit}`
-                                : draft.capacity || "-"}
-                            </div>
-                          ) : (
-                            <input
-                              value={draft.capacity || ""}
-                              onChange={(e) =>
-                                updateDraftField("capacity", e.target.value)
-                              }
-                              className="w-full h-8 px-2 py-1 border rounded text-sm"
-                              placeholder="500"
-                            />
-                          )}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
+                          Capacity
                         </div>
-
-                        <div className="w-24">
-                          <div className="text-base font-bold text-black-400">
-                            Unit
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.capacity || "-"}
                           </div>
-                          {!isEditing ? (
-                            <div className="font-medium">
-                              {draft.capacityUnit || "-"}
-                            </div>
-                          ) : (
-                            <select
-                              value={draft.capacityUnit || ""}
-                              onChange={(e) =>
-                                updateDraftField("capacityUnit", e.target.value)
-                              }
-                              className="w-full h-8 px-2 border rounded text-sm"
-                            >
-                              <option value="">Unit</option>
-                              <option value="QUINTAL">Qtl</option>
-                              <option value="TON">Ton</option>
-                              <option value="PIECE">Pc</option>
-                              <option value="KILOGRAM">Kg</option>
-                              <option value="GRAM">Gm</option>
-                              <option value="LITRE">Ltr</option>
-                              <option value="BAG">Bag</option>
-                              <option value="BOX">Box</option>
-                            </select>
-                          )}
-                        </div>
-
-                        <div className="w-28">
-                          <div className="text-base font-bold text-black-400">
-                            Confidence
-                          </div>
-                          {!isEditing ? (
-                            <div className="font-medium">
-                              {draft.confidence ? `${draft.confidence}%` : "-"}
-                            </div>
-                          ) : (
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={draft.confidence || ""}
-                              onChange={(e) =>
-                                updateDraftField("confidence", e.target.value)
-                              }
-                              className="w-full h-8 px-2 border rounded text-sm"
-                              placeholder="100%"
-                            />
-                          )}
-                        </div>
+                        ) : (
+                          <input
+                            value={draft.capacity || ""}
+                            onChange={(e) =>
+                              updateDraftField("capacity", e.target.value)
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                            placeholder="500"
+                          />
+                        )}
                       </div>
 
                       <div>
-                        <div className="text-base font-bold text-black-400">
+                        <div className="text-xs font-semibold text-teal-600">
+                          Unit
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.capacityUnit || "-"}
+                          </div>
+                        ) : (
+                          <select
+                            value={draft.capacityUnit || ""}
+                            onChange={(e) =>
+                              updateDraftField(
+                                "capacityUnit",
+                                e.target.value as QuantityUnit
+                              )
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                          >
+                            <option value="">Unit</option>
+                            {[
+                              "QUINTAL",
+                              "TON",
+                              "PIECE",
+                              "KILOGRAM",
+                              "GRAM",
+                              "LITRE",
+                              "BAG",
+                              "BOX",
+                            ].map((u) => (
+                              <option key={u} value={u}>
+                                {u}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
                           Experience
                         </div>
                         {!isEditing ? (
@@ -2123,13 +3283,37 @@ const AggregatorTable = () => {
                             onChange={(e) =>
                               updateDraftField("experience", e.target.value)
                             }
-                            className="w-full px-2 py-1 border rounded text-sm"
+                            className="w-full px-2 py-1 border rounded text-xs"
+                            placeholder="5 years"
                           />
                         )}
                       </div>
 
                       <div>
-                        <div className="text-base font-bold text-black-400">
+                        <div className="text-xs font-semibold text-teal-600">
+                          Confidence Score
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.confidence ? `${draft.confidence}%` : "-"}
+                          </div>
+                        ) : (
+                          <input
+                            type="number"
+                            value={draft.confidence || ""}
+                            onChange={(e) =>
+                              updateDraftField("confidence", e.target.value)
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                            placeholder="85"
+                            min="0"
+                            max="100"
+                          />
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
                           T & C Compliant?
                         </div>
                         {!isEditing ? (
@@ -2138,20 +3322,70 @@ const AggregatorTable = () => {
                           </div>
                         ) : (
                           <select
-                            value={draft.tAndC || "No"}
+                            value={draft.tAndC || ""}
                             onChange={(e) =>
                               updateDraftField("tAndC", e.target.value)
                             }
-                            className="w-full px-2 py-1 border rounded text-sm"
+                            className="w-full px-2 py-1 border rounded text-xs"
                           >
-                            <option value="Yes">Yes - Compliant</option>
-                            <option value="No">No - Not Compliant</option>
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
                           </select>
                         )}
                       </div>
 
                       <div>
-                        <div className="text-base font-bold text-black-400">
+                        <div className="text-xs font-semibold text-teal-600">
+                          Interested to Work?
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.interestTo || "-"}
+                          </div>
+                        ) : (
+                          <select
+                            value={draft.interestTo ?? ""}
+                            onChange={(e) =>
+                              updateDraftField(
+                                "interestTo",
+                                e.target.value === "" ? null : e.target.value
+                              )
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                          >
+                            <option value="">Select</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
+                          FE Visited
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.feVisited || "-"}
+                          </div>
+                        ) : (
+                          <select
+                            value={draft.feVisited || ""}
+                            onChange={(e) =>
+                              updateDraftField("feVisited", e.target.value)
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                          >
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
                           Buyer Type
                         </div>
                         {!isEditing ? (
@@ -2164,9 +3398,9 @@ const AggregatorTable = () => {
                             onChange={(e) =>
                               updateDraftField("buyerType", e.target.value)
                             }
-                            className="w-full px-2 py-1 border rounded text-sm"
+                            className="w-full px-2 py-1 border rounded text-xs"
                           >
-                            <option value="">Select Buyer Type</option>
+                            <option value="">Select</option>
                             <option value="VILLAGE_BUYER">VILLAGE_BUYER</option>
                             <option value="MANDI_BUYER">MANDI_BUYER</option>
                             <option value="MANDI_AND_VILLAGE_BUYER">
@@ -2175,187 +3409,101 @@ const AggregatorTable = () => {
                           </select>
                         )}
                       </div>
-
-                      <div>
-                        <div className="text-base font-bold text-black-400">
-                          Interested to work with us
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.interestTo || "-"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.interestTo || "No"}
-                            onChange={(e) =>
-                              updateDraftField("interestTo", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-sm"
-                          >
-                            <option>Yes</option>
-                            <option>No</option>
-                          </select>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-base font-bold text-black-400">
-                          Radius (km)
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.radius ? `${draft.radius} km` : "-"}
-                          </div>
-                        ) : (
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={draft.radius || ""}
-                            onChange={(e) =>
-                              updateDraftField("radius", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-sm"
-                            placeholder="Enter radius in km"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-base font-bold text-black-400">
-                          FE Visited
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.feVisited || "-"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.feVisited || "No"}
-                            onChange={(e) =>
-                              updateDraftField("feVisited", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-sm"
-                          >
-                            <option>Yes</option>
-                            <option>No</option>
-                          </select>
-                        )}
-                      </div>
                     </div>
                   </div>
 
-                  {/* 4) INTERACTION DETAILS */}
-                  <div className="bg-green-100 p-3 rounded">
-                    <div className="text-base text-blue-500 mb-2 font-bold">
-                      Interaction
+                  {/* 5. Interaction Details */}
+                  <div className="bg-green-50 p-3 rounded">
+                    <div className="text-base text-blue-600 mb-3 font-semibold">
+                      Interaction Details
                     </div>
-                    <div className="grid grid-cols-1 gap-3 text-sm">
-                      {/* First row with two fields - one left, one right */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <div className="text-base font-bold text-black-400">
-                            Last Interacted
-                          </div>
-                          {!isEditing ? (
-                            <div className="font-medium">
-                              {draft.lastInteracted
-                                ? new Date(
-                                    draft.lastInteracted
-                                  ).toLocaleDateString()
-                                : "-"}
-                            </div>
-                          ) : (
-                            <input
-                              type="date"
-                              value={draft.lastInteracted || ""}
-                              onChange={(e) =>
-                                updateDraftField(
-                                  "lastInteracted",
-                                  e.target.value
-                                )
-                              }
-                              className="w-full px-2 py-1 border rounded text-sm"
-                            />
-                          )}
-                        </div>
-
-                        <div>
-                          <div className="text-base font-bold text-black-400">
-                            Next Action
-                          </div>
-                          {!isEditing ? (
-                            <div className="font-medium">
-                              {draft.nextAction || "-"}
-                            </div>
-                          ) : (
-                            <input
-                              value={draft.nextAction || ""}
-                              onChange={(e) =>
-                                updateDraftField("nextAction", e.target.value)
-                              }
-                              className="w-full px-2 py-1 border rounded text-sm"
-                            />
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Second row with one field */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <div className="text-base font-bold text-black-400">
+                        <div className="text-xs font-semibold text-teal-600">
                           Last Updated
                         </div>
                         <div className="font-medium text-gray-600">
                           {getTimeAgo(draft.updatedAt)}
                         </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* 5) OTHER CROPS */}
-                  <div className="bg-green-100 p-3 rounded">
-                    <div className="text-base font-bold text-blue-500">
-                      Other Crops
-                    </div>
-                    {!isEditing ? (
-                      <div className="flex gap-1 flex-wrap mt-1">
-                        {(draft.otherCrops || []).length === 0 ? (
-                          <div className="text-base text-gray-500">None</div>
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
+                          Last Interacted
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.lastInteracted
+                              ? toDisplayDateDDMMYYYY(draft.lastInteracted)
+                              : "-"}
+                          </div>
                         ) : (
-                          (draft.otherCrops || []).map((c, i) => (
-                            <span
-                              key={i}
-                              className="text-base bg-green px-2 py-1 rounded border border-gray-200"
-                            >
-                              {c}
-                            </span>
-                          ))
+                          <input
+                            type="date"
+                            value={draft.lastInteracted || ""}
+                            onChange={(e) =>
+                              updateDraftField("lastInteracted", e.target.value)
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                          />
                         )}
                       </div>
-                    ) : (
-                      <input
-                        value={(draft.otherCrops || []).join(", ")}
-                        onChange={(e) =>
-                          updateDraftField(
-                            "otherCrops",
-                            e.target.value
-                              .split(",")
-                              .map((s) => s.trim())
-                              .filter(Boolean)
-                          )
-                        }
-                        className="w-full px-2 py-1 border rounded text-sm"
-                      />
-                    )}
+
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
+                          Next Action
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.nextAction || " "}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={draft.nextAction || ""}
+                            onChange={(e) =>
+                              updateDraftField("nextAction", e.target.value)
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                            placeholder="Enter next action"
+                          />
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-teal-600">
+                          Next Action Due
+                        </div>
+                        {!isEditing ? (
+                          <div className="font-medium">
+                            {draft.nextActionDueDate
+                              ? toDisplayDateDDMMYYYY(draft.nextActionDueDate)
+                              : "-"}
+                          </div>
+                        ) : (
+                          <input
+                            type="date"
+                            value={draft.nextActionDueDate || ""}
+                            onChange={(e) =>
+                              updateDraftField(
+                                "nextActionDueDate",
+                                e.target.value
+                              )
+                            }
+                            className="w-full px-2 py-1 border rounded text-xs"
+                          />
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* 6) NOTES */}
-                  <div className="bg-green-100 p-3 rounded">
-                    <div className="text-base font-bold text-blue-500">
+                  {/* 6. Notes */}
+                  <div className="bg-green-50 p-3 rounded">
+                    <div className="text-base font-semibold text-blue-600 mb-3">
                       Notes
                     </div>
                     {!isEditing ? (
-                      <div className="text-sm text-gray-700">
+                      <div className="text-xs text-gray-700">
                         {draft.notes || "-"}
                       </div>
                     ) : (
@@ -2364,110 +3512,11 @@ const AggregatorTable = () => {
                         onChange={(e) =>
                           updateDraftField("notes", e.target.value)
                         }
-                        className="w-full px-2 py-1 border rounded text-sm"
-                        rows={4}
+                        className="w-full px-2 py-1 border rounded text-xs"
+                        rows={3}
+                        placeholder="Add any notes..."
                       />
                     )}
-                  </div>
-
-                  {/* Any leftover fields: tag, hasStock displayed sensibly */}
-                  <div className="bg-green-100 p-3 rounded">
-                    <div className="text-base text-blue-500 mb-2 font-bold">
-                      Misc
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 text-sm">
-                      {/* Tag (Details panel) */}
-                      <div>
-                        <div className="text-base font-bold text-black-400">
-                          Tag
-                        </div>
-
-                        {!isEditing ? (
-                          <div className="font-medium">{draft.tag || "-"}</div>
-                        ) : (
-                          <div className="space-y-2 mt-1">
-                            {(() => {
-                              const option = [
-                                "VLA",
-                                "Potential Partner",
-                                "Other",
-                              ].includes(draft.tag || "")
-                                ? draft.tag
-                                : "Other";
-                              return (
-                                <>
-                                  <select
-                                    value={option || ""}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      if (v === "Other") {
-                                        if (
-                                          ![
-                                            "VLA",
-                                            "Potential Partner",
-                                            "Other",
-                                          ].includes(draft.tag || "")
-                                        ) {
-                                          updateDraftField(
-                                            "tag",
-                                            draft.tag || ""
-                                          );
-                                        } else {
-                                          updateDraftField("tag", "");
-                                        }
-                                      } else {
-                                        updateDraftField("tag", v);
-                                      }
-                                    }}
-                                    className="w-full px-2 py-1 border rounded text-sm"
-                                  >
-                                    <option value="VLA">VLA</option>
-                                    <option value="Potential Partner">
-                                      Potential Partner
-                                    </option>
-                                    <option value="Other">Other</option>
-                                  </select>
-
-                                  {option === "Other" && (
-                                    <input
-                                      type="text"
-                                      placeholder="Enter custom tag"
-                                      value={draft.tag || ""}
-                                      onChange={(e) =>
-                                        updateDraftField("tag", e.target.value)
-                                      }
-                                      className="w-full px-2 py-1 border rounded text-sm"
-                                    />
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-base font-bold text-black-400">
-                          Has Stock
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.hasStock || "No"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.hasStock || "No"}
-                            onChange={(e) =>
-                              updateDraftField("hasStock", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-sm"
-                          >
-                            <option value="No">No</option>
-                            <option value="Yes">Yes</option>
-                          </select>
-                        )}
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
@@ -2475,6 +3524,7 @@ const AggregatorTable = () => {
           </div>
         </aside>
       </div>
+
       {/* New Aggregator Modal */}
       <NewAggregatorModal
         show={showNewAggregatorModal}
@@ -2488,6 +3538,31 @@ const AggregatorTable = () => {
         loadDistricts={loadDistricts}
         loadTaluks={loadTaluks}
         loadVillages={loadVillages}
+        findUserByPhone={findUserByPhone}
+        states={states}
+        districts={districts}
+        taluks={taluks}
+        villages={villages}
+      />
+
+      {/* Toast Alert */}
+      <Toast
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ show: false, message: "", type: "success" })}
+      />
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        show={confirmModal.show}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, show: false }))}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type={confirmModal.type}
       />
     </div>
   );
