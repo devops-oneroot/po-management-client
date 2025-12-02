@@ -502,14 +502,12 @@ function NewAggregatorModal({
   }, [availableCompanies, companySearch]);
 
   return (
-    //create aggregator modal 
+    //create aggregator modal
     <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">
-            Create Aggregator Lead
-          </h2>
+          <h2 className="text-xl font-semibold">Create Aggregator Lead</h2>
           <button
             onClick={cancelNewAggregator}
             className="p-1 rounded hover:bg-gray-100"
@@ -1377,6 +1375,9 @@ const AggregatorTable = () => {
     setDraft(null);
     setIsEditing(false);
   };
+  const [selectedTag, setSelectedTag] = useState("");
+  const [sortBy, setSortBy] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const allColumns = [
     { key: "onboarded" as keyof ColumnSelection, label: "Onboarded" },
@@ -1697,26 +1698,93 @@ const AggregatorTable = () => {
       page,
       limit,
     };
-    if (searchName) params.search = searchName;
-    if (searchCompany) params.search = searchCompany;
+
+    // Combine both searches into one 'search' param
+    const combinedSearch = [searchName, searchCompany]
+      .filter(Boolean)
+      .join(" ");
+    if (combinedSearch) params.search = combinedSearch;
+
     if (selectedCrop) params.cropName = selectedCrop;
     if (selectedState) params.state = selectedState;
     if (selectedDistrict) params.district = selectedDistrict;
     if (selectedVillage) params.village = selectedVillage;
     if (selectedTaluk) params.taluk = selectedTaluk;
+    if (selectedTag) params.label = selectedTag;
+    // Add sorting
+
     return params;
   }
+
+  const sortedData = useMemo(() => {
+    if (!sortBy) return data;
+
+    const sorted = [...data].sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      switch (sortBy) {
+        case "createdAt":
+        case "onboarded":
+          aVal = new Date(a.onboarded || 0).getTime();
+          bVal = new Date(b.onboarded || 0).getTime();
+          break;
+
+        case "updatedAt":
+          aVal = new Date(a.updatedAt || 0).getTime();
+          bVal = new Date(b.updatedAt || 0).getTime();
+          break;
+
+        case "operationScore":
+        case "confidence":
+          aVal = parseInt(String(a.confidence || "0").replace(/\D/g, ""), 10);
+          bVal = parseInt(String(b.confidence || "0").replace(/\D/g, ""), 10);
+          break;
+
+        case "capacity":
+          aVal = parseInt(String(a.capacity || "0").replace(/\D/g, ""), 10);
+          bVal = parseInt(String(b.capacity || "0").replace(/\D/g, ""), 10);
+          break;
+
+        case "name":
+          aVal = (a.name || "").toLowerCase();
+          bVal = (b.name || "").toLowerCase();
+          break;
+
+        case "lastInteracted":
+          aVal = new Date(a.lastInteracted || 0).getTime();
+          bVal = new Date(b.lastInteracted || 0).getTime();
+          break;
+        case "nextActionDueDate": // ADD THIS CASE
+          aVal = new Date(a.nextActionDueDate || 0).getTime();
+          bVal = new Date(b.nextActionDueDate || 0).getTime();
+          break;
+
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [data, sortBy, sortOrder]);
 
   async function fetchLeads() {
     try {
       setLoadingLeads(true);
       const params = buildListParams();
       const qp = new URLSearchParams();
+
       Object.entries(params).forEach(([k, v]) => {
         if (v === undefined || v === null || v === "") return;
         if (Array.isArray(v)) {
           v.forEach((x) => qp.append(k, String(x)));
-        } else qp.append(k, String(v));
+        } else {
+          qp.append(k, String(v));
+        }
       });
 
       const path = `/aggregator-leads${
@@ -1724,13 +1792,24 @@ const AggregatorTable = () => {
       }`;
       const res = await callApi(path, { method: "GET" });
 
-      const rows = Array.isArray(res.data)
-        ? res.data.map((lead: any) => mapLeadToRow(lead))
-        : (res as any).map((lead: any) => mapLeadToRow(lead));
+      // Handle different response structures
+      let rows = [];
+      if (res.data && Array.isArray(res.data)) {
+        rows = res.data.map((lead: any) => mapLeadToRow(lead));
+      } else if (Array.isArray(res)) {
+        rows = res.map((lead: any) => mapLeadToRow(lead));
+      }
+
       setData(rows);
-      setTotal(res.total ?? rows.length);
+      setTotal(res.total ?? res.count ?? rows.length);
     } catch (err: any) {
       console.error("Failed to fetch aggregator leads:", err);
+      showToast(
+        "Failed to load aggregators: " + (err?.message || "Unknown error"),
+        "error"
+      );
+      setData([]);
+      setTotal(0);
     } finally {
       setLoadingLeads(false);
     }
@@ -1768,26 +1847,27 @@ const AggregatorTable = () => {
     return await callApi(`/aggregator-leads/${id}`, { method: "DELETE" });
   }
 
-async function fetchAllCompanies() {
-  try {
-    setLoadingCompanies(true);
-    const res = await callApi(`/po-companies`, { method: "GET" });
-    const companies = Array.isArray(res) ? res : res.data || [];
-    
-    // Transform companies to include concatenated name + address
-    return companies.map((company: any) => ({
-      ...company,
-      name: company.company_address 
-        ? `${company.name} - ${company.company_address}`
-        : company.name
-    }));
-  } catch (err) {
-    console.error("Failed to fetch companies:", err);
-    return [];
-  } finally {
-    setLoadingCompanies(false);
+  async function fetchAllCompanies() {
+    try {
+      setLoadingCompanies(true);
+      const res = await callApi(`/po-companies`, { method: "GET" });
+      const companies = Array.isArray(res) ? res : res.data || [];
+
+      // Transform companies to include concatenated name + address
+      return companies.map((company: any) => ({
+        ...company,
+        name:
+          company.taluk && company.district
+            ? `${company.name} - ${company.taluk}, ${company.district}`
+            : company.name,
+      }));
+    } catch (err) {
+      console.error("Failed to fetch companies:", err);
+      return [];
+    } finally {
+      setLoadingCompanies(false);
+    }
   }
-}
 
   async function updateBuyerType(
     userId: string,
@@ -1945,6 +2025,7 @@ async function fetchAllCompanies() {
     selectedDistrict,
     selectedTaluk,
     selectedVillage,
+    selectedTag, // ADD THIS
   ]);
 
   useEffect(() => {
@@ -1991,83 +2072,8 @@ async function fetchAllCompanies() {
     setSelectedVillage("");
   };
 
-  const filteredData = useMemo(() => {
-    return data.filter((row) => {
-      const matchesName =
-        searchName === "" ||
-        (row.name || "").toLowerCase().includes(searchName.toLowerCase()) ||
-        (row.number || "").includes(searchName);
-      const matchesCompany =
-        searchCompany === "" ||
-        (Array.isArray(row.interestedCompanies)
-          ? row.interestedCompanies.join(", ").toLowerCase()
-          : (row.interestedCompanies || "").toLowerCase()
-        ).includes(searchCompany.toLowerCase());
-
-      const matchesState =
-        selectedState === "" ||
-        (row.state || "").toLowerCase().includes(selectedState.toLowerCase());
-      const matchesDistrict =
-        selectedDistrict === "" ||
-        (row.district || "")
-          .toLowerCase()
-          .includes(selectedDistrict.toLowerCase());
-      const matchesTaluk =
-        selectedTaluk === "" ||
-        (row.taluk || "").toLowerCase().includes(selectedTaluk.toLowerCase());
-      const matchesVillage =
-        selectedVillage === "" ||
-        (row.village || "")
-          .toLowerCase()
-          .includes(selectedVillage.toLowerCase());
-
-      let matchesCapacity = true;
-      if (selectedCapacity) {
-        const numeric = parseInt(selectedCapacity, 10);
-        const rowNum =
-          parseInt(String(row.capacity || "").replace(/\D/g, ""), 10) || 0;
-        matchesCapacity = rowNum >= numeric;
-      }
-
-      let matchesScore = true;
-      if (selectedScore) {
-        const numeric = parseInt(selectedScore, 10);
-        const rowScore =
-          parseInt(String(row.confidence || "").replace(/\D/g, ""), 10) || 0;
-        matchesScore = rowScore <= numeric;
-      }
-
-      const matchesCrop =
-        selectedCrop === "" ||
-        (row.cropName || "").toLowerCase() === selectedCrop.toLowerCase() ||
-        (row.otherCrops || []).some(
-          (c) => c.toLowerCase() === selectedCrop.toLowerCase()
-        );
-
-      return (
-        matchesName &&
-        matchesCompany &&
-        matchesState &&
-        matchesDistrict &&
-        matchesTaluk &&
-        matchesVillage &&
-        matchesCapacity &&
-        matchesScore &&
-        matchesCrop
-      );
-    });
-  }, [
-    data,
-    searchName,
-    searchCompany,
-    selectedCapacity,
-    selectedScore,
-    selectedState,
-    selectedDistrict,
-    selectedTaluk,
-    selectedVillage,
-    selectedCrop,
-  ]);
+  // Use data directly from backend - it's already filtered
+  const filteredData = data;
 
   const activeFiltersCount = [
     searchName,
@@ -2367,6 +2373,46 @@ async function fetchAllCompanies() {
                 ))}
               </select>
 
+              {/* NEW: Tag Filter */}
+              <select
+                value={selectedTag}
+                onChange={(e) => setSelectedTag(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Tags</option>
+                <option value="VLA">VLA</option>
+                <option value="Potential Partner">Potential Partner</option>
+              </select>
+
+              {/* NEW: Sort By */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Sort By</option>
+                <option value="createdAt">Onboarded Date</option>
+                <option value="updatedAt">Last Updated</option>
+                <option value="operationScore">Confidence Score</option>
+                <option value="capacity">Capacity</option>
+                <option value="name">Name</option>
+                <option value="lastInteracted">Last Interacted</option>
+                <option value="nextActionDueDate">Next Action Due Date</option>
+              </select>
+
+              {/* NEW: Sort Order */}
+              {/* {sortBy && (
+                <select
+                  value={sortOrder}
+                  onChange={(e) =>
+                    setSortOrder(e.target.value as "asc" | "desc")
+                  }
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="desc">Descending</option>
+                  <option value="asc">Ascending</option>
+                </select>
+              )} */}
               <select
                 value={selectedCapacity}
                 onChange={(e) => setSelectedCapacity(e.target.value)}
@@ -2424,12 +2470,12 @@ async function fetchAllCompanies() {
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
 
-              <button
+              {/* <button
                 onClick={() => setShowColumnSelector(!showColumnSelector)}
                 className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm ml-auto hover:bg-blue-600 transition-colors"
               >
                 {showColumnSelector ? "Hide" : "Select"} Columns
-              </button>
+              </button> */}
             </div>
 
             {/* Active Filters */}
@@ -2545,7 +2591,7 @@ async function fetchAllCompanies() {
                 <Spinner size={14} /> Loading aggregators...
               </>
             ) : (
-              `Showing ${filteredData.length} of ${total} aggregators`
+              `Showing ${sortedData.length} of ${total} aggregators`
             )}
           </div>
 
@@ -2614,7 +2660,7 @@ async function fetchAllCompanies() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredData.length === 0 ? (
+                  {sortedData.length === 0 ? (
                     <tr>
                       <td
                         colSpan={effectiveVisibleCount + 1}
@@ -2624,7 +2670,7 @@ async function fetchAllCompanies() {
                       </td>
                     </tr>
                   ) : (
-                    filteredData.map((row) => {
+                    sortedData.map((row) => {
                       const isSelected = selectedRowId === row.id;
                       return (
                         <tr
