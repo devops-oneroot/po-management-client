@@ -4,1347 +4,64 @@ import {
   ChevronDown,
   ChevronUp,
   Plus,
-  X,
   Search,
-  Edit3,
-  Save,
-  Trash2,
 } from "lucide-react";
+import CreateBuyerButton from "@/components/CreateBuyerButton";
 
-<style jsx>{`
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+// Import types
+import type {
+  AggregatorData,
+  ColumnSelection,
+  ToastType,
+  Company,
+  QuantityUnit,
+  LoadFrequency,
+} from "./types";
 
-  .animate-fadeIn {
-    animation: fadeIn 0.3s ease-out;
-  }
-`}</style>;
+// Import constants
+import { CROPS, DEFAULT_COLUMN_SELECTION, TAGS } from "./constants";
 
-/* ----------------------
-   Types / Interfaces
-   ---------------------- */
-type QuantityUnit =
-  | "QUINTAL"
-  | "TON"
-  | "PIECE"
-  | "KILOGRAM"
-  | "GRAM"
-  | "LITRE"
-  | "BAG"
-  | "BOX"
-  | "";
+// Import utilities
+import { toDisplayDateDDMMYYYY, getTimeAgo } from "./utils/dateHelpers";
+import { mapLeadToRow, mapRowToBackendPayload } from "./utils/mappers";
+import { sortData } from "./utils/sorting";
+import { ALL_COLUMNS } from "./utils/columnDefinitions";
+import { createEmptyAggregatorDraft } from "./utils/createEmptyDraft";
 
-type LoadFrequency =
-  | "DAILY"
-  | "WEEKLY"
-  | "BIWEEKLY"
-  | "MONTHLY"
-  | "SEASONAL"
-  | string;
+// Import components
+import { Spinner } from "./components/Spinner";
+import { Toast } from "./components/Toast";
+import { ConfirmModal } from "./components/ConfirmModal";
+import { NewAggregatorModal } from "./components/NewAggregatorModal";
+import { ExpandedRowContent } from "./components/ExpandedRowContent";
 
-type ToastType = "success" | "error" | "info";
-
-interface ToastProps {
-  show: boolean;
-  message: string;
-  type: ToastType;
-  onClose: () => void;
-}
-/* ----------------------
-   Confirmation Modal Component
-   ---------------------- */
-interface ConfirmModalProps {
-  show: boolean;
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  confirmText?: string;
-  cancelText?: string;
-  type?: "danger" | "warning" | "info";
-}
-
-interface AggregatorData {
-  id: string | number | null;
-  userId?: string | null;
-  onboarded?: string | null;
-  name?: string | null;
-  number?: string | null;
-  // location fields kept in UI context but NOT sent to backend
-  state?: string | null;
-  district?: string | null;
-  taluk?: string | null;
-  village?: string | null;
-
-  experience?: string | null;
-  capacity?: string | null;
-  capacityUnit?: QuantityUnit | null;
-  tAndC?: string | null; // maps to isTcCompliant
-  nextAction?: string | null;
-  nextActionDueDate?: string | null;
-  interestTo?: string | null; // maps to isInterestedToWork
-  readyToSupply?: string | null; // UI date, maps to nextReadyDate
-  tag?: string | null;
-  confidence?: string | null; // maps to operationScore
-  lastInteracted?: string | null; // UI date -> lastInteractedAt
-  interestedCompanies?: string | null; // Display string for table
-  interestsCompaniesIds?: string[];
-  // feVisited is UI-only: DO NOT send to backend
-  feVisited?: string | null;
-  hasStock?: "Yes" | "No" | "" | null;
-  notes?: string | null;
-  radius?: string | null; // display string; accurateRadius will be numeric in payload
-  otherCrops?: string[];
-  isVisited?: boolean;
-  cropName?: string | null;
-  buyerType?: string | null;
-  updatedAt?: string | null;
-  frequency?: LoadFrequency | null;
-  currentStock?: number | null;
-  currentStockUnit?: QuantityUnit | null;
-  // new entity fields
-  accurateRadius?: number | null;
-  isInterestedToWork?: boolean | null;
-  nextActionDueDateRaw?: string | null;
-
-  // raw backend object can be stored if needed
-  __raw?: any;
-  __rawUserFromLookup?: any;
-}
-
-interface ColumnSelection {
-  onboarded: boolean;
-  name: boolean;
-  number: boolean;
-  state: boolean;
-  district: boolean;
-  taluk: boolean;
-  village: boolean;
-  experience: boolean;
-  capacity: boolean;
-  capacityUnit: boolean;
-  tAndC: boolean;
-  nextAction: boolean;
-  interestTo: boolean;
-  readyToSupply: boolean;
-  tag: boolean;
-  confidence: boolean;
-  lastInteracted: boolean;
-  interestedCompanies: boolean;
-  interestsCompaniesIds: boolean;
-  feVisited: boolean;
-  hasStock: boolean;
-  notes: boolean;
-  radius: boolean;
-  otherCrops: boolean;
-  isVisited: boolean;
-  cropName: boolean;
-  buyerType: boolean;
-  updatedAt: boolean;
-}
-
-/* ----------------------
-   Small Spinner component
-   ---------------------- */
-function Spinner({ size = 16 }: { size?: number }) {
-  return (
-    <svg
-      className="animate-spin inline-block"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="3"
-        opacity="0.2"
-      ></circle>
-      <path
-        d="M22 12a10 10 0 00-10-10"
-        stroke="currentColor"
-        strokeWidth="3"
-        strokeLinecap="round"
-      ></path>
-    </svg>
-  );
-}
-
-function Toast({ show, message, type, onClose }: ToastProps) {
-  if (!show) return null;
-
-  const bgColor =
-    type === "success"
-      ? "bg-green-500"
-      : type === "error"
-      ? "bg-red-500"
-      : "bg-blue-500";
-
-  return (
-    <div className="fixed top-4 right-4 z-[100] animate-fadeIn">
-      <div
-        className={`${bgColor} text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 min-w-[300px]`}
-      >
-        <div className="flex-1">
-          <p className="font-medium">{message}</p>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-white hover:text-gray-200 transition-colors"
-        >
-          <X size={18} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ConfirmModal({
-  show,
-  title,
-  message,
-  onConfirm,
-  onCancel,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
-  type = "info",
-}: ConfirmModalProps) {
-  if (!show) return null;
-
-  const confirmButtonColor =
-    type === "danger"
-      ? "bg-red-600 hover:bg-red-700"
-      : type === "warning"
-      ? "bg-yellow-600 hover:bg-yellow-700"
-      : "bg-blue-600 hover:bg-blue-700";
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[90]">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 animate-fadeIn">
-        <h3 className="text-xl font-semibold mb-3">{title}</h3>
-        <p className="text-gray-600 mb-6">{message}</p>
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`px-4 py-2 text-white rounded transition-colors ${confirmButtonColor}`}
-          >
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-/* ============================
-   Date helpers
-   ============================ */
-function toDisplayDateDDMMYYYY(isoOrYmd: string | null | undefined) {
-  if (!isoOrYmd) return null;
-  const d = new Date(isoOrYmd);
-  if (Number.isNaN(d.getTime())) return isoOrYmd;
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-}
-
-/* ===================================================================
-   NewAggregatorModal
-   =================================================================== */
-type NewAggregatorModalProps = {
-  show: boolean;
-  draft: AggregatorData | null;
-  availableCompanies: Array<{ id: string; name: string }>;
-  crops: string[];
-  isEditing: boolean;
-  savingLead: boolean;
-  updateDraftField: <K extends keyof AggregatorData>(
-    key: K,
-    value: AggregatorData[K]
-  ) => void;
-  cancelNewAggregator: () => void;
-  saveDraft: () => Promise<void> | void;
-
-  loadDistricts: (state: string | null) => Promise<void>;
-  loadTaluks: (state: string | null, district: string | null) => Promise<void>;
-  loadVillages: (
-    state: string | null,
-    district: string | null,
-    taluk: string | null
-  ) => Promise<void>;
-
-  findUserByPhone: (phone: string) => Promise<any | null>;
-
-  // location lists from parent
-  states: string[];
-  districts: string[];
-  taluks: string[];
-  villages: string[];
-};
-
-function NewAggregatorModal({
-  show,
-  draft,
-  availableCompanies,
-  crops,
-  isEditing,
-  savingLead,
-  updateDraftField,
-  cancelNewAggregator,
-  saveDraft,
+// Import API services
+import {
+  callApi,
+  findUserByPhone,
+  createAggregatorLead,
+  patchAggregatorLead,
+  deleteAggregatorLead,
+  fetchAllCompanies,
+  updateBuyerType,
+  loadStates,
   loadDistricts,
   loadTaluks,
   loadVillages,
-  findUserByPhone,
-  states,
-  districts,
-  taluks,
-  villages,
-}: NewAggregatorModalProps) {
-  if (!show || !draft) return null;
+  fetchLeads as fetchLeadsApi,
+} from "./services/api";
 
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [editingLocation, setEditingLocation] = useState(false);
-  const [locLoading, setLocLoading] = useState({
-    districts: false,
-    taluks: false,
-    villages: false,
-  });
-  const [companySearch, setCompanySearch] = useState("");
-  const [localCompaniesLoading, setLocalCompaniesLoading] = useState(false);
+// Import styles
+import styles from "./styles.module.css";
 
-  // whenever a user is fetched from lookup, default to read-only location view
-  useEffect(() => {
-    if (draft?.__rawUserFromLookup) {
-      setEditingLocation(false);
-    }
-  }, [draft?.__rawUserFromLookup]);
-
-  // Helper to map user object returned from /users to draft fields
-  const applyUserToDraft = (user: any) => {
-    if (!user) return;
-
-    // common mappings - tolerant to snake_case or camelCase
-    updateDraftField("userId", (user.id ?? draft?.userId ?? null) as any);
-    updateDraftField("name", (user.name ?? draft?.name ?? "") as any);
-    updateDraftField(
-      "number",
-      (user.mobileNumber ?? user.phone ?? draft?.number ?? "") as any
-    );
-
-    // store raw user so you can submit additional fields if needed
-    updateDraftField("__raw", { ...(draft?.__raw || {}), ...user } as any);
-    updateDraftField("__rawUserFromLookup", user as any);
-
-    // set location in draft for display only (we will NOT send these to backend)
-    updateDraftField("village", (user.village ?? draft?.village ?? "") as any);
-    updateDraftField("taluk", (user.taluk ?? draft?.taluk ?? "") as any);
-    updateDraftField(
-      "district",
-      (user.district ?? draft?.district ?? "") as any
-    );
-    updateDraftField("state", (user.state ?? draft?.state ?? "") as any);
-
-    // map user-provided capacity and frequency into draft if present
-    const capacityVal =
-      user.loadingCapacity ??
-      user.loading_capacity ??
-      user.capacity ??
-      user.loadingCapacityValue ??
-      user.loading_capacity_value ??
-      null;
-    if (capacityVal !== null && capacityVal !== undefined) {
-      updateDraftField("capacity", String(capacityVal) as any);
-    }
-
-    const capacityUnitVal =
-      user.loadingCapacityMeasure ??
-      user.loading_capacity_measure ??
-      user.capacityUnit ??
-      user.loadingCapacityUnit ??
-      user.loading_capacity_unit ??
-      null;
-    if (capacityUnitVal) {
-      updateDraftField("capacityUnit", String(capacityUnitVal) as any);
-    }
-
-    if (user.experience !== undefined && user.experience !== null) {
-      updateDraftField("experience", String(user.experience) as any);
-    } else if (user.yearsExperience) {
-      updateDraftField("experience", String(user.yearsExperience) as any);
-    }
-
-    const freq =
-      user.loadingFrequency ?? user.frequency ?? user.loadFrequency ?? null;
-    if (freq) updateDraftField("frequency", String(freq) as any);
-  };
-
-  const lookupUser = async () => {
-    setLookupError(null);
-    if (!draft?.number) {
-      setLookupError("Enter phone number first");
-      return;
-    }
-    try {
-      setLookupLoading(true);
-      const user = await findUserByPhone(String(draft.number));
-      if (!user) {
-        setLookupError("No user found for this number");
-        return;
-      }
-      applyUserToDraft(user);
-
-      // preload locations lists if available on user
-      try {
-        if (user.state) {
-          setLocLoading((s) => ({ ...s, districts: true }));
-          await loadDistricts(user.state);
-          setLocLoading((s) => ({ ...s, districts: false }));
-          if (user.district) {
-            setLocLoading((s) => ({ ...s, taluks: true }));
-            await loadTaluks(user.state, user.district);
-            setLocLoading((s) => ({ ...s, taluks: false }));
-            if (user.taluk) {
-              setLocLoading((s) => ({ ...s, villages: true }));
-              await loadVillages(user.state, user.district, user.taluk);
-              setLocLoading((s) => ({ ...s, villages: false }));
-            }
-          }
-        }
-      } catch (err) {
-        setLocLoading({ districts: false, taluks: false, villages: false });
-      }
-      // Default to read-only location UI
-      setEditingLocation(false);
-    } catch (err: any) {
-      console.error("Lookup failed:", err);
-      setLookupError(err?.message || "Lookup failed");
-    } finally {
-      setLookupLoading(false);
-    }
-  };
-
-  // local wrapper to call loadDistricts and set loading flag
-  const onSelectState = async (s: string) => {
-    updateDraftField("state", s || "");
-    updateDraftField("district", "");
-    updateDraftField("taluk", "");
-    updateDraftField("village", "");
-    if (s) {
-      try {
-        setLocLoading((x) => ({ ...x, districts: true }));
-        await loadDistricts(s);
-      } finally {
-        setLocLoading((x) => ({ ...x, districts: false }));
-      }
-    }
-  };
-
-  const onSelectDistrict = async (d: string) => {
-    updateDraftField("district", d || "");
-    updateDraftField("taluk", "");
-    updateDraftField("village", "");
-    if (d && draft?.state) {
-      try {
-        setLocLoading((x) => ({ ...x, taluks: true }));
-        await loadTaluks(draft.state, d);
-      } finally {
-        setLocLoading((x) => ({ ...x, taluks: false }));
-      }
-    }
-  };
-
-  const onSelectTaluk = async (t: string) => {
-    updateDraftField("taluk", t || "");
-    updateDraftField("village", "");
-    if (t && draft?.state && draft?.district) {
-      try {
-        setLocLoading((x) => ({ ...x, villages: true }));
-        await loadVillages(draft.state, draft.district, t);
-      } finally {
-        setLocLoading((x) => ({ ...x, villages: false }));
-      }
-    }
-  };
-
-  const capacityUnits: QuantityUnit[] = [
-    "QUINTAL",
-    "TON",
-    "PIECE",
-    "KILOGRAM",
-    "GRAM",
-    "LITRE",
-    "BAG",
-    "BOX",
-  ];
-
-  // filtered companies list for the search bar in modal
-  const filteredCompanies = useMemo(() => {
-    if (!companySearch) return availableCompanies;
-    const s = companySearch.toLowerCase();
-    return availableCompanies.filter((c) => c.name.toLowerCase().includes(s));
-  }, [availableCompanies, companySearch]);
-
-  // const validateMandatoryFields = () => {
-  //   const errors = [];
-
-  //   if (!draft.name?.trim()) errors.push("Name is required");
-  //   if (!draft.number?.trim()) errors.push("Phone Number is required");
-  //   if (!draft.cropName) errors.push("Crop is required");
-  //   if (!draft.lastInteracted) errors.push("Last Interacted At is required");
-  //   if (!draft.nextAction?.trim()) errors.push("Next Action is required");
-  //   if (!draft.nextActionDueDate)
-  //     errors.push("Next Action Due Date is required");
-
-  //   if (errors.length > 0) {
-  //     alert("Please fill in all mandatory fields:\n\n" + errors.join("\n"));
-  //     return false;
-  //   }
-
-  //   return true;
-  // };
-
-  return (
-    //create aggregator modal
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Create Aggregator Lead</h2>
-          <button
-            onClick={cancelNewAggregator}
-            className="p-1 rounded hover:bg-gray-100"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Modal Content */}
-        <div className="p-6 space-y-4">
-          {/* Basic Info */}
-          <div className="bg-gray-50 p-4 rounded">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Basic Information
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-gray-500">Name *</label>
-                <input
-                  value={draft.name || ""}
-                  onChange={(e) => updateDraftField("name", e.target.value)}
-                  className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  placeholder="Enter name"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500">Phone Number *</label>
-                <div className="flex gap-2 mt-1">
-                  <input
-                    value={draft.number || ""}
-                    onChange={(e) => updateDraftField("number", e.target.value)}
-                    className="flex-1 px-3 py-2 border rounded text-sm"
-                    placeholder="Enter phone number"
-                  />
-                  <button
-                    onClick={lookupUser}
-                    disabled={lookupLoading}
-                    className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
-                    title="Lookup user by phone"
-                  >
-                    {lookupLoading ? (
-                      <Spinner size={14} />
-                    ) : (
-                      <Search size={14} />
-                    )}
-                    <span>{lookupLoading ? "Looking..." : "Lookup"}</span>
-                  </button>
-                </div>
-                {lookupError && (
-                  <div className="text-xs text-red-600 mt-1">{lookupError}</div>
-                )}
-              </div>
-            </div>
-
-            {/* Location block: read-only when lookup provided, else selects */}
-            <div className="grid grid-cols-1 gap-2 mt-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-gray-700">
-                  Location (display only)
-                </div>
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setEditingLocation((s) => !s)}
-                    className="text-xs px-2 py-1 border rounded text-gray-600 hover:bg-gray-100"
-                  >
-                    {editingLocation ? "View" : "Edit"}
-                  </button>
-                </div>
-              </div>
-
-              {!editingLocation && draft.__rawUserFromLookup ? (
-                <div className="bg-white border rounded p-3 text-sm space-y-2">
-                  <div>
-                    <div className="text-xs text-gray-500">Village</div>
-                    <div className="font-medium">{draft.village || "-"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Taluk</div>
-                    <div className="font-medium">{draft.taluk || "-"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">District</div>
-                    <div className="font-medium">{draft.district || "-"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">State</div>
-                    <div className="font-medium">{draft.state || "-"}</div>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-gray-500">State</label>
-                    <select
-                      value={draft.state || ""}
-                      onChange={(e) => onSelectState(e.target.value)}
-                      className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    >
-                      <option value="">Select State</option>
-                      {states.map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
-                    </select>
-                    {locLoading.districts && (
-                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                        <Spinner size={12} /> Loading districts...
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">District</label>
-                    <select
-                      value={draft.district || ""}
-                      onChange={(e) => onSelectDistrict(e.target.value)}
-                      className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    >
-                      <option value="">Select District</option>
-                      {districts.map((dt) => (
-                        <option key={dt} value={dt}>
-                          {dt}
-                        </option>
-                      ))}
-                    </select>
-                    {locLoading.taluks && (
-                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                        <Spinner size={12} /> Loading taluks...
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Taluk</label>
-                    <select
-                      value={draft.taluk || ""}
-                      onChange={(e) => onSelectTaluk(e.target.value)}
-                      className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    >
-                      <option value="">Select Taluk</option>
-                      {taluks.map((ta) => (
-                        <option key={ta} value={ta}>
-                          {ta}
-                        </option>
-                      ))}
-                    </select>
-                    {locLoading.villages && (
-                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                        <Spinner size={12} /> Loading villages...
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-gray-500">Village</label>
-                    <select
-                      value={draft.village || ""}
-                      onChange={(e) =>
-                        updateDraftField("village", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    >
-                      <option value="">Select Village</option>
-                      {villages.map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Business Details */}
-          <div className="bg-gray-50 p-4 rounded">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Business Details
-            </h3>
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="text-xs text-gray-500">Crop *</label>
-                <select
-                  value={draft.cropName || ""}
-                  onChange={(e) => updateDraftField("cropName", e.target.value)}
-                  className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  required
-                >
-                  <option value="">Select Crop</option>
-                  {crops.map((crop) => (
-                    <option key={crop} value={crop}>
-                      {crop}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs text-gray-500">Capacity</label>
-                  <input
-                    value={draft.capacity || ""}
-                    onChange={(e) =>
-                      updateDraftField("capacity", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Unit</label>
-                  <select
-                    value={draft.capacityUnit || ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "capacityUnit",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as QuantityUnit)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
-                    <option value="">Unit</option>
-                    {capacityUnits.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Confidence score
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={draft.confidence || ""}
-                    onChange={(e) =>
-                      updateDraftField("confidence", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="100"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Experience (years)
-                  </label>
-                  <input
-                    value={draft.experience || ""}
-                    onChange={(e) =>
-                      updateDraftField("experience", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="Enter years"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Load Frequency
-                  </label>
-                  <select
-                    value={draft.frequency || ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "frequency",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as LoadFrequency)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
-                    <option value="">Select Frequency</option>
-                    <option value="DAILY">Daily</option>
-                    <option value="WEEKLY">Weekly</option>
-                    <option value="BIWEEKLY">Biweekly</option>
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="SEASONAL">Seasonal</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500">
-                    T & C Compliant?
-                  </label>
-                  <select
-                    value={draft.tAndC ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "tAndC",
-                        e.target.value === "" ? null : e.target.value
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
-                    <option value="">Select</option>
-                    <option value="Yes">Yes - Compliant</option>
-                    <option value="No">No - Not Compliant</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-500">Buyer Type</label>
-                  <select
-                    value={draft.buyerType || ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "buyerType",
-                        e.target.value === "" ? null : e.target.value
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
-                    <option value="">Select Buyer Type</option>
-                    <option value="VILLAGE_BUYER">VILLAGE_BUYER</option>
-                    <option value="MANDI_BUYER">MANDI_BUYER</option>
-                    <option value="MANDI_AND_VILLAGE_BUYER">
-                      MANDI_AND_VILLAGE_BUYER
-                    </option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Has stock boolean + conditional currentStock + unit */}
-              <div className="grid grid-cols-3 gap-3 items-end">
-                <div>
-                  <label className="text-xs text-gray-500">Has Stock?</label>
-                  <select
-                    value={draft.hasStock ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "hasStock",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as "Yes" | "No")
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
-                    <option value="">Select</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-500">Current Stock</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={draft.currentStock ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "currentStock",
-                        e.target.value === "" ? null : Number(e.target.value)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="0"
-                    disabled={draft.hasStock !== "Yes"}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Current Stock Unit
-                  </label>
-                  <select
-                    value={draft.currentStockUnit || ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "currentStockUnit",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as QuantityUnit)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    disabled={draft.hasStock !== "Yes"}
-                  >
-                    <option value="">Select Unit</option>
-                    {capacityUnits.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Tag input */}
-              <div>
-                <label className="text-xs text-gray-500">Tag</label>
-                <div className="space-y-2 mt-1">
-                  {(() => {
-                    const option = [
-                      "VLA",
-                      "Potential Partner",
-                      "Other",
-                    ].includes(draft.tag || "")
-                      ? draft.tag
-                      : draft.tag
-                      ? "Other"
-                      : "";
-                    return (
-                      <>
-                        <select
-                          value={option || ""}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            if (v === "") {
-                              updateDraftField("tag", null);
-                            } else if (v === "Other") {
-                              if (
-                                !["VLA", "Potential Partner", "Other"].includes(
-                                  draft.tag || ""
-                                )
-                              ) {
-                                updateDraftField("tag", draft.tag || "");
-                              } else {
-                                updateDraftField("tag", "");
-                              }
-                            } else {
-                              updateDraftField("tag", v);
-                            }
-                          }}
-                          className="w-full px-2 py-1 border rounded text-sm"
-                        >
-                          <option value="">Select</option>
-                          <option value="VLA">VLA</option>
-                          <option value="Potential Partner">
-                            Potential Partner
-                          </option>
-                          <option value="Other">Other</option>
-                        </select>
-
-                        {option === "Other" && (
-                          <input
-                            type="text"
-                            placeholder="Enter custom tag"
-                            value={draft.tag || ""}
-                            onChange={(e) =>
-                              updateDraftField("tag", e.target.value || null)
-                            }
-                            className="w-full px-2 py-1 border rounded text-sm"
-                          />
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Additional Details: interested companies with search, notes, other crops */}
-          <div className="bg-gray-50 p-4 rounded">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Additional Details
-            </h3>
-            <div className="grid grid-cols-1 gap-4">
-              {/* Interested Companies: search + list when editing; bullet points when not editing */}
-              <div>
-                <div className="flex justify-between items-baseline">
-                  <label className="text-xs text-gray-500">
-                    Interested Companies
-                  </label>
-                  <div className="text-xs text-gray-400">
-                    {(draft.interestsCompaniesIds || []).length} selected
-                  </div>
-                </div>
-
-                {!isEditing ? (
-                  // show bullet points when not editing
-                  <div className="mt-2 text-sm">
-                    {draft.interestsCompaniesIds &&
-                    draft.interestsCompaniesIds.length > 0 ? (
-                      <ul className="list-disc ml-5">
-                        {draft.interestsCompaniesIds.map((id) => {
-                          const c = availableCompanies.find((x) => x.id === id);
-                          return <li key={id}>{c ? c.name : id}</li>;
-                        })}
-                      </ul>
-                    ) : (
-                      <div className="text-xs text-gray-400 mt-1">None</div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-2">
-                    <div className="flex gap-2 mb-2">
-                      <input
-                        type="text"
-                        placeholder="Search companies..."
-                        value={companySearch}
-                        onChange={(e) => setCompanySearch(e.target.value)}
-                        className="flex-1 px-3 py-2 border rounded text-sm"
-                      />
-                      {localCompaniesLoading ? (
-                        <div className="px-3 py-2 border rounded flex items-center gap-2 text-sm text-gray-600">
-                          <Spinner size={14} /> Loading
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="border rounded p-2 max-h-40 overflow-y-auto bg-white">
-                      {filteredCompanies.length === 0 ? (
-                        <div className="text-xs text-gray-400">
-                          No companies
-                        </div>
-                      ) : (
-                        filteredCompanies.map((company) => (
-                          <label
-                            key={company.id}
-                            className="flex items-center gap-2 py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={(
-                                draft.interestsCompaniesIds || []
-                              ).includes(company.id)}
-                              onChange={(e) => {
-                                const currentIds =
-                                  draft.interestsCompaniesIds || [];
-                                if (e.target.checked) {
-                                  updateDraftField("interestsCompaniesIds", [
-                                    ...currentIds,
-                                    company.id,
-                                  ]);
-                                } else {
-                                  updateDraftField(
-                                    "interestsCompaniesIds",
-                                    currentIds.filter((id) => id !== company.id)
-                                  );
-                                }
-                              }}
-                              className="w-4 h-4 text-blue-600"
-                            />
-                            <span className="text-sm">{company.name}</span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500">Notes</label>
-                  <textarea
-                    value={draft.notes || ""}
-                    onChange={(e) => updateDraftField("notes", e.target.value)}
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    rows={3}
-                    placeholder="Add any notes..."
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Other Crops (comma separated)
-                  </label>
-                  <input
-                    value={(draft.otherCrops || []).join(", ")}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "otherCrops",
-                        e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="Rice, Wheat, Corn"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Ready to Supply
-                  </label>
-                  <input
-                    type="date"
-                    value={draft.readyToSupply || ""}
-                    onChange={(e) =>
-                      updateDraftField("readyToSupply", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    {draft.readyToSupply
-                      ? toDisplayDateDDMMYYYY(draft.readyToSupply)
-                      : "-"}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Last Interacted At *
-                  </label>
-                  <input
-                    type="date"
-                    value={draft.lastInteracted || ""}
-                    onChange={(e) =>
-                      updateDraftField("lastInteracted", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    {draft.lastInteracted
-                      ? toDisplayDateDDMMYYYY(draft.lastInteracted)
-                      : "-"}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-500">Next Action *</label>
-                  <input
-                    type="text"
-                    value={draft.nextAction || ""}
-                    onChange={(e) =>
-                      updateDraftField("nextAction", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="Enter next action"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Next Action Due *
-                  </label>
-                  <input
-                    type="date"
-                    value={draft.nextActionDueDate || ""}
-                    onChange={(e) =>
-                      updateDraftField("nextActionDueDate", e.target.value)
-                    }
-                    min={new Date().toISOString().split("T")[0]}
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    {draft.nextActionDueDate
-                      ? toDisplayDateDDMMYYYY(draft.nextActionDueDate)
-                      : "-"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-500">
-                    Is Interested To Work?
-                  </label>
-                  <select
-                    value={draft.interestTo ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "interestTo",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as AggregatorData["interestTo"])
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
-                    <option value="">Select</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Radius (km)</label>
-                  <input
-                    value={draft.radius ?? ""}
-                    onChange={(e) => updateDraftField("radius", e.target.value)}
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="Radius in km"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Modal Footer */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 flex justify-end gap-3">
-          <button
-            onClick={cancelNewAggregator}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={saveDraft}
-            disabled={savingLead}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {savingLead ? (
-              <>
-                <Spinner size={16} /> Saving...
-              </>
-            ) : (
-              <>
-                <Save size={16} /> Create / Save
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+/* ===================================================================
+   Main AggregatorTable Component
+   =================================================================== */
 
 /* ===================================================================
    AggregatorTable - main component
    =================================================================== */
 const AggregatorTable = () => {
-  // ======== API CONFIGURATION =========
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
-
-  // Generic API caller
-  const callApi = async (path: string, options: RequestInit = {}) => {
-    const url = `${API_BASE_URL.replace(/\/$/, "")}${
-      path.startsWith("/") ? path : `/${path}`
-    }`;
-
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
-    const headers: Record<string, string> = {
-      Accept: "application/json",
-      ...(options.headers as Record<string, string>),
-    };
-
-    if (
-      options.body &&
-      !(options.body instanceof FormData) &&
-      !headers["Content-Type"]
-    ) {
-      headers["Content-Type"] = "application/json";
-    }
-
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const res = await fetch(url, {
-      credentials: "same-origin",
-      ...options,
-      headers,
-    });
-
-    const text = await res.text().catch(() => "");
-    let payload: any = null;
-    try {
-      payload = text ? JSON.parse(text) : null;
-    } catch {
-      payload = text;
-    }
-
-    if (!res.ok) {
-      const message =
-        payload?.message || payload?.error || res.statusText || "API error";
-      const err: any = new Error(message);
-      err.status = res.status;
-      err.body = payload;
-      throw err;
-    }
-
-    return payload;
-  };
-
-  // Add this helper function to format "time ago"
-  const getTimeAgo = (date: string | null | undefined): string => {
-    if (!date) return "-";
-    const now = new Date();
-    const past = new Date(date);
-    const diffMs = now.getTime() - past.getTime();
-    const diffSecs = Math.floor(diffMs / 1000);
-    const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-    const diffWeeks = Math.floor(diffDays / 7);
-    const diffMonths = Math.floor(diffDays / 30);
-    const diffYears = Math.floor(diffDays / 365);
-
-    if (diffSecs < 60) return "Just now";
-    if (diffMins < 60)
-      return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
-    if (diffHours < 24)
-      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-    if (diffWeeks < 4)
-      return `${diffWeeks} week${diffWeeks > 1 ? "s" : ""} ago`;
-    if (diffMonths < 12)
-      return `${diffMonths} month${diffMonths > 1 ? "s" : ""} ago`;
-    return `${diffYears} year${diffYears > 1 ? "s" : ""} ago`;
-  };
 
   // ======== DATA STATE =========
   const [data, setData] = useState<AggregatorData[]>([]);
@@ -1362,9 +79,7 @@ const AggregatorTable = () => {
   const [companySearch, setCompanySearch] = useState<string>("");
 
   // Companies list for multi-select
-  const [availableCompanies, setAvailableCompanies] = useState<
-    Array<{ id: string; name: string; displayName?: string }>
-  >([]);
+  const [availableCompanies, setAvailableCompanies] = useState<Company[]>([]);
 
   // UI selection/editing
   const [selectedRowId, setSelectedRowId] = useState<string | number | null>(
@@ -1383,36 +98,9 @@ const AggregatorTable = () => {
 
   // column selector
   const [showColumnSelector, setShowColumnSelector] = useState(false);
-  const [selectedColumns, setSelectedColumns] = useState<ColumnSelection>({
-    onboarded: true,
-    name: true,
-    number: true,
-    state: true,
-    district: true,
-    taluk: true,
-    village: true,
-    experience: true,
-    capacity: true,
-    capacityUnit: true,
-    tAndC: true,
-    nextAction: true,
-    interestTo: true,
-    readyToSupply: true,
-    tag: true,
-    confidence: true,
-    lastInteracted: true,
-    interestedCompanies: true,
-    interestsCompaniesIds: true,
-    feVisited: true,
-    hasStock: true,
-    notes: true,
-    radius: true,
-    otherCrops: true,
-    isVisited: true,
-    cropName: true,
-    buyerType: true,
-    updatedAt: true,
-  });
+  const [selectedColumns, setSelectedColumns] = useState<ColumnSelection>(
+    DEFAULT_COLUMN_SELECTION
+  );
 
   // Filters (UI)
   const [searchName, setSearchName] = useState("");
@@ -1434,58 +122,6 @@ const AggregatorTable = () => {
   const [sortBy, setSortBy] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  const allColumns = [
-    { key: "onboarded" as keyof ColumnSelection, label: "Onboarded" },
-    { key: "name" as keyof ColumnSelection, label: "Name" },
-    { key: "number" as keyof ColumnSelection, label: "Number" },
-    { key: "state" as keyof ColumnSelection, label: "State" },
-    { key: "district" as keyof ColumnSelection, label: "District" },
-    { key: "taluk" as keyof ColumnSelection, label: "Taluk" },
-    { key: "village" as keyof ColumnSelection, label: "Village" },
-    { key: "experience" as keyof ColumnSelection, label: "Experience" },
-    { key: "capacity" as keyof ColumnSelection, label: "Capacity" },
-    { key: "capacityUnit" as keyof ColumnSelection, label: "Unit" },
-    { key: "tAndC" as keyof ColumnSelection, label: "T & C?" },
-    { key: "nextAction" as keyof ColumnSelection, label: "Next Action" },
-    {
-      key: "interestTo" as keyof ColumnSelection,
-      label: "Interested to collaborate",
-    },
-    { key: "readyToSupply" as keyof ColumnSelection, label: "Ready to Supply" },
-    { key: "tag" as keyof ColumnSelection, label: "Tag" },
-    { key: "confidence" as keyof ColumnSelection, label: "Confidence" },
-    {
-      key: "lastInteracted" as keyof ColumnSelection,
-      label: "Last Interacted",
-    },
-    {
-      key: "interestedCompanies" as keyof ColumnSelection,
-      label: "Interested Companies",
-    },
-    {
-      key: "interestsCompaniesIds" as keyof ColumnSelection,
-      label: "Companies (IDs)",
-    },
-    { key: "feVisited" as keyof ColumnSelection, label: "FE Visited" },
-    { key: "hasStock" as keyof ColumnSelection, label: "Has Stock" },
-    { key: "notes" as keyof ColumnSelection, label: "Notes" },
-    { key: "radius" as keyof ColumnSelection, label: "Radius" },
-    { key: "otherCrops" as keyof ColumnSelection, label: "Other Crops" },
-    { key: "isVisited" as keyof ColumnSelection, label: "Is Visited" },
-    { key: "cropName" as keyof ColumnSelection, label: "Primary Crop" },
-    { key: "buyerType" as keyof ColumnSelection, label: "Buyer Type" },
-    { key: "updatedAt" as keyof ColumnSelection, label: "Last Updated" },
-  ];
-
-  const crops = [
-    "Tender Coconut",
-    "Turmeric",
-    "Banana",
-    "Dry Coconut",
-    "Maize",
-    "Sunflower",
-    "Jowar",
-  ];
 
   // Toast/Alert states
   const [toast, setToast] = useState<{
@@ -1521,235 +157,6 @@ const AggregatorTable = () => {
     }, 3000);
   };
 
-  /* ======= UTILS: mapping backend AggregatorLeads -> UI row ======= */
-  function mapLeadToRow(lead: any): AggregatorData {
-    const user = lead?.user || lead?.userId || null;
-    const interestedCompanies = Array.isArray(lead?.interestsCompanies)
-      ? lead.interestsCompanies
-          .map((c: any) => c.name || c.title || c.companyName || c.id)
-          .join(", ")
-      : lead?.interestsCompanies || "";
-
-    const interestsCompaniesIds = Array.isArray(lead?.interestsCompanies)
-      ? lead.interestsCompanies.map((c: any) => c.id).filter(Boolean)
-      : [];
-
-    return {
-      id: lead.id,
-      userId: lead.userId ?? lead.user?.id ?? null,
-      onboarded: lead.createdAt
-        ? new Date(lead.createdAt).toLocaleDateString()
-        : lead.onboarded ?? null,
-      updatedAt: lead.updatedAt ?? null,
-      name: lead.user?.name ?? lead.name ?? (user?.name || null),
-      number: lead.user?.mobileNumber ?? lead.mobileNumber ?? null,
-      // keep location in UI for display but DO NOT send to backend
-      village: lead.user?.village ?? lead.village ?? null,
-      district: lead.user?.district ?? lead.district ?? null,
-      state: lead.user?.state ?? lead.state ?? null,
-      taluk: lead.user?.taluk ?? lead.taluk ?? null,
-      buyerType: lead.user?.buyerType ?? user?.buyerType ?? null,
-      experience:
-        lead.experience != null ? String(lead.experience) : lead.experience,
-      capacity: lead.capacity != null ? String(lead.capacity) : null,
-      capacityUnit: lead.capacityUnit ?? null,
-      tAndC:
-        lead.isTcCompliant === true
-          ? "Yes"
-          : lead.isTcCompliant === false
-          ? "No"
-          : null,
-      nextAction: lead.nextAction ?? null,
-      nextActionDueDate: lead.nextActionDueDate
-        ? new Date(lead.nextActionDueDate).toISOString().split("T")[0]
-        : null,
-      interestTo:
-        lead.isInterestedToWork === true
-          ? "Yes"
-          : lead.isInterestedToWork === false
-          ? "No"
-          : null,
-      readyToSupply: lead.nextReadyDate
-        ? new Date(lead.nextReadyDate).toISOString().split("T")[0]
-        : null,
-      tag: lead.label ?? null,
-      confidence: lead.operationScore != null ? `${lead.operationScore}` : null,
-      lastInteracted: lead.lastInteractedAt
-        ? new Date(lead.lastInteractedAt).toISOString().split("T")[0]
-        : null,
-      interestedCompanies,
-      interestsCompaniesIds,
-      feVisited:
-        lead.feVisited === true
-          ? "Yes"
-          : lead.feVisited === false
-          ? "No"
-          : null,
-
-      hasStock:
-        lead.hasStock === true ? "Yes" : lead.hasStock === false ? "No" : null,
-      notes: lead.notes ?? null,
-      radius: lead.accurateRadius != null ? String(lead.accurateRadius) : null,
-      accurateRadius: lead.accurateRadius ?? null,
-      otherCrops: lead.otherCrop ?? [],
-      isVisited: !!lead.isVisited,
-      cropName: lead.cropName ?? null,
-      frequency: lead.frequency ?? null,
-      currentStock: lead.currentStock ?? null,
-      currentStockUnit: lead.currentStockUnit ?? null,
-      // isInterestedToWork:
-      //   lead.isInterestedToWork === true
-      //     ? true
-      //     : lead.isInterestedToWork === false
-      //     ? false
-      //     : null,
-      __raw: lead,
-    };
-  }
-
-  // Reverse mapper: take UI draft and produce payload for backend create/update
-  function mapRowToBackendPayload(row: AggregatorData) {
-    const payload: any = {};
-
-    // only include fields that exist on AggregatorLeads entity
-    if (row.userId) payload.userId = row.userId;
-
-    // crop & label & notes
-    payload.cropName = row.cropName ?? null;
-    payload.label = row.tag ?? null;
-    payload.notes = row.notes ?? null;
-
-    // experience numeric
-    if (
-      row.experience !== undefined &&
-      row.experience !== null &&
-      row.experience !== ""
-    ) {
-      const n = Number(String(row.experience).replace(/[^\d.-]/g, ""));
-      payload.experience = Number.isFinite(n) ? n : null;
-    } else {
-      payload.experience = null;
-    }
-
-    // capacity numeric
-    if (
-      row.capacity !== undefined &&
-      row.capacity !== null &&
-      row.capacity !== ""
-    ) {
-      const clean = String(row.capacity).replace(/[^0-9.]/g, "");
-      const num = Number(clean);
-      payload.capacity = Number.isFinite(num) ? num : null;
-    } else {
-      payload.capacity = null;
-    }
-
-    payload.capacityUnit = row.capacityUnit ?? null;
-
-    // hasStock boolean or null
-    if (
-      row.hasStock !== undefined &&
-      row.hasStock !== null &&
-      row.hasStock !== ""
-    ) {
-      payload.hasStock = String(row.hasStock).toLowerCase() === "yes";
-    } else {
-      payload.hasStock = null;
-    }
-
-    // currentStock must be number or null
-    if (row.currentStock !== undefined && row.currentStock !== null) {
-      const cs = Number(row.currentStock);
-      payload.currentStock = Number.isFinite(cs) ? cs : null;
-    } else {
-      payload.currentStock = null;
-    }
-
-    payload.currentStockUnit = row.currentStockUnit ?? null;
-
-    // frequency
-    payload.frequency = row.frequency ?? null;
-
-    // nextAction
-    payload.nextAction = row.nextAction ?? null;
-
-    // nextActionDueDate (convert to ISO)
-    if (row.nextActionDueDate) {
-      const d = new Date(row.nextActionDueDate);
-      payload.nextActionDueDate = !Number.isNaN(d.getTime())
-        ? d.toISOString()
-        : null;
-    } else {
-      payload.nextActionDueDate = null;
-    }
-
-    // lastInteracted
-    if (row.lastInteracted) {
-      const d = new Date(row.lastInteracted);
-      payload.lastInteractedAt = !Number.isNaN(d.getTime())
-        ? d.toISOString()
-        : null;
-    } else {
-      payload.lastInteractedAt = null;
-    }
-
-    // readyToSupply -> nextReadyDate
-    if (row.readyToSupply) {
-      const d = new Date(row.readyToSupply);
-      payload.nextReadyDate = !Number.isNaN(d.getTime())
-        ? d.toISOString()
-        : null;
-    } else {
-      payload.nextReadyDate = null;
-    }
-
-    // confidence -> operationScore
-    if (row.confidence !== undefined && row.confidence !== "") {
-      const n = parseInt(String(row.confidence).replace(/\D/g, ""), 10);
-      payload.operationScore = !Number.isNaN(n) ? n : null;
-    } else {
-      payload.operationScore = null;
-    }
-
-    // accurateRadius numeric -> accurateRadius
-    if (row.radius !== undefined && row.radius !== null && row.radius !== "") {
-      const r = Number(String(row.radius).replace(/[^\d.]/g, ""));
-      payload.accurateRadius = Number.isFinite(r) ? r : null;
-    } else if (row.accurateRadius !== undefined) {
-      payload.accurateRadius = row.accurateRadius ?? null;
-    } else {
-      payload.accurateRadius = null;
-    }
-
-    // isInterestedToWork - FIXED (removed else-if block)
-    if (
-      row.interestTo !== undefined &&
-      row.interestTo !== null &&
-      row.interestTo !== ""
-    ) {
-      payload.isInterestedToWork =
-        String(row.interestTo).toLowerCase() === "yes";
-    } else {
-      payload.isInterestedToWork = null;
-    }
-
-    // isTcCompliant from tAndC - FIXED (added empty string check)
-    if (row.tAndC !== undefined && row.tAndC !== null && row.tAndC !== "") {
-      payload.isTcCompliant = String(row.tAndC).toLowerCase() === "yes";
-    } else {
-      payload.isTcCompliant = null;
-    }
-
-    // otherCrop
-    payload.otherCrop = Array.isArray(row.otherCrops) ? row.otherCrops : [];
-
-    // interestsCompaniesIds -> send array (or empty array)
-    payload.interestsCompaniesIds = Array.isArray(row.interestsCompaniesIds)
-      ? row.interestsCompaniesIds
-      : [];
-
-    return payload;
-  }
 
   // ======= API FUNCTIONS =======
   function buildListParams() {
@@ -1776,85 +183,49 @@ const AggregatorTable = () => {
     return params;
   }
   const sortedData = useMemo(() => {
-    if (!sortBy) return data;
-
-    const sorted = [...data].sort((a, b) => {
-      let aVal: any;
-      let bVal: any;
-
-      switch (sortBy) {
-        case "createdAt":
-        case "onboarded":
-          aVal = new Date(a.onboarded || 0).getTime();
-          bVal = new Date(b.onboarded || 0).getTime();
-          break;
-
-        case "updatedAt":
-          aVal = new Date(a.updatedAt || 0).getTime();
-          bVal = new Date(b.updatedAt || 0).getTime();
-          break;
-
-        case "operationScore":
-        case "confidence":
-          aVal = parseInt(String(a.confidence || "0").replace(/\D/g, ""), 10);
-          bVal = parseInt(String(b.confidence || "0").replace(/\D/g, ""), 10);
-          break;
-
-        case "capacity":
-          aVal = parseInt(String(a.capacity || "0").replace(/\D/g, ""), 10);
-          bVal = parseInt(String(b.capacity || "0").replace(/\D/g, ""), 10);
-          break;
-
-        case "name":
-          aVal = (a.name || "").toLowerCase();
-          bVal = (b.name || "").toLowerCase();
-          break;
-
-        case "lastInteracted":
-          aVal = new Date(a.lastInteracted || 0).getTime();
-          bVal = new Date(b.lastInteracted || 0).getTime();
-          break;
-        case "nextActionDueDate": // ADD THIS CASE
-          aVal = new Date(a.nextActionDueDate || 0).getTime();
-          bVal = new Date(b.nextActionDueDate || 0).getTime();
-          break;
-
-        case "readyToSupply":
-          aVal = new Date(a.readyToSupply || 0).getTime();
-          bVal = new Date(b.readyToSupply || 0).getTime();
-          break;
-
-        default:
-          return 0;
-      }
-
-      if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
-      if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return sorted;
+    return sortData(data, sortBy, sortOrder);
   }, [data, sortBy, sortOrder]);
+
+  // Wrapper functions for location loading that update state
+  const loadDistrictsWrapper = async (state: string | null) => {
+    if (!state) {
+      setDistricts([]);
+      return;
+    }
+    const districtsList = await loadDistricts(state);
+    setDistricts(districtsList);
+  };
+
+  const loadTaluksWrapper = async (
+    state: string | null,
+    district: string | null
+  ) => {
+    if (!state || !district) {
+      setTaluks([]);
+      return;
+    }
+    const taluksList = await loadTaluks(state, district);
+    setTaluks(taluksList);
+  };
+
+  const loadVillagesWrapper = async (
+    state: string | null,
+    district: string | null,
+    taluk: string | null
+  ) => {
+    if (!state || !district || !taluk) {
+      setVillages([]);
+      return;
+    }
+    const villagesList = await loadVillages(state, district, taluk);
+    setVillages(villagesList);
+  };
 
   async function fetchLeads() {
     try {
       setLoadingLeads(true);
       const params = buildListParams();
-      const qp = new URLSearchParams();
-
-      Object.entries(params).forEach(([k, v]) => {
-        if (v === undefined || v === null || v === "") return;
-        if (Array.isArray(v)) {
-          v.forEach((x) => qp.append(k, String(x)));
-        } else {
-          qp.append(k, String(v));
-        }
-      });
-
-      const path = `/aggregator-leads${
-        qp.toString() ? `?${qp.toString()}` : ""
-      }`;
-      const res = await callApi(path, { method: "GET" });
+      const res = await fetchLeadsApi(params);
 
       // Handle different response structures
       let rows = [];
@@ -1879,204 +250,18 @@ const AggregatorTable = () => {
     }
   }
 
-  async function findUserByPhone(phone: string) {
-    try {
-      const res = await callApi(`/users?search=${encodeURIComponent(phone)}`, {
-        method: "GET",
-      });
-      if (Array.isArray(res) && res.length > 0) return res[0];
-      if (res?.data?.length) return res.data[0];
-      return null;
-    } catch (err) {
-      console.error("Failed to find user by phone:", err);
-      return null;
-    }
-  }
-
-  async function createAggregatorLead(body: Record<string, any>) {
-    return await callApi(`/aggregator-leads`, {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-  }
-
-  async function patchAggregatorLead(id: string, body: Record<string, any>) {
-    return await callApi(`/aggregator-leads/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    });
-  }
-
-  async function deleteAggregatorLead(id: string) {
-    return await callApi(`/aggregator-leads/${id}`, { method: "DELETE" });
-  }
-
-  async function fetchAllCompanies() {
+  async function loadCompanies() {
     try {
       setLoadingCompanies(true);
-      const res = await callApi(`/po-companies`, { method: "GET" });
-      const companies = Array.isArray(res) ? res : res.data || [];
-
-      // Transform companies to include concatenated name + address
-      const transformedCompanies = companies.map((company: any) => ({
-        id: company.id,
-        name: company.name, // Keep original name
-        displayName:
-          company.taluk && company.district
-            ? `${company.name} - ${company.taluk}, ${company.district}`
-            : company.name,
-      }));
-
-      return transformedCompanies;
+      const companies = await fetchAllCompanies();
+      setAvailableCompanies(companies);
     } catch (err) {
       console.error("Failed to fetch companies:", err);
-      return [];
+      setAvailableCompanies([]);
     } finally {
       setLoadingCompanies(false);
     }
   }
-
-  async function updateBuyerType(
-    userId: string,
-    buyerType: string | { buyerType?: string | null }
-  ) {
-    const payload =
-      typeof buyerType === "string"
-        ? { buyerType }
-        : buyerType ?? { buyerType: null };
-    return await callApi(`/users/update-buyer/${userId}`, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    });
-  }
-
-  // ---- location loaders ----
-  const loadStates = async () => {
-    try {
-      const res = await callApi(`/newlocations/states`, { method: "GET" });
-      if (Array.isArray(res)) {
-        setStates(
-          res.map((s: any) =>
-            typeof s === "string" ? s : s.name || s.state || s.id
-          )
-        );
-      } else if (Array.isArray(res.data)) {
-        setStates(
-          res.data.map((s: any) =>
-            typeof s === "string" ? s : s.name || s.state || s.id
-          )
-        );
-      } else {
-        setStates([]);
-      }
-    } catch (err) {
-      console.error("Failed to load states:", err);
-      setStates([]);
-    }
-  };
-
-  const loadDistricts = async (state: string | null) => {
-    if (!state) {
-      setDistricts([]);
-      return;
-    }
-    try {
-      const res = await callApi(
-        `/newlocations/districts?state=${encodeURIComponent(state)}`,
-        { method: "GET" }
-      );
-      if (Array.isArray(res)) {
-        setDistricts(
-          res.map((d: any) =>
-            typeof d === "string" ? d : d.name || d.district || d.id
-          )
-        );
-      } else if (Array.isArray(res.data)) {
-        setDistricts(
-          res.data.map((d: any) =>
-            typeof d === "string" ? d : d.name || d.district || d.id
-          )
-        );
-      } else {
-        setDistricts([]);
-      }
-    } catch (err) {
-      console.error("Failed to load districts:", err);
-      setDistricts([]);
-    }
-  };
-
-  const loadTaluks = async (state: string | null, district: string | null) => {
-    if (!state || !district) {
-      setTaluks([]);
-      return;
-    }
-    try {
-      const res = await callApi(
-        `/newlocations/taluks?state=${encodeURIComponent(
-          state
-        )}&district=${encodeURIComponent(district)}`,
-        { method: "GET" }
-      );
-      if (Array.isArray(res)) {
-        setTaluks(
-          res.map((t: any) =>
-            typeof t === "string" ? t : t.name || t.taluk || t.id
-          )
-        );
-      } else if (Array.isArray(res.data)) {
-        setTaluks(
-          res.data.map((t: any) =>
-            typeof t === "string" ? t : t.name || t.taluk || t.id
-          )
-        );
-      } else {
-        setTaluks([]);
-      }
-    } catch (err) {
-      console.error("Failed to load taluks:", err);
-      setTaluks([]);
-    }
-  };
-
-  const loadVillages = async (
-    state: string | null,
-    district: string | null,
-    taluk: string | null
-  ) => {
-    if (!state || !district || !taluk) {
-      setVillages([]);
-      return;
-    }
-    try {
-      const res = await callApi(
-        `/newlocations/villages?state=${encodeURIComponent(
-          state
-        )}&district=${encodeURIComponent(district)}&taluk=${encodeURIComponent(
-          taluk
-        )}`,
-        { method: "GET" }
-      );
-      if (Array.isArray(res)) {
-        setVillages(
-          res.map((v: any) =>
-            typeof v === "string" ? v : v.name || v.village || v.id
-          )
-        );
-      } else if (Array.isArray(res.data)) {
-        setVillages(
-          res.data.map((v: any) =>
-            typeof v === "string" ? v : v.name || v.village || v.id
-          )
-        );
-      } else {
-        setVillages([]);
-      }
-    } catch (err) {
-      console.error("Failed to load villages:", err);
-      setVillages([]);
-    }
-  };
 
   // Initial load + reload when filters / pagination change
   useEffect(() => {
@@ -2096,9 +281,8 @@ const AggregatorTable = () => {
 
   useEffect(() => {
     const load = async () => {
-      const companies = await fetchAllCompanies();
-      setAvailableCompanies(companies);
-      await loadDistricts("Karnataka");
+      await loadCompanies();
+      await loadDistrictsWrapper("Karnataka");
     };
     load();
   }, []);
@@ -2107,15 +291,18 @@ const AggregatorTable = () => {
   useEffect(() => {
     if (!draft) return;
     (async () => {
-      if (states.length === 0) await loadStates();
+      if (states.length === 0) {
+        const statesList = await loadStates();
+        setStates(statesList);
+      }
       if (draft.state) {
-        await loadDistricts(draft.state);
+        await loadDistrictsWrapper(draft.state);
       }
       if (draft.state && draft.district) {
-        await loadTaluks(draft.state, draft.district);
+        await loadTaluksWrapper(draft.state, draft.district);
       }
       if (draft.state && draft.district && draft.taluk) {
-        await loadVillages(draft.state, draft.district, draft.taluk);
+        await loadVillagesWrapper(draft.state, draft.district, draft.taluk);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2155,6 +342,15 @@ const AggregatorTable = () => {
 
   // ======= ROW SELECTION / EDIT / SAVE / DELETE handlers =======
   const openDetails = (id: string | number) => {
+    const isSameRow = selectedRowId === id;
+    // Clicking the same row collapses it
+    if (isSameRow) {
+      setSelectedRowId(null);
+      setIsEditing(false);
+      setDraft(null);
+      return;
+    }
+
     setSelectedRowId(id);
     setIsEditing(false);
     const row = data.find((r) => r.id === id) || null;
@@ -2380,45 +576,7 @@ const AggregatorTable = () => {
 
   // Create new aggregator flow: open empty draft for creation
   const createNewAggregator = () => {
-    const empty: AggregatorData = {
-      id: null,
-      userId: null,
-      name: "",
-      number: "",
-      state: "",
-      district: "",
-      taluk: "",
-      village: "",
-      buyerType: null,
-      cropName: null,
-      experience: null,
-      capacity: null,
-      capacityUnit: null,
-      tAndC: null, // ✅ FIXED - just assign null, not a type
-      nextAction: null,
-      nextActionDueDate: null,
-      interestTo: null, // ✅ FIXED - just assign null, not a type
-      readyToSupply: null,
-      tag: null,
-      confidence: null,
-      lastInteracted: null,
-      interestedCompanies: "",
-      interestsCompaniesIds: [],
-      feVisited: null,
-      hasStock: null, // ✅ FIXED - just assign null, not a type
-      currentStock: null,
-      currentStockUnit: null,
-      notes: null,
-      radius: null,
-      accurateRadius: null,
-      otherCrops: [],
-      isVisited: false,
-      isInterestedToWork: null,
-      frequency: null,
-      __raw: null,
-      __rawUserFromLookup: null,
-      updatedAt: null,
-    };
+    const empty = createEmptyAggregatorDraft();
     setDraft(empty);
     setSelectedRowId(null);
     setIsEditing(true);
@@ -2441,7 +599,7 @@ const AggregatorTable = () => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-[1600px] mx-auto flex gap-6">
-        {/* Left: Table + Controls */}
+        {/* Full-width: Table + Controls with inline expanded rows */}
         <div className="flex-1">
           {/* Header Controls */}
           {/* Header Controls */}
@@ -2481,7 +639,7 @@ const AggregatorTable = () => {
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Crops</option>
-                {crops.map((crop) => (
+                {CROPS.map((crop) => (
                   <option key={crop} value={crop}>
                     {crop}
                   </option>
@@ -2494,8 +652,11 @@ const AggregatorTable = () => {
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All Tags</option>
-                <option value="VLA">VLA</option>
-                <option value="Potential Partner">Potential Partner</option>
+                {TAGS.map((tag) => (
+                  <option key={tag.value} value={tag.value}>
+                    {tag.label}
+                  </option>
+                ))}
               </select>
 
               <select
@@ -2532,7 +693,7 @@ const AggregatorTable = () => {
                   setSelectedTaluk("");
                   setSelectedVillage("");
                   if (e.target.value) {
-                    await loadTaluks("Karnataka", e.target.value);
+                    await loadTaluksWrapper("Karnataka", e.target.value);
                   } else {
                     setTaluks([]);
                     setVillages([]);
@@ -2554,7 +715,7 @@ const AggregatorTable = () => {
                   setSelectedTaluk(e.target.value);
                   setSelectedVillage("");
                   if (e.target.value && selectedDistrict) {
-                    await loadVillages(
+                    await loadVillagesWrapper(
                       "Karnataka",
                       selectedDistrict,
                       e.target.value
@@ -2610,6 +771,8 @@ const AggregatorTable = () => {
                 <option value="90">&lt; 90% Score</option>
               </select>
 
+              <CreateBuyerButton className="ml-2" />
+
               <div className="flex items-center justify-center text-sm text-gray-500">
                 {/* Empty space for alignment */}
               </div>
@@ -2618,10 +781,12 @@ const AggregatorTable = () => {
 
           {/* Column Selector */}
           {showColumnSelector && (
-            <div className="bg-white rounded-lg shadow-lg p-4 mb-4 border border-gray-200 animate-fadeIn">
+            <div
+              className={`bg-white rounded-lg shadow-lg p-4 mb-4 border border-gray-200 ${styles.animateFadeIn}`}
+            >
               <h3 className="font-semibold mb-3">Select Columns to Display</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {allColumns.map((col) => (
+                {ALL_COLUMNS.map((col) => (
                   <label
                     key={col.key}
                     className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
@@ -2728,113 +893,141 @@ const AggregatorTable = () => {
                     sortedData.map((row) => {
                       const isSelected = selectedRowId === row.id;
                       return (
-                        <tr
-                          key={String(row.id)}
-                          className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                            isSelected ? "bg-blue-50" : ""
-                          }`}
-                          onClick={() => openDetails(row.id as any)}
-                        >
-                          <td className="px-4 py-3">
-                            {isSelected ? (
-                              <ChevronUp size={16} className="text-gray-600" />
-                            ) : (
-                              <ChevronDown
-                                size={16}
-                                className="text-gray-600"
-                              />
+                        <React.Fragment key={String(row.id)}>
+                          <tr
+                            className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                              isSelected ? "bg-blue-50" : ""
+                            }`}
+                            onClick={() => openDetails(row.id as any)}
+                          >
+                            <td className="px-4 py-3">
+                              {isSelected ? (
+                                <ChevronUp size={16} className="text-gray-600" />
+                              ) : (
+                                <ChevronDown
+                                  size={16}
+                                  className="text-gray-600"
+                                />
+                              )}
+                            </td>
+                            {isColumnVisible("onboarded") && (
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {row.onboarded}
+                              </td>
                             )}
-                          </td>
-                          {isColumnVisible("onboarded") && (
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {row.onboarded}
-                            </td>
-                          )}
-                          {isColumnVisible("name") && (
-                            <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                              {row.name}
-                            </td>
-                          )}
-                          {isColumnVisible("number") && (
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {row.number}
-                            </td>
-                          )}
-                          {isColumnVisible("village") && (
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              <div>{row.village}</div>
-                              <div className="text-gray-500 text-xs">
-                                {row.taluk ? `${row.taluk}, ` : ""}
-                                {row.district ? `${row.district}, ` : ""}
-                                {row.state || ""}
-                              </div>
-                            </td>
-                          )}
-                          {isColumnVisible("experience") && (
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {row.experience}
-                            </td>
-                          )}
-                          {isColumnVisible("capacity") && (
-                            <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                              {row.capacity && row.capacityUnit
-                                ? `${row.capacity} ${row.capacityUnit}`
-                                : row.capacity || "-"}
-                            </td>
-                          )}
-                          {isColumnVisible("tAndC") && (
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              <span className="flex items-center gap-1">
-                                {row.tAndC}
-                                <ChevronDown
-                                  size={14}
-                                  className="text-gray-400"
-                                />
-                              </span>
-                            </td>
-                          )}
-                          {isColumnVisible("nextAction") && (
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              <div>{row.nextAction || "-"}</div>
-                              <div className="text-xs text-gray-500">
-                                {row.nextActionDueDate
-                                  ? toDisplayDateDDMMYYYY(row.nextActionDueDate)
-                                  : ""}
-                              </div>
-                            </td>
-                          )}
-                          {isColumnVisible("interestTo") && (
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              <span className="flex items-center gap-1">
-                                {row.interestTo}
-                                <ChevronDown
-                                  size={14}
-                                  className="text-gray-400"
-                                />
-                              </span>
-                            </td>
-                          )}
-                          {isColumnVisible("readyToSupply") && (
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {row.readyToSupply
-                                ? toDisplayDateDDMMYYYY(row.readyToSupply)
-                                : "-"}
-                            </td>
-                          )}
-                          {isColumnVisible("tag") && (
-                            <td className="px-4 py-3 text-sm">
-                              <span
-                                className={`px-3 py-1 rounded-md text-xs font-medium ${
-                                  row.tag === "VLA"
-                                    ? "bg-gray-100 text-gray-700 border border-gray-300"
-                                    : "bg-blue-50 text-blue-700 border border-blue-200"
-                                }`}
+                            {isColumnVisible("name") && (
+                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                                {row.name}
+                              </td>
+                            )}
+                            {isColumnVisible("number") && (
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {row.number}
+                              </td>
+                            )}
+                            {isColumnVisible("village") && (
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                <div>{row.village}</div>
+                                <div className="text-gray-500 text-xs">
+                                  {row.taluk ? `${row.taluk}, ` : ""}
+                                  {row.district ? `${row.district}, ` : ""}
+                                  {row.state || ""}
+                                </div>
+                              </td>
+                            )}
+                            {isColumnVisible("experience") && (
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {row.experience}
+                              </td>
+                            )}
+                            {isColumnVisible("capacity") && (
+                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                                {row.capacity && row.capacityUnit
+                                  ? `${row.capacity} ${row.capacityUnit}`
+                                  : row.capacity || "-"}
+                              </td>
+                            )}
+                            {isColumnVisible("tAndC") && (
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                <span className="flex items-center gap-1">
+                                  {row.tAndC}
+                                  <ChevronDown
+                                    size={14}
+                                    className="text-gray-400"
+                                  />
+                                </span>
+                              </td>
+                            )}
+                            {isColumnVisible("nextAction") && (
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                <div>{row.nextAction || "-"}</div>
+                                <div className="text-xs text-gray-500">
+                                  {row.nextActionDueDate
+                                    ? toDisplayDateDDMMYYYY(
+                                        row.nextActionDueDate
+                                      )
+                                    : ""}
+                                </div>
+                              </td>
+                            )}
+                            {isColumnVisible("interestTo") && (
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                <span className="flex items-center gap-1">
+                                  {row.interestTo}
+                                  <ChevronDown
+                                    size={14}
+                                    className="text-gray-400"
+                                  />
+                                </span>
+                              </td>
+                            )}
+                            {isColumnVisible("readyToSupply") && (
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {row.readyToSupply
+                                  ? toDisplayDateDDMMYYYY(row.readyToSupply)
+                                  : "-"}
+                              </td>
+                            )}
+                            {isColumnVisible("tag") && (
+                              <td className="px-4 py-3 text-sm">
+                                <span
+                                  className={`px-3 py-1 rounded-md text-xs font-medium ${
+                                    row.tag === "VLA"
+                                      ? "bg-gray-100 text-gray-700 border border-gray-300"
+                                      : "bg-blue-50 text-blue-700 border border-blue-200"
+                                  }`}
+                                >
+                                  {row.tag}
+                                </span>
+                              </td>
+                            )}
+                          </tr>
+                          {isSelected && (
+                            <tr>
+                              <td
+                                colSpan={effectiveVisibleCount + 1}
+                                className="px-4 pb-4 bg-gray-50"
                               >
-                                {row.tag}
-                              </span>
-                            </td>
+                                <ExpandedRowContent
+                                  selectedRowId={selectedRowId}
+                                  draft={draft}
+                                  isEditing={isEditing}
+                                  savingLead={savingLead}
+                                  deletingLead={deletingLead}
+                                  loadingCompanies={loadingCompanies}
+                                  companySearch={companySearch}
+                                  setCompanySearch={setCompanySearch}
+                                  availableCompanies={availableCompanies}
+                                  startEdit={startEdit}
+                                  saveDraft={saveDraft}
+                                  cancelEdit={cancelEdit}
+                                  deleteRow={deleteRow}
+                                  updateDraftField={updateDraftField}
+                                />
+                              </td>
+                            </tr>
                           )}
-                        </tr>
+                        </React.Fragment>
                       );
                     })
                   )}
@@ -2880,799 +1073,6 @@ const AggregatorTable = () => {
           </div>
         </div>
 
-        {/* Right: Details Panel */}
-        <aside className="w-[420px]">
-          <div className="bg-blue-50 rounded-lg shadow-sm p-4 sticky top-6 max-h-[calc(100vh-96px)] overflow-y-auto">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="text-2xl font-bold text-green-500">Details</div>
-              </div>
-              <div className="flex items-center gap-2">
-                {(selectedRowId || draft?.id === null) && (
-                  <>
-                    {!isEditing ? (
-                      <button
-                        onClick={startEdit}
-                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded flex items-center gap-2 hover:bg-blue-700"
-                      >
-                        <Edit3 size={14} /> Edit
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={saveDraft}
-                          disabled={savingLead}
-                          className="px-3 py-1 bg-green-600 text-white text-sm rounded flex items-center gap-2 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          {savingLead ? (
-                            <>
-                              <Spinner size={14} /> Saving...
-                            </>
-                          ) : (
-                            <>
-                              <Save size={14} /> Save
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="px-3 py-1 bg-gray-200 text-sm rounded flex items-center gap-2 hover:bg-gray-300"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    )}
-                    {selectedRowId && (
-                      <button
-                        onClick={() => deleteRow(selectedRowId)}
-                        disabled={deletingLead}
-                        className="p-1 rounded text-red-600 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
-                        title="Delete"
-                      >
-                        {deletingLead ? (
-                          <Spinner size={16} />
-                        ) : (
-                          <Trash2 size={16} />
-                        )}
-                      </button>
-                    )}
-                  </>
-                )}
-                <button
-                  onClick={closeDetails}
-                  className="p-1 rounded hover:bg-gray-50"
-                  title="Close"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 border-t border-gray-100 pt-4 space-y-4">
-              {!draft && !selectedRowId && (
-                <div className="text-sm text-gray-500">
-                  Click any row on the left to view full details and edit or
-                  click "New Aggregator".
-                </div>
-              )}
-
-              {draft && (
-                <div className="space-y-4">
-                  {/* 1. Primary Info */}
-                  <div className="bg-green-50 p-3 rounded">
-                    <div className="text-base text-blue-600 mb-3 font-semibold">
-                      Primary Info
-                    </div>
-                    <div className="grid grid-cols-2 gap-5 text-sm">
-                      <div className="col-span-2">
-                        <div className="text-xs font-semibold text-teal-600">
-                          Name
-                        </div>
-                        <div className="font-medium">{draft.name}</div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Phone
-                        </div>
-                        <div className="font-medium">{draft.number}</div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Onboarded
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">{draft.onboarded}</div>
-                        ) : (
-                          <input
-                            value={draft.onboarded || ""}
-                            onChange={(e) =>
-                              updateDraftField("onboarded", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-sm"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Location
-                        </div>
-                        <div className="font-medium text-xs">
-                          {[
-                            draft.village,
-                            draft.taluk,
-                            draft.district,
-                            draft.state,
-                          ]
-                            .filter(Boolean)
-                            .join(", ") || "-"}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Primary Crop
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.cropName || "-"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.cropName || ""}
-                            onChange={(e) =>
-                              updateDraftField("cropName", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-sm"
-                          >
-                            <option value="">Select Crop</option>
-                            {crops.map((crop) => (
-                              <option key={crop} value={crop}>
-                                {crop}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-
-                      <div className="col-span-2">
-                        <div className="text-xs font-semibold text-teal-600">
-                          Other Crops
-                        </div>
-                        {!isEditing ? (
-                          <div className="flex gap-1 flex-wrap mt-1">
-                            {(draft.otherCrops || []).length === 0 ? (
-                              <div className="text-xs text-gray-500">None</div>
-                            ) : (
-                              (draft.otherCrops || []).map((c, i) => (
-                                <span
-                                  key={i}
-                                  className="text-xs bg-white px-2 py-0.5 rounded border border-gray-200"
-                                >
-                                  {c}
-                                </span>
-                              ))
-                            )}
-                          </div>
-                        ) : (
-                          <input
-                            value={(draft.otherCrops || []).join(", ")}
-                            onChange={(e) =>
-                              updateDraftField(
-                                "otherCrops",
-                                e.target.value
-                                  .split(",")
-                                  .map((s) => s.trim())
-                                  .filter(Boolean)
-                              )
-                            }
-                            className="w-full px-2 py-1 border rounded text-sm"
-                            placeholder="Rice, Wheat, Corn"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2. Interested Companies */}
-                  <div>
-                    {/* Search bar (works in both modes) */}
-                    <input
-                      type="text"
-                      value={companySearch}
-                      onChange={(e) => setCompanySearch(e.target.value)}
-                      placeholder={
-                        isEditing
-                          ? "Search companies..."
-                          : "Search selected companies..."
-                      }
-                      className="w-full mb-2 px-2 py-1 text-xs border rounded"
-                    />
-
-                    <div className="border rounded p-2 max-h-32 overflow-y-auto bg-white">
-                      {loadingCompanies ? (
-                        <div className="text-xs text-gray-400 flex items-center gap-2">
-                          <Spinner size={12} /> Loading companies...
-                        </div>
-                      ) : isEditing ? (
-                        // EDIT MODE: show checkboxes, search across all availableCompanies
-                        (() => {
-                          const filtered = availableCompanies.filter(
-                            (company) =>
-                              company.name
-                                .toLowerCase()
-                                .includes(companySearch.toLowerCase())
-                          );
-
-                          return filtered.length > 0 ? (
-                            filtered.map((company) => (
-                              <label
-                                key={company.id}
-                                className="flex items-center gap-2 py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={(
-                                    draft.interestsCompaniesIds || []
-                                  ).includes(company.id)}
-                                  onChange={(e) => {
-                                    const currentIds =
-                                      draft.interestsCompaniesIds || [];
-                                    if (e.target.checked)
-                                      updateDraftField(
-                                        "interestsCompaniesIds",
-                                        [...currentIds, company.id]
-                                      );
-                                    else
-                                      updateDraftField(
-                                        "interestsCompaniesIds",
-                                        currentIds.filter(
-                                          (id) => id !== company.id
-                                        )
-                                      );
-                                  }}
-                                  className="w-3 h-3 text-blue-600"
-                                />
-                                <span className="text-xs">{company.name}</span>
-                              </label>
-                            ))
-                          ) : (
-                            <div className="text-xs text-gray-400 px-2">
-                              No companies found
-                            </div>
-                          );
-                        })()
-                      ) : (
-                        // VIEW MODE: show only already selected companies (no checkboxes), search within them
-                        (() => {
-                          const selectedIds = draft.interestsCompaniesIds || [];
-                          const selectedCompanies = selectedIds
-                            .map((id) =>
-                              availableCompanies.find((c) => c.id === id)
-                            )
-                            .filter(
-                              (c): c is typeof c & {} =>
-                                c !== undefined && c !== null
-                            );
-
-                          const filtered = selectedCompanies.filter((c) =>
-                            c.name
-                              .toLowerCase()
-                              .includes(companySearch.toLowerCase())
-                          );
-
-                          return filtered.length > 0 ? (
-                            <ul className="list-disc ml-5">
-                              {filtered.map((company) => (
-                                <li key={company.id} className="text-xs">
-                                  {company.name}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : selectedCompanies.length > 0 ? (
-                            <div className="text-xs text-gray-400 px-2">
-                              No matches
-                            </div>
-                          ) : (
-                            <div className="text-xs text-gray-400 px-2">-</div>
-                          );
-                        })()
-                      )}
-                    </div>
-
-                    <div className="text-xs text-gray-500 mt-1">
-                      {(draft.interestsCompaniesIds || []).length} selected
-                    </div>
-                  </div>
-
-                  {/* 3. Supply Information */}
-                  <div className="bg-green-50 p-3 rounded">
-                    <div className="text-base text-blue-600 mb-3 font-semibold">
-                      Ready to Supply
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Ready to Supply
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.readyToSupply
-                              ? toDisplayDateDDMMYYYY(draft.readyToSupply)
-                              : "-"}
-                          </div>
-                        ) : (
-                          <input
-                            type="date"
-                            value={draft.readyToSupply || ""}
-                            onChange={(e) =>
-                              updateDraftField("readyToSupply", e.target.value)
-                            }
-                            min={new Date().toISOString().split("T")[0]}
-                            className="w-full px-2 py-1 border rounded text-xs"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Radius (km)
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.radius ? `${draft.radius} km` : "-"}
-                          </div>
-                        ) : (
-                          <input
-                            type="number"
-                            value={draft.radius || ""}
-                            onChange={(e) =>
-                              updateDraftField("radius", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                            placeholder="50"
-                          />
-                        )}
-                      </div>
-
-                      <div className="col-span-2">
-                        <div className="text-xs font-semibold text-teal-600">
-                          Has Stock
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.hasStock || "-"}
-                            {draft.hasStock === "Yes" &&
-                            draft.currentStock != null
-                              ? ` — ${draft.currentStock} ${
-                                  draft.currentStockUnit || ""
-                                }`
-                              : ""}
-                          </div>
-                        ) : (
-                          <div className="flex gap-2 mt-1">
-                            <select
-                              value={draft.hasStock || ""}
-                              onChange={(e) =>
-                                updateDraftField(
-                                  "hasStock",
-                                  e.target.value === ""
-                                    ? null
-                                    : (e.target.value as "Yes" | "No")
-                                )
-                              }
-                              className="w-20 px-2 py-1 border rounded text-xs"
-                            >
-                              <option value="">Select</option>
-                              <option value="Yes">Yes</option>
-                              <option value="No">No</option>
-                            </select>
-                            {draft.hasStock === "Yes" && (
-                              <>
-                                <input
-                                  type="number"
-                                  value={draft.currentStock || ""}
-                                  onChange={(e) =>
-                                    updateDraftField(
-                                      "currentStock",
-                                      e.target.value === ""
-                                        ? null
-                                        : Number(e.target.value)
-                                    )
-                                  }
-                                  className="w-24 px-2 py-1 border rounded text-xs"
-                                  placeholder="100"
-                                />
-                                <select
-                                  value={draft.currentStockUnit || ""}
-                                  onChange={(e) =>
-                                    updateDraftField(
-                                      "currentStockUnit",
-                                      e.target.value === ""
-                                        ? null
-                                        : (e.target.value as QuantityUnit)
-                                    )
-                                  }
-                                  className="w-24 px-2 py-1 border rounded text-xs"
-                                >
-                                  <option value="">Select Unit</option>
-                                  {[
-                                    "QUINTAL",
-                                    "TON",
-                                    "PIECE",
-                                    "KILOGRAM",
-                                    "GRAM",
-                                    "LITRE",
-                                    "BAG",
-                                    "BOX",
-                                  ].map((u) => (
-                                    <option key={u} value={u}>
-                                      {u}
-                                    </option>
-                                  ))}
-                                </select>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 4. Business Details */}
-                  <div className="bg-green-50 p-3 rounded">
-                    <div className="text-base text-blue-600 mb-3 font-semibold">
-                      Qualifying / Business Details
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Capacity
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.capacity || "-"}
-                          </div>
-                        ) : (
-                          <input
-                            value={draft.capacity || ""}
-                            onChange={(e) =>
-                              updateDraftField("capacity", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                            placeholder="500"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Unit
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.capacityUnit || "-"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.capacityUnit || ""}
-                            onChange={(e) =>
-                              updateDraftField(
-                                "capacityUnit",
-                                e.target.value as QuantityUnit
-                              )
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                          >
-                            <option value="">Unit</option>
-                            {[
-                              "QUINTAL",
-                              "TON",
-                              "PIECE",
-                              "KILOGRAM",
-                              "GRAM",
-                              "LITRE",
-                              "BAG",
-                              "BOX",
-                            ].map((u) => (
-                              <option key={u} value={u}>
-                                {u}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-
-                      {/* ADD LOAD FREQUENCY HERE */}
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Load Frequency
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.frequency || "-"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.frequency || ""}
-                            onChange={(e) =>
-                              updateDraftField(
-                                "frequency",
-                                e.target.value as LoadFrequency
-                              )
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                          >
-                            <option value="">Select Frequency</option>
-                            <option value="DAILY">Daily</option>
-                            <option value="WEEKLY">Weekly</option>
-                            <option value="BIWEEKLY">Biweekly</option>
-                            <option value="MONTHLY">Monthly</option>
-                            <option value="SEASONAL">Seasonal</option>
-                          </select>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Experience
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.experience || "-"}
-                          </div>
-                        ) : (
-                          <input
-                            value={draft.experience || ""}
-                            onChange={(e) =>
-                              updateDraftField("experience", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                            placeholder="5 years"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Confidence Score
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.confidence ? `${draft.confidence}%` : "-"}
-                          </div>
-                        ) : (
-                          <input
-                            type="number"
-                            value={draft.confidence || ""}
-                            onChange={(e) =>
-                              updateDraftField("confidence", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                            placeholder="85"
-                            min="0"
-                            max="100"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          T & C Compliant?
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.tAndC || "-"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.tAndC || ""}
-                            onChange={(e) =>
-                              updateDraftField("tAndC", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                          >
-                            <option value="">Select...</option>
-                            <option value="Yes">Yes</option>
-                            <option value="No">No</option>
-                          </select>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Interested to Work?
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.interestTo || "-"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.interestTo ?? ""}
-                            onChange={(e) =>
-                              updateDraftField(
-                                "interestTo",
-                                e.target.value === "" ? null : e.target.value
-                              )
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                          >
-                            <option value="">Select</option>
-                            <option value="Yes">Yes</option>
-                            <option value="No">No</option>
-                          </select>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          FE Visited
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.feVisited || "-"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.feVisited ?? ""}
-                            onChange={(e) =>
-                              updateDraftField(
-                                "feVisited",
-                                e.target.value === "" ? null : e.target.value
-                              )
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                          >
-                            <option value="">Select</option>
-                            <option value="Yes">Yes</option>
-                            <option value="No">No</option>
-                          </select>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Buyer Type
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.buyerType || "-"}
-                          </div>
-                        ) : (
-                          <select
-                            value={draft.buyerType || ""}
-                            onChange={(e) =>
-                              updateDraftField("buyerType", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                          >
-                            <option value="">Select</option>
-                            <option value="VILLAGE_BUYER">VILLAGE_BUYER</option>
-                            <option value="MANDI_BUYER">MANDI_BUYER</option>
-                            <option value="MANDI_AND_VILLAGE_BUYER">
-                              MANDI_AND_VILLAGE_BUYER
-                            </option>
-                          </select>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 5. Interaction Details */}
-                  <div className="bg-green-50 p-3 rounded">
-                    <div className="text-base text-blue-600 mb-3 font-semibold">
-                      Interaction Details
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Last Updated
-                        </div>
-                        <div className="font-medium text-gray-600">
-                          {getTimeAgo(draft.updatedAt)}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Last Interacted
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.lastInteracted
-                              ? toDisplayDateDDMMYYYY(draft.lastInteracted)
-                              : "-"}
-                          </div>
-                        ) : (
-                          <input
-                            type="date"
-                            value={draft.lastInteracted || ""}
-                            onChange={(e) =>
-                              updateDraftField("lastInteracted", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Next Action
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.nextAction || " "}
-                          </div>
-                        ) : (
-                          <input
-                            type="text"
-                            value={draft.nextAction || ""}
-                            onChange={(e) =>
-                              updateDraftField("nextAction", e.target.value)
-                            }
-                            className="w-full px-2 py-1 border rounded text-xs"
-                            placeholder="Enter next action"
-                          />
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-teal-600">
-                          Next Action Due
-                        </div>
-                        {!isEditing ? (
-                          <div className="font-medium">
-                            {draft.nextActionDueDate
-                              ? toDisplayDateDDMMYYYY(draft.nextActionDueDate)
-                              : "-"}
-                          </div>
-                        ) : (
-                          <input
-                            type="date"
-                            value={draft.nextActionDueDate || ""}
-                            onChange={(e) =>
-                              updateDraftField(
-                                "nextActionDueDate",
-                                e.target.value
-                              )
-                            }
-                            min={new Date().toISOString().split("T")[0]}
-                            className="w-full px-2 py-1 border rounded text-xs"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 6. Notes */}
-                  <div className="bg-green-50 p-3 rounded">
-                    <div className="text-base font-semibold text-blue-600 mb-3">
-                      Notes
-                    </div>
-                    {!isEditing ? (
-                      <div className="text-xs text-gray-700">
-                        {draft.notes || "-"}
-                      </div>
-                    ) : (
-                      <textarea
-                        value={draft.notes || ""}
-                        onChange={(e) =>
-                          updateDraftField("notes", e.target.value)
-                        }
-                        className="w-full px-2 py-1 border rounded text-xs"
-                        rows={3}
-                        placeholder="Add any notes..."
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </aside>
       </div>
 
       {/* New Aggregator Modal */}
@@ -3680,15 +1080,14 @@ const AggregatorTable = () => {
         show={showNewAggregatorModal}
         draft={draft}
         availableCompanies={availableCompanies}
-        crops={crops}
         isEditing={isEditing}
         savingLead={savingLead}
         updateDraftField={updateDraftField}
         cancelNewAggregator={cancelNewAggregator}
         saveDraft={saveDraft}
-        loadDistricts={loadDistricts}
-        loadTaluks={loadTaluks}
-        loadVillages={loadVillages}
+        loadDistricts={loadDistrictsWrapper}
+        loadTaluks={loadTaluksWrapper}
+        loadVillages={loadVillagesWrapper}
         findUserByPhone={findUserByPhone}
         states={states}
         districts={districts}
