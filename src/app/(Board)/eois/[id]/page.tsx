@@ -38,9 +38,9 @@ import {
 import { toast, Toaster } from "react-hot-toast";
 
 import { useRouter } from "next/navigation";
-import OrderForm from "@/src/components/form/OrderForm";
-import Poleads from "@/src/components/chatrace/Poleads";
-import AssignInterestForm from "@/src/components/form/AssignInterestForm";
+import OrderForm from "@/components/form/OrderForm";
+import Poleads from "@/components/chatrace/Poleads";
+import AssignInterestForm from "@/components/form/AssignInterestForm";
 
 const cropNamesKannada: Record<string, string> = {
   maize: "ಮೆಕ್ಕೆಜೋಳ",

@@ -10,7 +10,7 @@ import {
   Truck,
   FileText,
 } from "lucide-react";
-import POForm from "@/src/components/form/POForm";
+import POForm from "@/components/form/POForm";
 
 interface Assignee {
   name: string;

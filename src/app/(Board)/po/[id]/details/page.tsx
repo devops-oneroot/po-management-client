@@ -18,11 +18,11 @@ import {
   X,
 } from "lucide-react";
 
-import PaymentDetails from "@/src/components/details/PaymentDetails";
-import WeighmentDetails from "@/src/components/details/WeighmentDetails";
-import TruckDetails from "@/src/components/details/TruckDetails";
-import UploadReports from "@/src/components/details/UploadReports";
-import GRNDetails from "@/src/components/details/GRNDetails";
+import PaymentDetails from "@/components/details/PaymentDetails";
+import WeighmentDetails from "@/components/details/WeighmentDetails";
+import TruckDetails from "@/components/details/TruckDetails";
+import UploadReports from "@/components/details/UploadReports";
+import GRNDetails from "@/components/details/GRNDetails";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import axios from "axios";

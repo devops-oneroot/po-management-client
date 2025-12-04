@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import OrderForm from "@/src/components/form/OrderForm";
+import OrderForm from "@/components/form/OrderForm";
 
 interface PurchaseOrder {
   id: string;

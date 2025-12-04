@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import AssignForm from "@/src/components/form/AssignForm";
+import AssignForm from "@/components/form/AssignForm";
 
 enum POStatus {
   INPROGRESS = "INPROGRESS",
