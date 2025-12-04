@@ -1,11 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Edit3, Save, Trash2 } from "lucide-react";
 
 import type {
   AggregatorData,
-  Company,
+  Company as CompanyType,
   QuantityUnit,
   LoadFrequency,
 } from "../types";
@@ -17,6 +17,7 @@ import {
   LOAD_FREQUENCIES,
   BUYER_TYPES,
 } from "../constants";
+import { fetchAllCompanies } from "../services/api"; // <-- adjust path if needed
 
 interface ExpandedRowContentProps {
   selectedRowId: string | number | null;
@@ -25,9 +26,9 @@ interface ExpandedRowContentProps {
   savingLead: boolean;
   deletingLead: boolean;
   loadingCompanies: boolean;
+  availableCompanies: (CompanyType & { displayName?: string })[];
   companySearch: string;
   setCompanySearch: (value: string) => void;
-  availableCompanies: Company[];
   startEdit: () => void;
   saveDraft: () => void;
   cancelEdit: () => void;
@@ -50,16 +51,53 @@ export function ExpandedRowContent({
   isEditing,
   savingLead,
   deletingLead,
-  loadingCompanies,
   companySearch,
   setCompanySearch,
-  availableCompanies,
   startEdit,
   saveDraft,
   cancelEdit,
   deleteRow,
   updateDraftField,
 }: ExpandedRowContentProps) {
+  const [availableCompanies, setAvailableCompanies] = useState<
+    (CompanyType & { displayName?: string })[]
+  >([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [companiesError, setCompaniesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCompanies() {
+      try {
+        setLoadingCompanies(true);
+        setCompaniesError(null);
+        const companies = await fetchAllCompanies();
+        if (!mounted) return;
+        // fetchAllCompanies already returns displayName, but normalize just in case
+        const normalized = companies.map((c: any) => ({
+          id: c.id,
+          name: c.name || c.displayName || "",
+          displayName: c.displayName || c.name || "",
+        }));
+        setAvailableCompanies(normalized);
+      } catch (err) {
+        console.error("Failed to fetch companies:", err);
+        if (!mounted) return;
+        setCompaniesError("Failed to load companies");
+      } finally {
+        if (!mounted) return;
+        setLoadingCompanies(false);
+      }
+    }
+
+    loadCompanies();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   if (!draft || !selectedRowId) {
     return null;
   }
@@ -692,10 +730,14 @@ export function ExpandedRowContent({
                 <div className="text-[11px] text-gray-400 flex items-center gap-2">
                   <Spinner size={12} /> Loading companies...
                 </div>
+              ) : companiesError ? (
+                <div className="text-[11px] text-red-500 px-2">
+                  {companiesError}
+                </div>
               ) : isEditing ? (
                 (() => {
                   const filtered = availableCompanies.filter((company) =>
-                    company.name
+                    (company.displayName || company.name || "")
                       .toLowerCase()
                       .includes(companySearch.toLowerCase())
                   );
@@ -708,12 +750,11 @@ export function ExpandedRowContent({
                       >
                         <input
                           type="checkbox"
-                          checked={(draft.interestsCompaniesIds || []).includes(
-                            company.id
+                          checked={(draft.interestsCompaniesIds || []).some(
+                            (id) => String(id) === String(company.id)
                           )}
                           onChange={(e) => {
-                            const currentIds =
-                              draft.interestsCompaniesIds || [];
+                            const currentIds = draft.interestsCompaniesIds || [];
                             if (e.target.checked)
                               updateDraftField("interestsCompaniesIds", [
                                 ...currentIds,
@@ -722,12 +763,14 @@ export function ExpandedRowContent({
                             else
                               updateDraftField(
                                 "interestsCompaniesIds",
-                                currentIds.filter((id) => id !== company.id)
+                                currentIds.filter((id) => String(id) !== String(company.id))
                               );
                           }}
                           className="w-3 h-3 text-blue-600"
                         />
-                        <span className="text-[11px]">{company.name}</span>
+                        <span className="text-[11px]">
+                          {company.displayName || company.name}
+                        </span>
                       </label>
                     ))
                   ) : (
@@ -740,18 +783,22 @@ export function ExpandedRowContent({
                 (() => {
                   const selectedIds = draft.interestsCompaniesIds || [];
                   const selectedCompanies = selectedIds
-                    .map((id) => availableCompanies.find((c) => c.id === id))
-                    .filter((c): c is Company => c !== undefined && c !== null);
+                    .map((id) =>
+                      availableCompanies.find((c) => String(c.id) === String(id))
+                    )
+                    .filter((c): c is CompanyType & { displayName?: string } => c !== undefined && c !== null);
 
                   const filtered = selectedCompanies.filter((c) =>
-                    c.name.toLowerCase().includes(companySearch.toLowerCase())
+                    (c.displayName || c.name || "")
+                      .toLowerCase()
+                      .includes(companySearch.toLowerCase())
                   );
 
                   return filtered.length > 0 ? (
                     <ul className="list-disc ml-5">
                       {filtered.map((company) => (
                         <li key={company.id} className="text-[11px]">
-                          {company.name}
+                          {company.displayName || company.name}
                         </li>
                       ))}
                     </ul>
