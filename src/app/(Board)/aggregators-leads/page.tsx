@@ -1289,7 +1289,7 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
               <div className="flex items-center gap-2 justify-end">
                 <button
                   onClick={() => setShowColumnSelector((prev) => !prev)}
-                  className="px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2"
+                  className="px-3 py-2 bg-green border border-gray-200 rounded-md text-base text-green-600 hover:bg-green-100 flex items-center gap-2"
                   title="Select columns to display"
                 >
                   {/* small indicator when open */}
