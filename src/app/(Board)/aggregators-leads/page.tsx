@@ -1,7 +1,16 @@
 "use client";
 import React, { useEffect, useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, Plus, Search } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Search,
+  ChevronRight,
+  ChevronLeft,
+  X,
+} from "lucide-react";
 import CreateBuyerButton from "@/components/CreateBuyerButton";
+import * as XLSX from "xlsx";
 
 // Import types
 import type {
@@ -22,7 +31,7 @@ import {
 } from "./constants";
 
 // Import utilities
-import { toDisplayDateDDMMYYYY, getTimeAgo } from "./utils/dateHelpers";
+import { toDisplayDateDDMMYYYY } from "./utils/dateHelpers";
 import { mapLeadToRow, mapRowToBackendPayload } from "./utils/mappers";
 import { sortData } from "./utils/sorting";
 import { ALL_COLUMNS } from "./utils/columnDefinitions";
@@ -37,7 +46,6 @@ import { ExpandedRowContent } from "./components/ExpandedRowContent";
 
 // Import API services
 import {
-  callApi,
   findUserByPhone,
   createAggregatorLead,
   patchAggregatorLead,
@@ -54,10 +62,14 @@ import {
 // Import styles
 import styles from "./styles.module.css";
 
-/* ===================================================================
-   AggregatorTable - main component
-   =================================================================== */
-const AggregatorTable = () => {
+type AggregatorTableProps = {
+  // default false to avoid duplicate headers. Parent can pass true if they want the local title.
+  showPageTitle?: boolean;
+};
+
+const AggregatorTable: React.FC<AggregatorTableProps> = ({
+  showPageTitle = false,
+}) => {
   // ======== DATA STATE =========
   const [data, setData] = useState<AggregatorData[]>([]);
   const [total, setTotal] = useState(0);
@@ -127,6 +139,9 @@ const AggregatorTable = () => {
   const [sortBy, setSortBy] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
+  // filter card collapsed state
+  const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(false);
+
   // Toast/Alert states
   const [toast, setToast] = useState<{
     show: boolean;
@@ -153,36 +168,43 @@ const AggregatorTable = () => {
     type: "info",
   });
 
-  // Helper function to show toast
   const showToast = (message: string, type: ToastType = "success") => {
     setToast({ show: true, message, type });
-    setTimeout(() => {
-      setToast({ show: false, message: "", type: "success" });
-    }, 3000);
+    setTimeout(
+      () => setToast({ show: false, message: "", type: "success" }),
+      3000
+    );
   };
+
+  // columns we always want frozen
+  // frozen config
+  const FROZEN_KEYS = ["onboarded", "name", "number"] as const;
+  const FROZEN_WIDTHS: Record<string, number> = {
+    onboarded: 120,
+    name: 180,
+    number: 150,
+  };
+  // expand/arrow column width
+  const EXPAND_COL_WIDTH = 56; // px
+
+  // stacking & visuals
+  const HEADER_STICKY_Z = 300;
+  const BODY_STICKY_Z = 250;
+  const EXPAND_COL_Z = 340; // expand column on top of everything
+  const FROZEN_BACKGROUND = "#ffffff";
+  const FROZEN_BORDER_RIGHT = "1px solid rgba(224,228,233,0.9)";
+  const FROZEN_SHADOW = "2px 0 6px rgba(15,23,42,0.06)";
 
   // ======= API FUNCTIONS =======
   function buildListParams() {
-    const params: Record<string, any> = {
-      page,
-      limit,
-    };
-
-    // Only use searchName for general search
+    const params: Record<string, any> = { page, limit };
     if (searchName) params.search = searchName;
-
-    // Add company filter - send company NAME not ID
-    // Add company filter - send company NAME not ID
-    if (searchCompany) {
-      params.companyName = searchCompany; // This is now the actual name like "SKM"
-    }
-
+    if (searchCompany) params.companyName = searchCompany;
     if (selectedCrop) params.cropName = selectedCrop;
     if (selectedDistrict) params.district = selectedDistrict;
     if (selectedVillage) params.village = selectedVillage;
     if (selectedTaluk) params.taluk = selectedTaluk;
     if (selectedTag) params.label = selectedTag;
-
     if (selectedHasStock) params.hasStock = selectedHasStock === "true";
     if (selectedIsVisited) params.isVisited = selectedIsVisited === "true";
     if (selectedIsTcCompliant)
@@ -193,23 +215,22 @@ const AggregatorTable = () => {
     if (selectedOtherCrops.length > 0) params.otherCrop = selectedOtherCrops;
     if (selectedIsInterestedToWork)
       params.isInterestedToWork = selectedIsInterestedToWork === "true";
-
     return params;
   }
-  const sortedData = useMemo(() => {
-    return sortData(data, sortBy, sortOrder);
-  }, [data, sortBy, sortOrder]);
 
-  // Wrapper functions for location loading that update state
+  const sortedData = useMemo(
+    () => sortData(data, sortBy, sortOrder),
+    [data, sortBy, sortOrder]
+  );
+
   const loadDistrictsWrapper = async (state: string | null) => {
     if (!state) {
       setDistricts([]);
       return;
     }
-    const districtsList = await loadDistricts(state);
-    setDistricts(districtsList);
+    const list = await loadDistricts(state);
+    setDistricts(list);
   };
-
   const loadTaluksWrapper = async (
     state: string | null,
     district: string | null
@@ -218,10 +239,9 @@ const AggregatorTable = () => {
       setTaluks([]);
       return;
     }
-    const taluksList = await loadTaluks(state, district);
-    setTaluks(taluksList);
+    const list = await loadTaluks(state, district);
+    setTaluks(list);
   };
-
   const loadVillagesWrapper = async (
     state: string | null,
     district: string | null,
@@ -231,8 +251,8 @@ const AggregatorTable = () => {
       setVillages([]);
       return;
     }
-    const villagesList = await loadVillages(state, district, taluk);
-    setVillages(villagesList);
+    const list = await loadVillages(state, district, taluk);
+    setVillages(list);
   };
 
   async function fetchLeads() {
@@ -240,19 +260,14 @@ const AggregatorTable = () => {
       setLoadingLeads(true);
       const params = buildListParams();
       const res = await fetchLeadsApi(params);
-
-      // Handle different response structures
-      let rows = [];
-      if (res.data && Array.isArray(res.data)) {
-        rows = res.data.map((lead: any) => mapLeadToRow(lead));
-      } else if (Array.isArray(res)) {
-        rows = res.map((lead: any) => mapLeadToRow(lead));
-      }
-
+      let rows: any[] = [];
+      if (res.data && Array.isArray(res.data))
+        rows = res.data.map((l: any) => mapLeadToRow(l));
+      else if (Array.isArray(res)) rows = res.map((l: any) => mapLeadToRow(l));
       setData(rows);
       setTotal(res.total ?? res.count ?? rows.length);
     } catch (err: any) {
-      console.error("Failed to fetch aggregator leads:", err);
+      console.error("fetchLeads error", err);
       showToast(
         "Failed to load aggregators: " + (err?.message || "Unknown error"),
         "error"
@@ -270,17 +285,15 @@ const AggregatorTable = () => {
       const companies = await fetchAllCompanies();
       setAvailableCompanies(companies);
     } catch (err) {
-      console.error("Failed to fetch companies:", err);
+      console.error("loadCompanies", err);
       setAvailableCompanies([]);
     } finally {
       setLoadingCompanies(false);
     }
   }
 
-  // Initial load + reload when filters / pagination change
   useEffect(() => {
-    fetchLeads();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchLeads(); /* eslint-disable-next-line */
   }, [
     page,
     limit,
@@ -290,7 +303,7 @@ const AggregatorTable = () => {
     selectedDistrict,
     selectedTaluk,
     selectedVillage,
-    selectedTag, // ADD THIS
+    selectedTag,
     selectedHasStock,
     selectedIsVisited,
     selectedIsTcCompliant,
@@ -301,39 +314,31 @@ const AggregatorTable = () => {
   ]);
 
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       await loadCompanies();
       await loadDistrictsWrapper("Karnataka");
-    };
-    load();
+    })();
   }, []);
 
-  // When draft changes, preload location lists as before
   useEffect(() => {
     if (!draft) return;
     (async () => {
       if (states.length === 0) {
-        const statesList = await loadStates();
-        setStates(statesList);
+        const s = await loadStates();
+        setStates(s);
       }
-      if (draft.state) {
-        await loadDistrictsWrapper(draft.state);
-      }
-      if (draft.state && draft.district) {
+      if (draft.state) await loadDistrictsWrapper(draft.state);
+      if (draft.state && draft.district)
         await loadTaluksWrapper(draft.state, draft.district);
-      }
-      if (draft.state && draft.district && draft.taluk) {
+      if (draft.state && draft.district && draft.taluk)
         await loadVillagesWrapper(draft.state, draft.district, draft.taluk);
-      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
 
-  // ======= Column helper & filters =======
-  const toggleColumn = (key: keyof ColumnSelection) => {
+  // Column helpers
+  const toggleColumn = (key: keyof ColumnSelection) =>
     setSelectedColumns((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
   const clearAllFilters = () => {
     setSearchName("");
     setSearchCompany("");
@@ -354,39 +359,214 @@ const AggregatorTable = () => {
     setSelectedIsInterestedToWork("");
   };
 
-  // Use data directly from backend - it's already filtered
-  const filteredData = data;
+  // Clear last active filter (rightmost active according to order below)
+  const activeFilterOrder: { key: string; clear: () => void }[] = [
+    { key: "AccurateRadius", clear: () => setSelectedAccurateRadius("") },
+    {
+      key: "IsInterestedToWork",
+      clear: () => setSelectedIsInterestedToWork(""),
+    },
+    { key: "Frequency", clear: () => setSelectedFrequency("") },
+    { key: "IsTcCompliant", clear: () => setSelectedIsTcCompliant("") },
+    { key: "IsVisited", clear: () => setSelectedIsVisited("") },
+    { key: "HasStock", clear: () => setSelectedHasStock("") },
+    { key: "Score", clear: () => setSelectedScore("") },
+    { key: "Capacity", clear: () => setSelectedCapacity("") },
+    { key: "Village", clear: () => setSelectedVillage("") },
+    { key: "Taluk", clear: () => setSelectedTaluk("") },
+    { key: "District", clear: () => setSelectedDistrict("") },
+    { key: "Tag", clear: () => setSelectedTag("") },
+    { key: "Crop", clear: () => setSelectedCrop("") },
+    { key: "Company", clear: () => setSearchCompany("") },
+    { key: "Search", clear: () => setSearchName("") },
+  ];
 
-  const activeFiltersCount = [
-    searchName,
-    searchCompany,
-    selectedCrop,
-    selectedCapacity,
-    selectedScore,
-    selectedState,
-    selectedDistrict,
-    selectedTaluk,
-    selectedVillage,
-      selectedTag,
-  selectedHasStock,
-  selectedIsVisited,
-  selectedIsTcCompliant,
-  selectedFrequency,
-  selectedAccurateRadius,
-  selectedIsInterestedToWork,
-  ].filter((f) => f !== "").length + (selectedOtherCrops.length > 0 ? 1 : 0);;
+  const clearLastActiveFilter = () => {
+    for (let i = 0; i < activeFilterOrder.length; i++) {
+      const item = activeFilterOrder[i];
+      // find first non-empty from left? we want rightmost active -> iterate from start? activeFilterOrder is right-to-left
+    }
+    // iterate right-to-left to clear the RIGHTMOST active filter
+    for (let i = 0; i < activeFilterOrder.length; i++) {
+      const item = activeFilterOrder[i];
+      // check current value for emptiness by key mapping
+      const k = item.key;
+      const value =
+        k === "AccurateRadius"
+          ? selectedAccurateRadius
+          : k === "IsInterestedToWork"
+          ? selectedIsInterestedToWork
+          : k === "Frequency"
+          ? selectedFrequency
+          : k === "IsTcCompliant"
+          ? selectedIsTcCompliant
+          : k === "IsVisited"
+          ? selectedIsVisited
+          : k === "HasStock"
+          ? selectedHasStock
+          : k === "Score"
+          ? selectedScore
+          : k === "Capacity"
+          ? selectedCapacity
+          : k === "Village"
+          ? selectedVillage
+          : k === "Taluk"
+          ? selectedTaluk
+          : k === "District"
+          ? selectedDistrict
+          : k === "Tag"
+          ? selectedTag
+          : k === "Crop"
+          ? selectedCrop
+          : k === "Company"
+          ? searchCompany
+          : k === "Search"
+          ? searchName
+          : "";
 
-  // ======= ROW SELECTION / EDIT / SAVE / DELETE handlers =======
+      if (
+        value !== "" &&
+        value !== undefined &&
+        !(Array.isArray(value) && value.length === 0)
+      ) {
+        item.clear();
+        return;
+      }
+    }
+    // nothing to clear
+    showToast("No active filters to clear", "info");
+  };
+
+  // ---------- EXPORT HELPERS ----------
+
+  // map columns to friendly headers and accessor function
+  const EXPORT_COLUMNS: {
+    key: string;
+    header: string;
+    accessor: (r: AggregatorData) => any;
+  }[] = [
+    {
+      key: "onboarded",
+      header: "Onboarded",
+      accessor: (r) => r.onboarded ?? "",
+    },
+    { key: "name", header: "Name", accessor: (r) => r.name ?? "" },
+    { key: "number", header: "Phone Number", accessor: (r) => r.number ?? "" },
+    { key: "village", header: "Village", accessor: (r) => r.village ?? "" },
+    { key: "taluk", header: "Taluk", accessor: (r) => r.taluk ?? "" },
+    { key: "district", header: "District", accessor: (r) => r.district ?? "" },
+    { key: "state", header: "State", accessor: (r) => r.state ?? "" },
+    {
+      key: "experience",
+      header: "Experience (yrs)",
+      accessor: (r) => r.experience ?? "",
+    },
+    {
+      key: "capacity",
+      header: "Capacity",
+      accessor: (r) =>
+        r.capacity ? `${r.capacity} ${r.capacityUnit ?? ""}` : "",
+    },
+    { key: "tAndC", header: "T&C Agreed", accessor: (r) => r.tAndC ?? "" },
+    {
+      key: "nextAction",
+      header: "Next Action",
+      accessor: (r) => r.nextAction ?? "",
+    },
+    {
+      key: "nextActionDueDate",
+      header: "Next Action Due Date",
+      accessor: (r) => r.nextActionDueDate ?? "",
+    },
+    {
+      key: "interestTo",
+      header: "Interested To Collaborate",
+      accessor: (r) => r.interestTo ?? "",
+    },
+    {
+      key: "readyToSupply",
+      header: "Ready To Supply",
+      accessor: (r) => r.readyToSupply ?? "",
+    },
+    { key: "tag", header: "Tag", accessor: (r) => r.tag ?? "" },
+  ];
+
+  // CSV exporter (no dependency)
+  function downloadCsvFromData(
+    rows: AggregatorData[],
+    filename = "aggregators.csv"
+  ) {
+    if (!rows || rows.length === 0) {
+      showToast("No rows to export", "info");
+      return;
+    }
+
+    // Build header
+    const headers = EXPORT_COLUMNS.map((c) => c.header);
+    // Build rows
+    const csvRows = rows.map((r) =>
+      EXPORT_COLUMNS.map((c) => {
+        let cell = c.accessor(r);
+        if (cell === null || cell === undefined) cell = "";
+        // Convert arrays or objects to string
+        if (Array.isArray(cell)) cell = cell.join("; ");
+        else if (typeof cell === "object") cell = JSON.stringify(cell);
+        // escape quotes
+        const escaped = String(cell).replace(/"/g, '""');
+        return `"${escaped}"`;
+      }).join(",")
+    );
+
+    const csv = [headers.join(","), ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // XLSX exporter using sheetjs (optional). Install with: npm i xlsx
+  async function downloadXlsxFromData(
+    rows: AggregatorData[],
+    filename = "aggregators.xlsx"
+  ) {
+    // lazy import so app bundle isn't forced to include sheetjs unless user uses this function
+    try {
+      const XLSX = await import("xlsx");
+      const data = rows.map((r) => {
+        const obj: Record<string, any> = {};
+        EXPORT_COLUMNS.forEach((c) => {
+          let val = c.accessor(r);
+          if (val === null || val === undefined) val = "";
+          if (Array.isArray(val)) val = val.join("; ");
+          if (typeof val === "object") val = JSON.stringify(val);
+          obj[c.header] = val;
+        });
+        return obj;
+      });
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Aggregators");
+      XLSX.writeFile(wb, filename);
+    } catch (err) {
+      console.error("XLSX export failed:", err);
+      showToast("XLSX export failed. Make sure 'xlsx' is installed.", "error");
+    }
+  }
+
+  // ROW handlers (openDetails, save, delete) - same as before, unchanged logic
   const openDetails = (id: string | number) => {
     const isSameRow = selectedRowId === id;
-    // Clicking the same row collapses it
     if (isSameRow) {
       setSelectedRowId(null);
       setIsEditing(false);
       setDraft(null);
       return;
     }
-
     setSelectedRowId(id);
     setIsEditing(false);
     const row = data.find((r) => r.id === id) || null;
@@ -394,8 +574,6 @@ const AggregatorTable = () => {
       setDraft(null);
       return;
     }
-
-    // Make sure draft contains all entity fields (so inputs are editable)
     const fullDraft: AggregatorData = {
       ...row,
       userId: row.userId ?? null,
@@ -419,7 +597,6 @@ const AggregatorTable = () => {
       interestsCompaniesIds: row.interestsCompaniesIds ?? [],
       confidence: row.confidence ?? null,
       lastInteracted: row.lastInteracted ?? null,
-      // keep UI-only location for display but won't be sent
       state: row.state ?? null,
       district: row.district ?? null,
       taluk: row.taluk ?? null,
@@ -429,7 +606,6 @@ const AggregatorTable = () => {
       __raw: row.__raw ?? null,
       __rawUserFromLookup: row.__rawUserFromLookup ?? null,
     };
-
     setDraft(fullDraft);
   };
 
@@ -438,19 +614,14 @@ const AggregatorTable = () => {
     setIsEditing(false);
     setDraft(null);
   };
-
   const startEdit = () => {
     if (selectedRowId == null) return;
     setIsEditing(true);
   };
 
-  // Save: If draft.id exists -> update; else -> create
   const saveDraft = async () => {
     if (!draft) return;
-
-    // Validation for mandatory fields
-    const errors = [];
-
+    const errors: string[] = [];
     if (!draft.name?.trim()) errors.push("Name is required");
     if (!draft.number?.trim()) errors.push("Phone Number is required");
     if (!draft.cropName) errors.push("Crop is required");
@@ -458,18 +629,15 @@ const AggregatorTable = () => {
     if (!draft.nextAction?.trim()) errors.push("Next Action is required");
     if (!draft.nextActionDueDate)
       errors.push("Next Action Due Date is required");
-
     if (errors.length > 0) {
       showToast(
-        "Please fill in all mandatory fields:\n\n• " + errors.join("\n• "),
+        "Please fill in mandatory fields:\n• " + errors.join("\n• "),
         "error"
       );
       return;
     }
-
     try {
       setSavingLead(true);
-      // Clean up fields - set to null if empty
       const cleanedDraft = {
         ...draft,
         hasStock: draft.hasStock === "" ? null : draft.hasStock,
@@ -483,11 +651,8 @@ const AggregatorTable = () => {
         currentStockUnit:
           draft.hasStock === "Yes" ? draft.currentStockUnit : null,
       };
-
       const payload = mapRowToBackendPayload(cleanedDraft);
-
       if (!cleanedDraft.id) {
-        // create
         if (!cleanedDraft.number) {
           showToast("Mobile number is required", "error");
           return;
@@ -500,8 +665,6 @@ const AggregatorTable = () => {
           );
           return;
         }
-
-        // update buyer type if needed
         if (
           cleanedDraft.buyerType !== undefined &&
           cleanedDraft.buyerType !== null &&
@@ -509,10 +672,8 @@ const AggregatorTable = () => {
         ) {
           await updateBuyerType(user.id, { buyerType: cleanedDraft.buyerType });
         }
-
         payload.userId = user.id;
         await createAggregatorLead(payload);
-
         await fetchLeads();
         setIsEditing(false);
         setShowNewAggregatorModal(false);
@@ -520,10 +681,7 @@ const AggregatorTable = () => {
         showToast("Aggregator created successfully!", "success");
         return;
       }
-
-      // update existing
       await patchAggregatorLead(String(cleanedDraft.id), payload);
-
       if (
         cleanedDraft.userId &&
         cleanedDraft.buyerType !== undefined &&
@@ -536,7 +694,6 @@ const AggregatorTable = () => {
           });
         }
       }
-
       await fetchLeads();
       setIsEditing(false);
       showToast("Aggregator updated successfully!", "success");
@@ -547,7 +704,7 @@ const AggregatorTable = () => {
         "error"
       );
     } finally {
-      setSavingLead(false); // ADD THIS
+      setSavingLead(false);
     }
   };
 
@@ -584,35 +741,206 @@ const AggregatorTable = () => {
             "error"
           );
         } finally {
-          setDeletingLead(false); // ADD THIS
+          setDeletingLead(false);
         }
       },
     });
   };
 
-  // Helpers to update draft fields
-  const updateDraftField = <K extends keyof AggregatorData>(
+  // hoisted helper so it can be referenced anywhere above/below
+  function updateDraftField<K extends keyof AggregatorData>(
     key: K,
     value: AggregatorData[K]
-  ) => {
+  ) {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
-  };
+  }
+  function renderCellForKey(key: string, row: AggregatorData) {
+    // provide conservative fallbacks; extend this switch if you want custom formatting
+    switch (key) {
+      case "onboarded":
+        return row.onboarded ?? "";
+      case "name":
+        return <span className="font-medium text-sm">{row.name}</span>;
+      case "number":
+        return row.number ?? "";
+      case "state":
+        return row.state ?? "-";
+      case "district":
+        return row.district ?? "-";
+      case "taluk":
+        return row.taluk ?? "-";
+      case "village":
+        return (
+          <div>
+            <div className="text-sm text-gray-900">{row.village ?? "-"}</div>
+          </div>
+        );
+
+      case "experience":
+        return row.experience ?? "-";
+      case "capacity":
+        return row.capacity ?? "-";
+      case "capacityUnit":
+        return row.capacityUnit ?? "-";
+      case "tAndC":
+        return (
+          <span className="flex items-center gap-1">
+            {row.tAndC ?? "-"}
+            <ChevronDown size={14} className="text-gray-400" />
+          </span>
+        );
+      case "nextAction":
+        return (
+          <div>
+            <div>{row.nextAction || "-"}</div>
+            <div className="text-xs text-gray-400">
+              {row.nextActionDueDate
+                ? toDisplayDateDDMMYYYY(row.nextActionDueDate)
+                : ""}
+            </div>
+          </div>
+        );
+      case "interestTo":
+        return (
+          <span className="flex items-center gap-1">
+            {(row as any).interestTo ?? "-"}
+            <ChevronDown size={14} className="text-gray-400" />
+          </span>
+        );
+      case "readyToSupply":
+        return row.readyToSupply
+          ? toDisplayDateDDMMYYYY(row.readyToSupply)
+          : "-";
+      case "tag":
+        return (
+          <span
+            className={`px-3 py-1 rounded-md text-xs font-medium ${
+              row.tag === "VLA"
+                ? "bg-gray-100 text-gray-700 border border-gray-300"
+                : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+            }`}
+          >
+            {row.tag ?? ""}
+          </span>
+        );
+      case "confidence":
+        return (row as any).confidence ?? "-";
+      case "lastInteracted":
+        return (row as any).lastInteracted
+          ? toDisplayDateDDMMYYYY((row as any).lastInteracted)
+          : "-";
+      case "interestedCompanies":
+        return Array.isArray((row as any).interestedCompanies)
+          ? (row as any).interestedCompanies.join(", ")
+          : (row as any).interestedCompanies ?? "-";
+      case "interestsCompaniesIds":
+        return Array.isArray((row as any).interestsCompaniesIds)
+          ? (row as any).interestsCompaniesIds.join(", ")
+          : (row as any).interestsCompaniesIds ?? "-";
+      case "feVisited":
+        return (row as any).feVisited
+          ? "Yes"
+          : (row as any).feVisited === false
+          ? "No"
+          : "-";
+      case "hasStock":
+        return (row as any).hasStock ?? "-";
+      case "notes":
+        return (row as any).notes ?? "-";
+      case "radius":
+        // you earlier used accurateRadius; try both fallbacks
+        return (row as any).accurateRadius ?? (row as any).radius ?? "-";
+      case "otherCrops":
+        return Array.isArray((row as any).otherCrops)
+          ? (row as any).otherCrops.join(", ")
+          : (row as any).otherCrops ?? "-";
+      case "isVisited":
+        return (row as any).isVisited
+          ? "Yes"
+          : (row as any).isVisited === false
+          ? "No"
+          : "-";
+      case "cropName":
+        return row.cropName ?? "-";
+      case "buyerType":
+        return (row as any).buyerType ?? "-";
+      case "updatedAt":
+        return (row as any).updatedAt
+          ? toDisplayDateDDMMYYYY((row as any).updatedAt)
+          : "-";
+      case "upfrontPaymentNeedPercentage":
+        return (row as any).upfrontPaymentNeedPercentage ?? "-";
+      case "interestedToWorkPercentage":
+        return (row as any).interestedToWorkPercentage ?? "-";
+      default:
+        // fallback: return the raw value if present
+        const v = (row as any)[key];
+        if (v === null || v === undefined) return "-";
+        if (Array.isArray(v)) return v.join(", ");
+        if (typeof v === "object") return JSON.stringify(v);
+        return String(v);
+    }
+  }
+
+  // helper: whether any filters active
+  const activeFiltersCount =
+    [
+      searchName,
+      searchCompany,
+      selectedCrop,
+      selectedCapacity,
+      selectedScore,
+      selectedState,
+      selectedDistrict,
+      selectedTaluk,
+      selectedVillage,
+      selectedTag,
+      selectedHasStock,
+      selectedIsVisited,
+      selectedIsTcCompliant,
+      selectedFrequency,
+      selectedAccurateRadius,
+      selectedIsInterestedToWork,
+    ].filter((f) => (Array.isArray(f) ? f.length > 0 : f !== "")).length +
+    (selectedOtherCrops.length > 0 ? 1 : 0);
 
   const isColumnVisible = (key: keyof ColumnSelection) => {
-    if (selectedRowId == null) return true;
-    return !!selectedColumns[key];
+    // Always respect selectedColumns state (default true if missing)
+    return selectedColumns[key] ?? true;
   };
+  // Visible columns array derived from ALL_COLUMNS + selectedColumns
+  const visibleColumns = useMemo(() => {
+    return ALL_COLUMNS.filter((c) => !!selectedColumns[c.key]);
+  }, [ALL_COLUMNS, selectedColumns]);
 
-  const visibleColumnsCount = Object.keys(selectedColumns).reduce((acc, k) => {
-    const key = k as keyof ColumnSelection;
-    return acc + (isColumnVisible(key) ? 1 : 0);
-  }, 0);
-  const effectiveVisibleCount =
-    selectedRowId == null
-      ? Object.keys(selectedColumns).length
-      : visibleColumnsCount;
+  // compute left offsets for each visible column key (only needed for frozen ones)
+  // compute left offsets; start after expand col width
+  const leftOffsetMap: Record<string, number> = {};
+  (() => {
+    let acc = EXPAND_COL_WIDTH; // left offset starts after expand column
+    for (const col of visibleColumns) {
+      if (FROZEN_KEYS.includes(col.key as any)) {
+        leftOffsetMap[col.key] = acc;
+        acc += FROZEN_WIDTHS[col.key] ?? 160;
+      } else {
+        acc += 200; // approximate for non-frozen columns
+      }
+    }
+  })();
 
-  // Create new aggregator flow: open empty draft for creation
+  const visibleColumnsCount = visibleColumns.length;
+  // +1 accounts for the expand/collapse icon column at start of each row
+  const effectiveVisibleCount = visibleColumnsCount + 1;
+
+  useEffect(() => {
+    console.log(
+      "ALL_COLUMNS:",
+      ALL_COLUMNS.map((c) => c.key)
+    );
+    console.log("DEFAULT_COLUMN_SELECTION keys:", Object.keys(selectedColumns));
+  }, []);
+
+  // Create new aggregator flow
   const createNewAggregator = () => {
     const empty = createEmptyAggregatorDraft();
     setDraft(empty);
@@ -624,49 +952,140 @@ const AggregatorTable = () => {
     setVillages([]);
   };
 
-  // Pagination controls
-  const onPrevPage = () => {
-    setPage((p) => Math.max(1, p - 1));
-  };
-  const onNextPage = () => {
-    const lastPage = Math.max(1, Math.ceil((total || 0) / limit));
-    setPage((p) => Math.min(lastPage, p + 1));
-  };
+  const onPrevPage = () => setPage((p) => Math.max(1, p - 1));
+  const onNextPage = () =>
+    setPage((p) => {
+      const last = Math.max(1, Math.ceil((total || 0) / limit));
+      return Math.min(last, p + 1);
+    });
 
   // ========== RENDER ==========
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-[1600px] mx-auto flex gap-6">
-        {/* Full-width: Table + Controls with inline expanded rows */}
-        <div className="flex-1">
-          {/* Header Controls */}
-          {/* Header Controls */}
-          <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-            {/* First Row */}
-            <div className="grid grid-cols-6 gap-3 mb-3">
-              <div className="relative col-span-1">
+      <div className="max-w-[1400px] mx-auto">
+        {/* Top header: title left + buttons right (showPageTitle default false so parent header wins) */}
+        <div className="flex items-start justify-between mb-4 gap-4">
+          {showPageTitle ? (
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">
+                Aggregators leads
+              </h1>
+              <p className="text-sm text-gray-500">
+                Manage your orders efficiently
+              </p>
+            </div>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex items-center gap-3">
+            <div className="relative inline-block">
+              <button
+                onClick={() =>
+                  downloadCsvFromData(
+                    sortedData,
+                    `aggregators-${new Date().toISOString().slice(0, 10)}.csv`
+                  )
+                }
+                className="px-4 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Export CSV
+              </button>
+              {/* optional dropdown for XLSX */}
+              <button
+                onClick={() =>
+                  downloadXlsxFromData(
+                    sortedData,
+                    `aggregators-${new Date().toISOString().slice(0, 10)}.xlsx`
+                  )
+                }
+                className="ml-2 px-4 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Export XLSX
+              </button>
+            </div>
+
+            {/* Create Buyer moved to top and reusing CreateBuyerButton component */}
+            <CreateBuyerButton className="!px-4 !py-2" />
+
+            <button
+              onClick={createNewAggregator}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm flex items-center gap-2 hover:bg-emerald-700 transition"
+            >
+              <Plus size={16} /> New Aggregator
+            </button>
+          </div>
+        </div>
+
+        {/* FILTER CARD - collapsible */}
+        <div
+          className={`bg-white rounded-2xl shadow p-4 mb-6 border border-gray-100 transition-all ${
+            filtersCollapsed ? "h-12 overflow-hidden" : ""
+          }`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-medium text-gray-800">Filters</h3>
+              <span className="text-sm text-gray-500">
+                {activeFiltersCount} active
+              </span>
+              {activeFiltersCount > 0 && (
+                <button
+                  onClick={clearLastActiveFilter}
+                  title="Clear last active filter"
+                  className="ml-2 px-2 py-1 rounded-md border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-1"
+                >
+                  <X size={14} />
+                  <span className="hidden md:inline">Clear last</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setFiltersCollapsed((prev) => !prev)}
+                className="px-3 py-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-2 text-sm"
+              >
+                {filtersCollapsed ? (
+                  <>
+                    <ChevronRight size={16} /> Expand
+                  </>
+                ) : (
+                  <>
+                    <ChevronLeft size={16} /> Collapse
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Filter content - collapsible body */}
+          <div className={`${filtersCollapsed ? "hidden" : "block"}`}>
+            {/* First row */}
+            <div className="grid grid-cols-6 gap-3 mb-4 items-center">
+              <div className="relative col-span-2">
                 <Search
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                   size={16}
                 />
                 <input
                   type="text"
-                  placeholder="Search Name or Number"
+                  placeholder="Search name, number, or company"
                   value={searchName}
                   onChange={(e) => setSearchName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
                 />
               </div>
 
               <select
                 value={searchCompany}
                 onChange={(e) => setSearchCompany(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">All Companies</option>
-                {availableCompanies.map((company) => (
-                  <option key={company.id} value={company.name}>
-                    {company.displayName || company.name}
+                {availableCompanies.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.displayName || c.name}
                   </option>
                 ))}
               </select>
@@ -674,12 +1093,12 @@ const AggregatorTable = () => {
               <select
                 value={selectedCrop}
                 onChange={(e) => setSelectedCrop(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">All Crops</option>
-                {CROPS.map((crop) => (
-                  <option key={crop} value={crop}>
-                    {crop}
+                {CROPS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
                   </option>
                 ))}
               </select>
@@ -687,12 +1106,12 @@ const AggregatorTable = () => {
               <select
                 value={selectedTag}
                 onChange={(e) => setSelectedTag(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">All Tags</option>
-                {TAGS.map((tag) => (
-                  <option key={tag.value} value={tag.value}>
-                    {tag.label}
+                {TAGS.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
                   </option>
                 ))}
               </select>
@@ -700,7 +1119,7 @@ const AggregatorTable = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">Sort By</option>
                 <option value="createdAt">Onboarded Date</option>
@@ -712,37 +1131,30 @@ const AggregatorTable = () => {
                 <option value="nextActionDueDate">Next Action Due Date</option>
                 <option value="readyToSupply">Ready to Supply Date</option>
               </select>
-
-              <button
-                onClick={createNewAggregator}
-                className="px-4 py-2 bg-black text-white rounded-md text-sm flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
-              >
-                <Plus size={16} />
-                New Aggregator
-              </button>
             </div>
 
-            {/* Second Row */}
-            <div className="grid grid-cols-6 gap-3">
+            {/* Second row */}
+            {/* Second row */}
+            <div className="grid grid-cols-6 gap-3 mb-4">
               <select
                 value={selectedDistrict}
                 onChange={async (e) => {
                   setSelectedDistrict(e.target.value);
                   setSelectedTaluk("");
                   setSelectedVillage("");
-                  if (e.target.value) {
+                  if (e.target.value)
                     await loadTaluksWrapper("Karnataka", e.target.value);
-                  } else {
+                  else {
                     setTaluks([]);
                     setVillages([]);
                   }
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">Select District</option>
-                {districts.map((district) => (
-                  <option key={district} value={district}>
-                    {district}
+                {districts.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
                   </option>
                 ))}
               </select>
@@ -752,23 +1164,21 @@ const AggregatorTable = () => {
                 onChange={async (e) => {
                   setSelectedTaluk(e.target.value);
                   setSelectedVillage("");
-                  if (e.target.value && selectedDistrict) {
+                  if (e.target.value && selectedDistrict)
                     await loadVillagesWrapper(
                       "Karnataka",
                       selectedDistrict,
                       e.target.value
                     );
-                  } else {
-                    setVillages([]);
-                  }
+                  else setVillages([]);
                 }}
                 disabled={!selectedDistrict}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
               >
                 <option value="">Select Taluk</option>
-                {taluks.map((taluk) => (
-                  <option key={taluk} value={taluk}>
-                    {taluk}
+                {taluks.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
                   </option>
                 ))}
               </select>
@@ -777,12 +1187,12 @@ const AggregatorTable = () => {
                 value={selectedVillage}
                 onChange={(e) => setSelectedVillage(e.target.value)}
                 disabled={!selectedTaluk}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
               >
                 <option value="">Select Village</option>
-                {villages.map((village) => (
-                  <option key={village} value={village}>
-                    {village}
+                {villages.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
                   </option>
                 ))}
               </select>
@@ -790,7 +1200,7 @@ const AggregatorTable = () => {
               <select
                 value={selectedCapacity}
                 onChange={(e) => setSelectedCapacity(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">&gt; Capacity</option>
                 <option value="30">&gt; 30 capacity</option>
@@ -801,7 +1211,7 @@ const AggregatorTable = () => {
               <select
                 value={selectedScore}
                 onChange={(e) => setSelectedScore(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">&lt; Score</option>
                 <option value="50">&lt; 50% Score</option>
@@ -809,29 +1219,24 @@ const AggregatorTable = () => {
                 <option value="90">&lt; 90% Score</option>
               </select>
 
-              <CreateBuyerButton className="ml-2" />
-
-              <div className="flex items-center justify-center text-sm text-gray-500">
-                {/* Empty space for alignment */}
-              </div>
-            </div>
-
-            {/* Third Row - Additional Filters */}
-            <div className="grid grid-cols-6 gap-3">
+              {/* Move Has Stock here so 2nd row has no empty space */}
               <select
                 value={selectedHasStock}
                 onChange={(e) => setSelectedHasStock(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">Has Stock?</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
+            </div>
 
+            {/* Third row */}
+            <div className="grid grid-cols-6 gap-3">
               <select
                 value={selectedIsVisited}
                 onChange={(e) => setSelectedIsVisited(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">Is Visited?</option>
                 <option value="true">Yes</option>
@@ -841,7 +1246,7 @@ const AggregatorTable = () => {
               <select
                 value={selectedIsTcCompliant}
                 onChange={(e) => setSelectedIsTcCompliant(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">T&C Compliant?</option>
                 <option value="true">Yes</option>
@@ -851,7 +1256,7 @@ const AggregatorTable = () => {
               <select
                 value={selectedFrequency}
                 onChange={(e) => setSelectedFrequency(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">Load Frequency</option>
                 {LOAD_FREQUENCIES.map((freq) => (
@@ -864,318 +1269,289 @@ const AggregatorTable = () => {
               <select
                 value={selectedIsInterestedToWork}
                 onChange={(e) => setSelectedIsInterestedToWork(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
               >
                 <option value="">Interested to Work?</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
 
+              {/* Accurate radius moved left to keep Reset aligned at very end */}
               <input
                 type="number"
                 placeholder="Accurate Radius (km)"
                 value={selectedAccurateRadius}
                 onChange={(e) => setSelectedAccurateRadius(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
                 min="0"
               />
-            </div>
-          </div>
 
-          {/* Column Selector */}
-          {showColumnSelector && (
-            <div
-              className={`bg-white rounded-lg shadow-lg p-4 mb-4 border border-gray-200 ${styles.animateFadeIn}`}
-            >
-              <h3 className="font-semibold mb-3">Select Columns to Display</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {ALL_COLUMNS.map((col) => (
-                  <label
-                    key={col.key}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedColumns[col.key]}
-                      onChange={() => toggleColumn(col.key)}
-                      className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-sm">{col.label}</span>
-                  </label>
-                ))}
+              <div className="flex items-center gap-2 justify-end">
+                <button
+                  onClick={() => setShowColumnSelector((prev) => !prev)}
+                  className="px-3 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2"
+                  title="Select columns to display"
+                >
+                  {/* small indicator when open */}
+                  <span className="hidden sm:inline">Columns</span>
+                  <span
+                    className="inline-block w-2 h-2 rounded-full"
+                    aria-hidden="true"
+                    style={{
+                      background: showColumnSelector
+                        ? "#10B981"
+                        : "transparent",
+                      border: "1px solid #D1D5DB",
+                    }}
+                  />
+                </button>
+                <button
+                  onClick={clearAllFilters}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-md text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  Reset
+                </button>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Column selector */}
+        {showColumnSelector && (
+          <div
+            className={`bg-white rounded-lg shadow-lg p-4 mb-4 border border-gray-200 ${styles.animateFadeIn}`}
+          >
+            <h3 className="font-semibold mb-3">Select Columns to Display</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {ALL_COLUMNS.map((col) => (
+                <label
+                  key={col.key}
+                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedColumns[col.key]}
+                    onChange={() => toggleColumn(col.key)}
+                    className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm">{col.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Results + Table */}
+        <div className="mb-3 text-sm text-gray-600 flex items-center gap-3">
+          {loadingLeads ? (
+            <>
+              <Spinner size={14} /> Loading aggregators...
+            </>
+          ) : (
+            `Showing ${sortedData.length} of ${total} aggregators`
           )}
+        </div>
 
-          {/* Results count + loading */}
-          <div className="mb-3 text-sm text-gray-600 flex items-center gap-3">
-            {loadingLeads ? (
-              <>
-                <Spinner size={14} /> Loading aggregators...
-              </>
-            ) : (
-              `Showing ${sortedData.length} of ${total} aggregators`
-            )}
-          </div>
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+          <div className="overflow-x-auto tableScroll">
+            <table className="w-full min-w-[900px]">
+              {/* Header */}
+              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                <tr>
+                  {/* EXPAND / COLLAPSE header cell - sticky at left:0 */}
+                  <th
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      zIndex: EXPAND_COL_Z,
+                      background: FROZEN_BACKGROUND,
+                      borderRight: FROZEN_BORDER_RIGHT,
+                      boxShadow: FROZEN_SHADOW,
+                      width: EXPAND_COL_WIDTH,
+                      minWidth: EXPAND_COL_WIDTH,
+                    }}
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase w-14"
+                  ></th>
 
-          {/* Table */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase w-8"></th>
-                    {isColumnVisible("onboarded") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Onboarded
-                      </th>
-                    )}
-                    {isColumnVisible("name") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Name
-                      </th>
-                    )}
-                    {isColumnVisible("number") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Number
-                      </th>
-                    )}
-                    {isColumnVisible("village") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Location
-                      </th>
-                    )}
-                    {isColumnVisible("experience") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Experience
-                      </th>
-                    )}
-                    {isColumnVisible("capacity") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Capacity
-                      </th>
-                    )}
-                    {isColumnVisible("tAndC") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        T & C agreed?
-                      </th>
-                    )}
-                    {isColumnVisible("nextAction") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Next Action
-                      </th>
-                    )}
-                    {isColumnVisible("interestTo") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Interested to collaborate
-                      </th>
-                    )}
-                    {isColumnVisible("readyToSupply") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Ready to Supply
-                      </th>
-                    )}
-                    {isColumnVisible("tag") && (
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Tag
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {sortedData.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={effectiveVisibleCount + 1}
-                        className="px-4 py-8 text-center text-gray-500"
+                  {visibleColumns.map((col) => {
+                    const isFrozen = FROZEN_KEYS.includes(col.key as any);
+                    const left = isFrozen
+                      ? leftOffsetMap[col.key] ?? 0
+                      : undefined;
+                    const stickyStyle: React.CSSProperties | undefined =
+                      isFrozen
+                        ? {
+                            position: "sticky",
+                            left,
+                            top: 0,
+                            zIndex: HEADER_STICKY_Z,
+                            background: FROZEN_BACKGROUND,
+                            borderRight: FROZEN_BORDER_RIGHT,
+                            boxShadow: FROZEN_SHADOW,
+                            width: FROZEN_WIDTHS[col.key] ?? 160,
+                            minWidth: FROZEN_WIDTHS[col.key] ?? 160,
+                          }
+                        : undefined;
+
+                    return (
+                      <th
+                        key={col.key}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
+                        style={stickyStyle}
                       >
-                        No aggregators found matching your filters
-                      </td>
-                    </tr>
-                  ) : (
-                    sortedData.map((row) => {
-                      const isSelected = selectedRowId === row.id;
-                      return (
-                        <React.Fragment key={String(row.id)}>
-                          <tr
-                            className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                              isSelected ? "bg-blue-50" : ""
-                            }`}
-                            onClick={() => openDetails(row.id as any)}
-                          >
-                            <td className="px-4 py-3">
-                              {isSelected ? (
-                                <ChevronUp
-                                  size={16}
-                                  className="text-gray-600"
-                                />
-                              ) : (
-                                <ChevronDown
-                                  size={16}
-                                  className="text-gray-600"
-                                />
-                              )}
-                            </td>
-                            {isColumnVisible("onboarded") && (
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                {row.onboarded}
-                              </td>
-                            )}
-                            {isColumnVisible("name") && (
-                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                                {row.name}
-                              </td>
-                            )}
-                            {isColumnVisible("number") && (
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                {row.number}
-                              </td>
-                            )}
-                            {isColumnVisible("village") && (
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                <div>{row.village}</div>
-                                <div className="text-gray-500 text-xs">
-                                  {row.taluk ? `${row.taluk}, ` : ""}
-                                  {row.district ? `${row.district}, ` : ""}
-                                  {row.state || ""}
-                                </div>
-                              </td>
-                            )}
-                            {isColumnVisible("experience") && (
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                {row.experience}
-                              </td>
-                            )}
-                            {isColumnVisible("capacity") && (
-                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                                {row.capacity && row.capacityUnit
-                                  ? `${row.capacity} ${row.capacityUnit}`
-                                  : row.capacity || "-"}
-                              </td>
-                            )}
-                            {isColumnVisible("tAndC") && (
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                <span className="flex items-center gap-1">
-                                  {row.tAndC}
-                                  <ChevronDown
-                                    size={14}
-                                    className="text-gray-400"
-                                  />
-                                </span>
-                              </td>
-                            )}
-                            {isColumnVisible("nextAction") && (
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                <div>{row.nextAction || "-"}</div>
-                                <div className="text-xs text-gray-500">
-                                  {row.nextActionDueDate
-                                    ? toDisplayDateDDMMYYYY(
-                                        row.nextActionDueDate
-                                      )
-                                    : ""}
-                                </div>
-                              </td>
-                            )}
-                            {isColumnVisible("interestTo") && (
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                <span className="flex items-center gap-1">
-                                  {row.interestTo}
-                                  <ChevronDown
-                                    size={14}
-                                    className="text-gray-400"
-                                  />
-                                </span>
-                              </td>
-                            )}
-                            {isColumnVisible("readyToSupply") && (
-                              <td className="px-4 py-3 text-sm text-gray-900">
-                                {row.readyToSupply
-                                  ? toDisplayDateDDMMYYYY(row.readyToSupply)
-                                  : "-"}
-                              </td>
-                            )}
-                            {isColumnVisible("tag") && (
-                              <td className="px-4 py-3 text-sm">
-                                <span
-                                  className={`px-3 py-1 rounded-md text-xs font-medium ${
-                                    row.tag === "VLA"
-                                      ? "bg-gray-100 text-gray-700 border border-gray-300"
-                                      : "bg-blue-50 text-blue-700 border border-blue-200"
-                                  }`}
-                                >
-                                  {row.tag}
-                                </span>
-                              </td>
-                            )}
-                          </tr>
-                          {isSelected && (
-                            <tr>
-                              <td
-                                colSpan={effectiveVisibleCount + 1}
-                                className="px-4 pb-4 bg-gray-50"
-                              >
-                                <ExpandedRowContent
-                                  selectedRowId={selectedRowId}
-                                  draft={draft}
-                                  isEditing={isEditing}
-                                  savingLead={savingLead}
-                                  deletingLead={deletingLead}
-                                  loadingCompanies={loadingCompanies}
-                                  companySearch={companySearch}
-                                  setCompanySearch={setCompanySearch}
-                                  availableCompanies={availableCompanies}
-                                  startEdit={startEdit}
-                                  saveDraft={saveDraft}
-                                  cancelEdit={cancelEdit}
-                                  deleteRow={deleteRow}
-                                  updateDraftField={updateDraftField}
-                                />
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        {col.label}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
 
-          {/* Pagination controls */}
-          <div className="mt-3 flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              Page {page} • {total} results
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onPrevPage}
-                disabled={page <= 1}
-                className="px-3 py-1 border rounded disabled:opacity-50"
-              >
-                Prev
-              </button>
-              <button
-                onClick={onNextPage}
-                disabled={page >= Math.ceil((total || 0) / limit)}
-                className="px-3 py-1 border rounded disabled:opacity-50"
-              >
-                Next
-              </button>
-              <select
-                value={limit}
-                onChange={(e) => {
-                  setLimit(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="px-2 py-1 border rounded"
-              >
-                <option value={10}>10 / page</option>
-                <option value={20}>20 / page</option>
-                <option value={40}>40 / page</option>
-                <option value={100}>100 / page</option>
-              </select>
-            </div>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {sortedData.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={effectiveVisibleCount}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      No aggregators found matching your filters
+                    </td>
+                  </tr>
+                ) : (
+                  sortedData.map((row) => {
+                    const isSelected = selectedRowId === row.id;
+                    return (
+                      <React.Fragment key={String(row.id)}>
+                        <tr
+                          className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                            isSelected ? "bg-emerald-50" : ""
+                          }`}
+                          onClick={() => openDetails(row.id as any)}
+                        >
+                          {/* EXPAND ICON cell (sticky at left:0) */}
+                          <td
+                            className="px-4 py-3"
+                            style={{
+                              position: "sticky",
+                              left: 0,
+                              zIndex: EXPAND_COL_Z - 10,
+                              background: FROZEN_BACKGROUND,
+                              borderRight: FROZEN_BORDER_RIGHT,
+                              boxShadow: FROZEN_SHADOW,
+                              width: EXPAND_COL_WIDTH,
+                              minWidth: EXPAND_COL_WIDTH,
+                            }}
+                          >
+                            {isSelected ? (
+                              <ChevronUp size={16} className="text-gray-600" />
+                            ) : (
+                              <ChevronDown
+                                size={16}
+                                className="text-gray-600"
+                              />
+                            )}
+                          </td>
+
+                          {visibleColumns.map((col) => {
+                            const isFrozen = FROZEN_KEYS.includes(
+                              col.key as any
+                            );
+                            const left = isFrozen
+                              ? leftOffsetMap[col.key] ?? 0
+                              : undefined;
+                            const stickyCellStyle:
+                              | React.CSSProperties
+                              | undefined = isFrozen
+                              ? {
+                                  position: "sticky",
+                                  left,
+                                  zIndex: BODY_STICKY_Z,
+                                  background: FROZEN_BACKGROUND,
+                                  borderRight: FROZEN_BORDER_RIGHT,
+                                  boxShadow: FROZEN_SHADOW,
+                                  width: FROZEN_WIDTHS[col.key] ?? 160,
+                                  minWidth: FROZEN_WIDTHS[col.key] ?? 160,
+                                }
+                              : undefined;
+
+                            return (
+                              <td
+                                key={col.key}
+                                className="px-4 py-3 text-sm text-gray-900"
+                                style={stickyCellStyle}
+                              >
+                                {renderCellForKey(col.key, row)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {isSelected && (
+                          <tr>
+                            <td
+                              colSpan={effectiveVisibleCount}
+                              className="px-4 pb-4 bg-gray-50"
+                            >
+                              <ExpandedRowContent
+                                selectedRowId={selectedRowId}
+                                draft={draft}
+                                isEditing={isEditing}
+                                savingLead={savingLead}
+                                deletingLead={deletingLead}
+                                loadingCompanies={loadingCompanies}
+                                companySearch={companySearch}
+                                setCompanySearch={setCompanySearch}
+                                availableCompanies={availableCompanies}
+                                startEdit={startEdit}
+                                saveDraft={saveDraft}
+                                cancelEdit={cancelEdit}
+                                deleteRow={deleteRow}
+                                updateDraftField={updateDraftField}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Pagination */}
+        <div className="mt-4 flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Page {page} • {total} results
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onPrevPage}
+              disabled={page <= 1}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              Prev
+            </button>
+            <button
+              onClick={onNextPage}
+              disabled={page >= Math.ceil((total || 0) / limit)}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              Next
+            </button>
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="px-2 py-1 border rounded"
+            >
+              <option value={10}>10 / page</option>
+              <option value={20}>20 / page</option>
+              <option value={40}>40 / page</option>
+              <option value={100}>100 / page</option>
+            </select>
           </div>
         </div>
       </div>
@@ -1200,15 +1576,13 @@ const AggregatorTable = () => {
         villages={villages}
       />
 
-      {/* Toast Alert */}
+      {/* Toast & Confirm */}
       <Toast
         show={toast.show}
         message={toast.message}
         type={toast.type}
         onClose={() => setToast({ show: false, message: "", type: "success" })}
       />
-
-      {/* Confirmation Modal */}
       <ConfirmModal
         show={confirmModal.show}
         title={confirmModal.title}
