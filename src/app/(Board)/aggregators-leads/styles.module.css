@@ -12,6 +12,49 @@
 .animateFadeIn {
   animation: fadeIn 0.3s ease-out;
 }
+/* small animation helper used in Column selector */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animateFadeIn {
+  animation: fadeIn 180ms ease;
+}
+
+/* subtle custom scrollbar for wide table (optional) */
+.tableScroll::-webkit-scrollbar {
+  height: 8px;
+}
+.tableScroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tableScroll::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 8px;
+}
+
+/* small helpers to match screenshot spacing */
+.rounded-2xl {
+  border-radius: 16px;
+}
+
+/* collapse helper and scrollbar */
+.animateFadeIn { animation: fadeIn 180ms ease; }
+.tableScroll::-webkit-scrollbar { height: 8px; }
+.tableScroll::-webkit-scrollbar-track { background: transparent; }
+.tableScroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 8px; }
+.rounded-2xl { border-radius: 16px; }
+
+/* small responsive tweak so collapsed filter card keeps compact height */
+@media (max-width: 900px) {
+  .rounded-2xl { border-radius: 12px; }
+}
+/* styles.module.css (or global css) */
+.tableScroll {
+  position: relative; /* required for sticky children */
+  overflow-x: auto;
+}
+
 
 
 
