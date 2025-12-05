@@ -709,6 +709,9 @@ export function NewAggregatorModal({
                           <option value="Potential Partner">
                             Potential Partner
                           </option>
+                          <option value="Interested in event">
+                            Interested in event
+                          </option>
                           <option value="Other">Other</option>
                         </select>
 

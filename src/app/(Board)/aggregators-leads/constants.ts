@@ -38,6 +38,7 @@ export const BUYER_TYPES = [
 export const TAGS = [
   { value: "VLA", label: "VLA" },
   { value: "Potential Partner", label: "Potential Partner" },
+  { value: "Interested in event", label: "Interested in event" },
   { value: "Other", label: "Other" },
 ];
 

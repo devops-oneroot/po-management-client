@@ -619,6 +619,7 @@ export function ExpandedRowContent({
                     const option = [
                       "VLA",
                       "Potential Partner",
+                      "Interested in event",
                       "Other",
                     ].includes(draft.tag || "")
                       ? draft.tag
@@ -648,6 +649,9 @@ export function ExpandedRowContent({
                           <option value="VLA">VLA</option>
                           <option value="Potential Partner">
                             Potential Partner
+                          </option>
+                          <option value="Interested in event">
+                            Interested in event
                           </option>
                           <option value="Other">Other</option>
                         </select>
