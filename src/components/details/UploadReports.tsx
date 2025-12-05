@@ -37,6 +37,8 @@ export default function UploadReports({
     { title: "APMC", key: "apmcImages" },
     { title: "Sales Invoice", key: "salesInvoiceImages" },
     { title: "Purchase Bill", key: "miscellaneousDocs" },
+    { title: "Weighment Image", key: "weighmentImages" },
+    { title: "grn Image", key: "grnImages" },
   ];
 
   // State for uploaded files (local + saved)

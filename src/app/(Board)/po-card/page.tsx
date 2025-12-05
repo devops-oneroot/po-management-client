@@ -14,9 +14,10 @@ import {
   ArrowBigRight,
   ArrowRight,
 } from "lucide-react";
-import POForm from "components/form/POForm";
-import UploadReports from "components/details/UploadReports";
-import AssignBuyerForm from "components/form/AssignForm";
+
+import AssignBuyerForm from "@/components/form/AssignForm";
+import UploadReports from "@/components/details/UploadReports";
+import POForm from "@/components/form/POForm";
 
 enum POStatus {
   INPROGRESS = "INPROGRESS",
@@ -42,6 +43,8 @@ interface Assignee {
   rejectedQuantityMeasure: string | null;
   status: string;
   truckNo?: string | null;
+  dispatchDate?: string;
+
   driverName?: string | null;
   driverPhone?: string | null;
   salesInvoiceNo?: string | null;
@@ -51,6 +54,7 @@ interface Assignee {
   weighmentImages?: string[] | null;
   grnImages?: string[] | null;
   paymentSlipImages?: string[] | null;
+
   qualityReportImages?: string[] | null;
   eWayBillImages?: string[] | null;
   apmcImages?: string[] | null;
@@ -64,9 +68,12 @@ interface Dispatch {
   status: string;
   salesInvoiceNo: string;
   dispatchDate: string;
+  promisedDate: string;
   acceptedQty: number;
   rejectedQty: number;
   eWayBill: boolean;
+  grnImages: boolean;
+  weighmentImages: boolean;
   apmc: boolean;
   purchaseBill: boolean;
   qualityReport: boolean;
@@ -212,8 +219,10 @@ const PurchaseOrdersPage = () => {
       const dispatch: Dispatch = {
         truckNo: assignee.truckNo || "—",
         salesInvoiceNo: assignee.salesInvoiceNo || "—",
+        dispatchDate: assignee.dispatchDate,
+        promisedDate: assignee.promisedDate,
         status: assignee.status === "COMPLETED" ? "Completed" : "In Progress",
-        dispatchDate: assignee.promisedDate,
+
         acceptedQty: unloadedKg / 1000,
         rejectedQty: rejectedKg / 1000,
         eWayBill: !!assignee.eWayBillImages?.length,
@@ -223,6 +232,8 @@ const PurchaseOrdersPage = () => {
         qualityReport: !!assignee.qualityReportImages?.length,
         driverDetails: !!assignee.driverName,
         paymentSlip: !!assignee.paymentSlipImages?.length,
+        grnImages: !!assignee.grnImages?.length,
+
         weighment: !!assignee.weighmentImages?.length,
       };
 
@@ -343,6 +354,9 @@ const PurchaseOrdersPage = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
+                      <span className="text-sm bg-gray-200 px-3 py-1 rounded-full ml-4">
+                        PO-NO {po.poNumber}
+                      </span>
                       {/* Assign Buyer Button - Only on Active Tab */}
                       {activeTab === "active" && (
                         <button
@@ -653,8 +667,8 @@ const PurchaseOrdersPage = () => {
                               </div>
 
                               {isExpanded && dispatch && (
-                                <div className="border-t border-gray-200 bg-gray-50 px-6 py-5">
-                                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-6 text-sm items-end">
+                                <div className="border-t border-gray-200 bg-gray-50 px-2 py-5">
+                                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-1 text-sm items-end">
                                     <div className="text-center">
                                       <span className="text-gray-500">
                                         Edit
@@ -691,6 +705,14 @@ const PurchaseOrdersPage = () => {
                                     <div>
                                       <span className="text-gray-500">
                                         Promised-Date
+                                      </span>
+                                      <p className="font-medium mt-1">
+                                        {formatDate(dispatch.promisedDate)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-500">
+                                        Dispatch-date
                                       </span>
                                       <p className="font-medium mt-1">
                                         {formatDate(dispatch.dispatchDate)}
@@ -731,7 +753,11 @@ const PurchaseOrdersPage = () => {
                                         },
                                         {
                                           label: "Weighment",
-                                          key: "weighment",
+                                          key: "weighmentImages",
+                                        },
+                                        {
+                                          label: "grn Image",
+                                          key: "grnImages",
                                         },
                                       ].map(({ label, key }) => {
                                         const hasDoc =
@@ -861,6 +887,7 @@ const PurchaseOrdersPage = () => {
                       ),
                       rate: formData.get("rate") as string,
                       promisedDate: formData.get("promisedDate") as string,
+                      dispatchDate: formData.get("dispatchDate") as string,
                       status: formData.get("status") as string,
                       truckNo: (formData.get("truckNo") as string) || null,
                       driverName:
@@ -954,6 +981,19 @@ const PurchaseOrdersPage = () => {
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        dispatch-date
+                      </label>
+                      <input
+                        name="dispatchDate"
+                        type="date"
+                        defaultValue={editingAssignee.dispatchDate}
+                        required
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Status
