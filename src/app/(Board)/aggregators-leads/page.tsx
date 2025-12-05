@@ -1,11 +1,6 @@
 "use client";
 import React, { useEffect, useState, useMemo } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  Plus,
-  Search,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Search } from "lucide-react";
 import CreateBuyerButton from "@/components/CreateBuyerButton";
 
 // Import types
@@ -19,7 +14,12 @@ import type {
 } from "./types";
 
 // Import constants
-import { CROPS, DEFAULT_COLUMN_SELECTION, TAGS } from "./constants";
+import {
+  CROPS,
+  DEFAULT_COLUMN_SELECTION,
+  LOAD_FREQUENCIES,
+  TAGS,
+} from "./constants";
 
 // Import utilities
 import { toDisplayDateDDMMYYYY, getTimeAgo } from "./utils/dateHelpers";
@@ -55,14 +55,9 @@ import {
 import styles from "./styles.module.css";
 
 /* ===================================================================
-   Main AggregatorTable Component
-   =================================================================== */
-
-/* ===================================================================
    AggregatorTable - main component
    =================================================================== */
 const AggregatorTable = () => {
-
   // ======== DATA STATE =========
   const [data, setData] = useState<AggregatorData[]>([]);
   const [total, setTotal] = useState(0);
@@ -112,6 +107,16 @@ const AggregatorTable = () => {
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedTaluk, setSelectedTaluk] = useState("");
   const [selectedVillage, setSelectedVillage] = useState("");
+  const [selectedHasStock, setSelectedHasStock] = useState<string>("");
+  const [selectedIsVisited, setSelectedIsVisited] = useState<string>("");
+  const [selectedIsTcCompliant, setSelectedIsTcCompliant] =
+    useState<string>("");
+  const [selectedFrequency, setSelectedFrequency] = useState<string>("");
+  const [selectedAccurateRadius, setSelectedAccurateRadius] =
+    useState<string>("");
+  const [selectedOtherCrops, setSelectedOtherCrops] = useState<string[]>([]);
+  const [selectedIsInterestedToWork, setSelectedIsInterestedToWork] =
+    useState<string>("");
   const [showNewAggregatorModal, setShowNewAggregatorModal] = useState(false);
   const cancelNewAggregator = () => {
     setShowNewAggregatorModal(false);
@@ -121,7 +126,6 @@ const AggregatorTable = () => {
   const [selectedTag, setSelectedTag] = useState("");
   const [sortBy, setSortBy] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-
 
   // Toast/Alert states
   const [toast, setToast] = useState<{
@@ -157,7 +161,6 @@ const AggregatorTable = () => {
     }, 3000);
   };
 
-
   // ======= API FUNCTIONS =======
   function buildListParams() {
     const params: Record<string, any> = {
@@ -179,6 +182,17 @@ const AggregatorTable = () => {
     if (selectedVillage) params.village = selectedVillage;
     if (selectedTaluk) params.taluk = selectedTaluk;
     if (selectedTag) params.label = selectedTag;
+
+    if (selectedHasStock) params.hasStock = selectedHasStock === "true";
+    if (selectedIsVisited) params.isVisited = selectedIsVisited === "true";
+    if (selectedIsTcCompliant)
+      params.isTcCompliant = selectedIsTcCompliant === "true";
+    if (selectedFrequency) params.frequency = selectedFrequency;
+    if (selectedAccurateRadius)
+      params.accurateRadius = Number(selectedAccurateRadius);
+    if (selectedOtherCrops.length > 0) params.otherCrop = selectedOtherCrops;
+    if (selectedIsInterestedToWork)
+      params.isInterestedToWork = selectedIsInterestedToWork === "true";
 
     return params;
   }
@@ -277,6 +291,13 @@ const AggregatorTable = () => {
     selectedTaluk,
     selectedVillage,
     selectedTag, // ADD THIS
+    selectedHasStock,
+    selectedIsVisited,
+    selectedIsTcCompliant,
+    selectedFrequency,
+    selectedAccurateRadius,
+    selectedOtherCrops,
+    selectedIsInterestedToWork,
   ]);
 
   useEffect(() => {
@@ -323,6 +344,14 @@ const AggregatorTable = () => {
     setSelectedDistrict("");
     setSelectedTaluk("");
     setSelectedVillage("");
+    setSelectedTag("");
+    setSelectedHasStock("");
+    setSelectedIsVisited("");
+    setSelectedIsTcCompliant("");
+    setSelectedFrequency("");
+    setSelectedAccurateRadius("");
+    setSelectedOtherCrops([]);
+    setSelectedIsInterestedToWork("");
   };
 
   // Use data directly from backend - it's already filtered
@@ -338,7 +367,14 @@ const AggregatorTable = () => {
     selectedDistrict,
     selectedTaluk,
     selectedVillage,
-  ].filter((f) => f !== "").length;
+      selectedTag,
+  selectedHasStock,
+  selectedIsVisited,
+  selectedIsTcCompliant,
+  selectedFrequency,
+  selectedAccurateRadius,
+  selectedIsInterestedToWork,
+  ].filter((f) => f !== "").length + (selectedOtherCrops.length > 0 ? 1 : 0);;
 
   // ======= ROW SELECTION / EDIT / SAVE / DELETE handlers =======
   const openDetails = (id: string | number) => {
@@ -388,6 +424,8 @@ const AggregatorTable = () => {
       district: row.district ?? null,
       taluk: row.taluk ?? null,
       village: row.village ?? null,
+      upfrontPaymentNeedPercentage: row.upfrontPaymentNeedPercentage ?? null,
+      interestedToWorkPercentage: row.interestedToWorkPercentage ?? null,
       __raw: row.__raw ?? null,
       __rawUserFromLookup: row.__rawUserFromLookup ?? null,
     };
@@ -777,6 +815,71 @@ const AggregatorTable = () => {
                 {/* Empty space for alignment */}
               </div>
             </div>
+
+            {/* Third Row - Additional Filters */}
+            <div className="grid grid-cols-6 gap-3">
+              <select
+                value={selectedHasStock}
+                onChange={(e) => setSelectedHasStock(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Has Stock?</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+
+              <select
+                value={selectedIsVisited}
+                onChange={(e) => setSelectedIsVisited(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Is Visited?</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+
+              <select
+                value={selectedIsTcCompliant}
+                onChange={(e) => setSelectedIsTcCompliant(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">T&C Compliant?</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+
+              <select
+                value={selectedFrequency}
+                onChange={(e) => setSelectedFrequency(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Load Frequency</option>
+                {LOAD_FREQUENCIES.map((freq) => (
+                  <option key={freq.value} value={freq.value}>
+                    {freq.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={selectedIsInterestedToWork}
+                onChange={(e) => setSelectedIsInterestedToWork(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Interested to Work?</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+
+              <input
+                type="number"
+                placeholder="Accurate Radius (km)"
+                value={selectedAccurateRadius}
+                onChange={(e) => setSelectedAccurateRadius(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                min="0"
+              />
+            </div>
           </div>
 
           {/* Column Selector */}
@@ -902,7 +1005,10 @@ const AggregatorTable = () => {
                           >
                             <td className="px-4 py-3">
                               {isSelected ? (
-                                <ChevronUp size={16} className="text-gray-600" />
+                                <ChevronUp
+                                  size={16}
+                                  className="text-gray-600"
+                                />
                               ) : (
                                 <ChevronDown
                                   size={16}
@@ -1072,7 +1178,6 @@ const AggregatorTable = () => {
             </div>
           </div>
         </div>
-
       </div>
 
       {/* New Aggregator Modal */}

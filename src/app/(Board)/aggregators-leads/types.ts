@@ -79,6 +79,8 @@ export interface AggregatorData {
   accurateRadius?: number | null;
   isInterestedToWork?: boolean | null;
   nextActionDueDateRaw?: string | null;
+  upfrontPaymentNeedPercentage: number | null;
+interestedToWorkPercentage: number | null;
 
   // raw backend object can be stored if needed
   __raw?: any;

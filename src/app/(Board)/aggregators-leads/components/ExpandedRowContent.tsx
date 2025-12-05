@@ -345,6 +345,7 @@ export function ExpandedRowContent({
             Qualifying / Business
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs">
+            {/* Row 1 */}
             <div>
               <div className="text-[11px] font-semibold text-gray-500">
                 Capacity
@@ -388,6 +389,7 @@ export function ExpandedRowContent({
               )}
             </div>
 
+            {/* Row 2 */}
             <div>
               <div className="text-[11px] font-semibold text-gray-500">
                 Load frequency
@@ -433,6 +435,7 @@ export function ExpandedRowContent({
               )}
             </div>
 
+            {/* Row 3 */}
             <div>
               <div className="text-[11px] font-semibold text-gray-500">
                 Confidence score
@@ -475,6 +478,7 @@ export function ExpandedRowContent({
               )}
             </div>
 
+            {/* Row 4 */}
             <div>
               <div className="text-[11px] font-semibold text-gray-500">
                 Interested to work?
@@ -523,6 +527,7 @@ export function ExpandedRowContent({
               )}
             </div>
 
+            {/* Row 5 */}
             <div>
               <div className="text-[11px] font-semibold text-gray-500">
                 Buyer type
@@ -546,67 +551,123 @@ export function ExpandedRowContent({
                 </select>
               )}
             </div>
-          </div>
 
-          {/* Tag (Details panel) */}
-          <div>
-            <div className="text-base font-bold text-black-400">Tag</div>
-
-            {!isEditing ? (
-              <div className="font-medium">{draft.tag || "-"}</div>
-            ) : (
-              <div className="space-y-2 mt-1">
-                {(() => {
-                  const option = ["VLA", "Potential Partner", "Other"].includes(
-                    draft.tag || ""
-                  )
-                    ? draft.tag
-                    : "Other";
-                  return (
-                    <>
-                      <select
-                        value={option || ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v === "Other") {
-                            if (
-                              !["VLA", "Potential Partner", "Other"].includes(
-                                draft.tag || ""
-                              )
-                            ) {
-                              updateDraftField("tag", draft.tag || "");
-                            } else {
-                              updateDraftField("tag", "");
-                            }
-                          } else {
-                            updateDraftField("tag", v);
-                          }
-                        }}
-                        className="w-full px-2 py-1 border rounded text-sm"
-                      >
-                        <option value="VLA">VLA</option>
-                        <option value="Potential Partner">
-                          Potential Partner
-                        </option>
-                        <option value="Other">Other</option>
-                      </select>
-
-                      {option === "Other" && (
-                        <input
-                          type="text"
-                          placeholder="Enter custom tag"
-                          value={draft.tag || ""}
-                          onChange={(e) =>
-                            updateDraftField("tag", e.target.value)
-                          }
-                          className="w-full px-2 py-1 border rounded text-sm"
-                        />
-                      )}
-                    </>
-                  );
-                })()}
+            <div>
+              <div className="text-[11px] font-semibold text-gray-500">
+                Upfront Payment Need (%)
               </div>
-            )}
+              {!isEditing ? (
+                <div className="font-medium">
+                  {draft.upfrontPaymentNeedPercentage !== null
+                    ? `${draft.upfrontPaymentNeedPercentage}%`
+                    : "-"}
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={draft.upfrontPaymentNeedPercentage ?? ""}
+                  onChange={(e) =>
+                    updateDraftField(
+                      "upfrontPaymentNeedPercentage",
+                      e.target.value ? Number(e.target.value) : null
+                    )
+                  }
+                  className="w-full px-2 py-1 border rounded text-[11px]"
+                  placeholder="50"
+                />
+              )}
+            </div>
+
+            {/* Row 6 */}
+            <div>
+              <div className="text-[11px] font-semibold text-gray-500">
+                Interested to Work (%)
+              </div>
+              {!isEditing ? (
+                <div className="font-medium">
+                  {draft.interestedToWorkPercentage !== null
+                    ? `${draft.interestedToWorkPercentage}%`
+                    : "-"}
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={draft.interestedToWorkPercentage ?? ""}
+                  onChange={(e) =>
+                    updateDraftField(
+                      "interestedToWorkPercentage",
+                      e.target.value ? Number(e.target.value) : null
+                    )
+                  }
+                  className="w-full px-2 py-1 border rounded text-[11px]"
+                  placeholder="75"
+                />
+              )}
+            </div>
+
+            <div>
+              <div className="text-[11px] font-semibold text-gray-500">Tag</div>
+              {!isEditing ? (
+                <div className="font-medium">{draft.tag || "-"}</div>
+              ) : (
+                <div className="space-y-1">
+                  {(() => {
+                    const option = [
+                      "VLA",
+                      "Potential Partner",
+                      "Other",
+                    ].includes(draft.tag || "")
+                      ? draft.tag
+                      : "Other";
+                    return (
+                      <>
+                        <select
+                          value={option || ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "Other") {
+                              if (
+                                !["VLA", "Potential Partner", "Other"].includes(
+                                  draft.tag || ""
+                                )
+                              ) {
+                                updateDraftField("tag", draft.tag || "");
+                              } else {
+                                updateDraftField("tag", "");
+                              }
+                            } else {
+                              updateDraftField("tag", v);
+                            }
+                          }}
+                          className="w-full px-2 py-1 border rounded text-[11px]"
+                        >
+                          <option value="VLA">VLA</option>
+                          <option value="Potential Partner">
+                            Potential Partner
+                          </option>
+                          <option value="Other">Other</option>
+                        </select>
+                        {option === "Other" && (
+                          <input
+                            type="text"
+                            placeholder="Custom tag"
+                            value={draft.tag || ""}
+                            onChange={(e) =>
+                              updateDraftField("tag", e.target.value)
+                            }
+                            className="w-full px-2 py-1 border rounded text-[11px]"
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -754,7 +815,8 @@ export function ExpandedRowContent({
                             (id) => String(id) === String(company.id)
                           )}
                           onChange={(e) => {
-                            const currentIds = draft.interestsCompaniesIds || [];
+                            const currentIds =
+                              draft.interestsCompaniesIds || [];
                             if (e.target.checked)
                               updateDraftField("interestsCompaniesIds", [
                                 ...currentIds,
@@ -763,7 +825,9 @@ export function ExpandedRowContent({
                             else
                               updateDraftField(
                                 "interestsCompaniesIds",
-                                currentIds.filter((id) => String(id) !== String(company.id))
+                                currentIds.filter(
+                                  (id) => String(id) !== String(company.id)
+                                )
                               );
                           }}
                           className="w-3 h-3 text-blue-600"
@@ -784,9 +848,14 @@ export function ExpandedRowContent({
                   const selectedIds = draft.interestsCompaniesIds || [];
                   const selectedCompanies = selectedIds
                     .map((id) =>
-                      availableCompanies.find((c) => String(c.id) === String(id))
+                      availableCompanies.find(
+                        (c) => String(c.id) === String(id)
+                      )
                     )
-                    .filter((c): c is CompanyType & { displayName?: string } => c !== undefined && c !== null);
+                    .filter(
+                      (c): c is CompanyType & { displayName?: string } =>
+                        c !== undefined && c !== null
+                    );
 
                   const filtered = selectedCompanies.filter((c) =>
                     (c.displayName || c.name || "")

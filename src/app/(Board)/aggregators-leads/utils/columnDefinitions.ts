@@ -41,5 +41,7 @@ export const ALL_COLUMNS = [
   { key: "cropName" as keyof ColumnSelection, label: "Primary Crop" },
   { key: "buyerType" as keyof ColumnSelection, label: "Buyer Type" },
   { key: "updatedAt" as keyof ColumnSelection, label: "Last Updated" },
+  {key:"upfrontPaymentNeedPercentage" as keyof ColumnSelection, label: "Upfront Payment Need (%)"},
+  {key:"interestedToWorkPercentage" as keyof ColumnSelection, label: "Interested to Work (%)"},
 ];
 

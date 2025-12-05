@@ -36,6 +36,8 @@ export function createEmptyAggregatorDraft(): AggregatorData {
     isVisited: false,
     isInterestedToWork: null,
     frequency: null,
+    upfrontPaymentNeedPercentage: null,
+interestedToWorkPercentage: null,
     __raw: null,
     __rawUserFromLookup: null,
     updatedAt: null,

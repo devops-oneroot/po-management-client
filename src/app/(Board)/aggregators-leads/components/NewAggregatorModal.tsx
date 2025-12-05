@@ -625,6 +625,48 @@ export function NewAggregatorModal({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500">
+                    Upfront Payment Need (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={draft.upfrontPaymentNeedPercentage ?? ""}
+                    onChange={(e) =>
+                      updateDraftField(
+                        "upfrontPaymentNeedPercentage",
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    placeholder="50"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-500">
+                    Interested to Work (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={draft.interestedToWorkPercentage ?? ""}
+                    onChange={(e) =>
+                      updateDraftField(
+                        "interestedToWorkPercentage",
+                        e.target.value ? Number(e.target.value) : null
+                      )
+                    }
+                    className="w-full px-3 py-2 border rounded text-sm mt-1"
+                    placeholder="75"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs text-gray-500">Tag</label>
                 <div className="space-y-2 mt-1">
@@ -940,4 +982,3 @@ export function NewAggregatorModal({
     </div>
   );
 }
-

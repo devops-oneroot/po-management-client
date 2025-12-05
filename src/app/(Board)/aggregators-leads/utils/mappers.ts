@@ -58,11 +58,7 @@ export function mapLeadToRow(lead: any): AggregatorData {
     interestedCompanies,
     interestsCompaniesIds,
     feVisited:
-      lead.feVisited === true
-        ? "Yes"
-        : lead.feVisited === false
-        ? "No"
-        : null,
+      lead.feVisited === true ? "Yes" : lead.feVisited === false ? "No" : null,
 
     hasStock:
       lead.hasStock === true ? "Yes" : lead.hasStock === false ? "No" : null,
@@ -75,6 +71,8 @@ export function mapLeadToRow(lead: any): AggregatorData {
     frequency: lead.frequency ?? null,
     currentStock: lead.currentStock ?? null,
     currentStockUnit: lead.currentStockUnit ?? null,
+    upfrontPaymentNeedPercentage: lead.upfrontPaymentNeedPercentage ?? null,
+    interestedToWorkPercentage: lead.interestedToWorkPercentage ?? null,
     __raw: lead,
   };
 }
@@ -167,9 +165,7 @@ export function mapRowToBackendPayload(row: AggregatorData) {
   // readyToSupply -> nextReadyDate
   if (row.readyToSupply) {
     const d = new Date(row.readyToSupply);
-    payload.nextReadyDate = !Number.isNaN(d.getTime())
-      ? d.toISOString()
-      : null;
+    payload.nextReadyDate = !Number.isNaN(d.getTime()) ? d.toISOString() : null;
   } else {
     payload.nextReadyDate = null;
   }
@@ -198,8 +194,7 @@ export function mapRowToBackendPayload(row: AggregatorData) {
     row.interestTo !== null &&
     row.interestTo !== ""
   ) {
-    payload.isInterestedToWork =
-      String(row.interestTo).toLowerCase() === "yes";
+    payload.isInterestedToWork = String(row.interestTo).toLowerCase() === "yes";
   } else {
     payload.isInterestedToWork = null;
   }
@@ -219,6 +214,9 @@ export function mapRowToBackendPayload(row: AggregatorData) {
     ? row.interestsCompaniesIds
     : [];
 
+  payload.upfrontPaymentNeedPercentage =
+    row.upfrontPaymentNeedPercentage ?? null;
+  payload.interestedToWorkPercentage = row.interestedToWorkPercentage ?? null;
+
   return payload;
 }
-
