@@ -9,7 +9,7 @@ import {
   ChevronLeft,
   X,
 } from "lucide-react";
-import CreateBuyerButton from "@/components/CreateBuyerButton";
+import CreateBuyerButton from "../../../components/CreateBuyerButton";
 import * as XLSX from "xlsx";
 
 // Import types

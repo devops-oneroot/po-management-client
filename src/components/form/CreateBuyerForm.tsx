@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import Select from "react-select";
-import { createBuyer } from "@/hooks/createBuyer";
+import { createBuyer } from "../../../src/hooks/createBuyer";
 import { X } from "lucide-react";
 
 export interface CreateBuyerFormProps {
