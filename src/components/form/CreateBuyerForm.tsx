@@ -1,18 +1,30 @@
+// src/components/form/CreateBuyerForm.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import axios from "axios";
 import Select from "react-select";
 import { createBuyer } from "@/hooks/createBuyer";
 import { X } from "lucide-react";
-import React from "react";
 
 export interface CreateBuyerFormProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Called when buyer creation succeeds.
+   * onCreated(phone, user?)
+   */
+  onCreated?: (phone: string, user?: any) => void;
 }
 
-const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) => {
+type PriceEntry = { cropName: string; cropVariety: string; price: number };
+
+const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({
+  isOpen,
+  onClose,
+  onCreated,
+}) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -37,9 +49,7 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
     talukas: false,
     villages: false,
   });
-  const [prices, setPrices] = useState<
-    { cropName: string; cropVariety: string; price: number }[]
-  >([]);
+  const [prices, setPrices] = useState<PriceEntry[]>([]);
 
   const crops = [
     { name: "Tender Coconut", variety: "Naati" },
@@ -49,10 +59,11 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
     { name: "Maize", variety: "Yellow" },
     { name: "Sunflower", variety: "Sunflower" },
   ];
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
-  // Fetch states on component mount
+  const API_BASE_URL =
+    (process.env.NEXT_PUBLIC_API_URL as string) || "http://localhost:3000";
+
+  // Fetch states on mount
   useEffect(() => {
     const fetchStates = async () => {
       setLoading((prev) => ({ ...prev, states: true }));
@@ -67,7 +78,27 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
       }
     };
     fetchStates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // body scroll lock while modal open
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
+  // handle ESC to close
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -87,24 +118,19 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
     setTalukas([]);
     setVillages([]);
 
-    if (state) {
-      setLoading((prev) => ({ ...prev, districts: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/districts`,
-          {
-            params: { state },
-          }
-        );
-        setDistricts(
-          Array.isArray(response.data.data) ? response.data.data : []
-        );
-      } catch (error) {
-        console.error("Error fetching districts:", error);
-        setDistricts([]);
-      } finally {
-        setLoading((prev) => ({ ...prev, districts: false }));
-      }
+    if (!state) return;
+
+    setLoading((prev) => ({ ...prev, districts: true }));
+    try {
+      const response = await axios.get(`${API_BASE_URL}/newlocations/districts`, {
+        params: { state },
+      });
+      setDistricts(Array.isArray(response.data.data) ? response.data.data : []);
+    } catch (error) {
+      console.error("Error fetching districts:", error);
+      setDistricts([]);
+    } finally {
+      setLoading((prev) => ({ ...prev, districts: false }));
     }
   };
 
@@ -116,22 +142,19 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
     setTalukas([]);
     setVillages([]);
 
-    if (district) {
-      setLoading((prev) => ({ ...prev, talukas: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/taluks`,
-          {
-            params: { state: formData.state, district },
-          }
-        );
-        setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
-      } catch (error) {
-        console.error("Error fetching talukas:", error);
-        setTalukas([]);
-      } finally {
-        setLoading((prev) => ({ ...prev, talukas: false }));
-      }
+    if (!district) return;
+
+    setLoading((prev) => ({ ...prev, talukas: true }));
+    try {
+      const response = await axios.get(`${API_BASE_URL}/newlocations/taluks`, {
+        params: { state: formData.state, district },
+      });
+      setTalukas(Array.isArray(response.data.data) ? response.data.data : []);
+    } catch (error) {
+      console.error("Error fetching talukas:", error);
+      setTalukas([]);
+    } finally {
+      setLoading((prev) => ({ ...prev, talukas: false }));
     }
   };
 
@@ -142,28 +165,23 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
     setFormData((prev) => ({ ...prev, taluk, village: "" }));
     setVillages([]);
 
-    if (taluk) {
-      setLoading((prev) => ({ ...prev, villages: true }));
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/newlocations/villages`,
-          {
-            params: {
-              state: formData.state,
-              district: formData.district,
-              taluk,
-            },
-          }
-        );
-        setVillages(
-          Array.isArray(response.data.data) ? response.data.data : []
-        );
-      } catch (error) {
-        console.error("Error fetching villages:", error);
-        setVillages([]);
-      } finally {
-        setLoading((prev) => ({ ...prev, villages: false }));
-      }
+    if (!taluk) return;
+
+    setLoading((prev) => ({ ...prev, villages: true }));
+    try {
+      const response = await axios.get(`${API_BASE_URL}/newlocations/villages`, {
+        params: {
+          state: formData.state,
+          district: formData.district,
+          taluk,
+        },
+      });
+      setVillages(Array.isArray(response.data.data) ? response.data.data : []);
+    } catch (error) {
+      console.error("Error fetching villages:", error);
+      setVillages([]);
+    } finally {
+      setLoading((prev) => ({ ...prev, villages: false }));
     }
   };
 
@@ -173,9 +191,7 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
   };
 
   const handleCropChange = (selected: any) => {
-    const selectedCropNames = selected
-      ? selected.map((opt: any) => opt.value)
-      : [];
+    const selectedCropNames = selected ? selected.map((opt: any) => opt.value) : [];
     const newPrices = selectedCropNames.map((cropName: string) => {
       const existingPrice = prices.find((p) => p.cropName === cropName);
       const crop = crops.find((c) => c.name === cropName);
@@ -191,16 +207,23 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
 
   const handlePriceChange = (cropName: string, price: string) => {
     const parsedPrice = parseFloat(price) || 0;
-    setPrices((prev) =>
-      prev.map((p) =>
-        p.cropName === cropName ? { ...p, price: parsedPrice } : p
-      )
-    );
+    setPrices((prev) => prev.map((p) => (p.cropName === cropName ? { ...p, price: parsedPrice } : p)));
+  };
+
+  // safe stringify helper for unknown response bodies
+  const safeStringify = (v: unknown) => {
+    try {
+      if (typeof v === "string") return v;
+      return JSON.stringify(v);
+    } catch {
+      return String(v);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Validate required fields
+
+    // Basic validation
     if (!formData.name) {
       alert("Please enter a name.");
       return;
@@ -241,10 +264,23 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
         prices, // Include prices array
       };
       console.log("Submitting formData:", submitData);
+
       const result = await createBuyer(submitData);
-      console.log("createBuyer response:", result);
-      if (result.status === 200) {
+      const asAny = result as any;
+
+      if (asAny?.status === 200 || asAny?.status === "success" || asAny?.user) {
+        // Prefer the user object returned by API if present
+        const createdUser = asAny?.user ?? asAny?.data ?? null;
+
+        // Call parent's callback so it can open aggregator modal and prefill
+        try {
+          onCreated?.(formData.mobileNumber, createdUser ?? undefined);
+        } catch (err) {
+          console.warn("onCreated callback threw:", err);
+        }
+
         onClose();
+        // reset the form
         setFormData({
           name: "",
           village: "",
@@ -254,19 +290,22 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
           state: "",
           language: "en",
           identity: "BUYER",
-          fcmToken: `dummy-fcm-token-${Math.random()
-            .toString(36)
-            .substr(2, 9)}`,
-          deviceId: `dummy-device-id-${Math.random()
-            .toString(36)
-            .substr(2, 9)}`,
+          fcmToken: `dummy-fcm-token-${Math.random().toString(36).substr(2, 9)}`,
+          deviceId: `dummy-device-id-${Math.random().toString(36).substr(2, 9)}`,
           cropNames: [],
         });
         setPrices([]);
+      } else {
+        const errMsg =
+          (asAny && (asAny.message || asAny.error || asAny.detail)) ||
+          safeStringify(asAny) ||
+          "Unknown error";
+        alert(`Failed to create buyer: ${errMsg}`);
       }
     } catch (error: any) {
       console.error("Error creating buyer:", error);
-      alert(`Failed to create buyer: ${error.message || "Unknown error"}`);
+      const message = error?.message ?? safeStringify(error) ?? "Unknown error";
+      alert(`Failed to create buyer: ${message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -275,12 +314,27 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
   // If the modal is closed, render nothing
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+  const modal = (
+    <div
+      className="fixed inset-0 flex items-center justify-center z-[10000]"
+      aria-modal="true"
+      role="dialog"
+    >
+      {/* overlay */}
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={() => onClose()}
+      />
+
+      {/* panel */}
+      <div
+        className="relative bg-white p-6 rounded-lg shadow-lg w-full max-w-md z-[10001]"
+        onClick={(e) => e.stopPropagation()} // prevent overlay click from closing when clicking inside
+      >
         <button
           onClick={() => onClose()}
           className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-sm"
+          aria-label="Close"
         >
           <X size={20} />
         </button>
@@ -323,11 +377,19 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
             >
               <option value="">Select State</option>
               {loading.states ? (
-                <option value="" disabled>Loading states...</option>
+                <option value="" disabled>
+                  Loading states...
+                </option>
               ) : states.length > 0 ? (
-                states.map((state) => <option key={state} value={state}>{state}</option>)
+                states.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))
               ) : (
-                <option value="" disabled>No states available</option>
+                <option value="" disabled>
+                  No states available
+                </option>
               )}
             </select>
             {!formData.state && <p className="text-red-500 text-xs mt-1">State is required.</p>}
@@ -345,11 +407,19 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
             >
               <option value="">Select District</option>
               {loading.districts ? (
-                <option value="" disabled>Loading districts...</option>
+                <option value="" disabled>
+                  Loading districts...
+                </option>
               ) : districts.length > 0 ? (
-                districts.map((district) => <option key={district} value={district}>{district}</option>)
+                districts.map((district) => (
+                  <option key={district} value={district}>
+                    {district}
+                  </option>
+                ))
               ) : (
-                <option value="" disabled>No districts available</option>
+                <option value="" disabled>
+                  No districts available
+                </option>
               )}
             </select>
           </div>
@@ -366,11 +436,19 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
             >
               <option value="">Select Taluk</option>
               {loading.talukas ? (
-                <option value="" disabled>Loading taluks...</option>
+                <option value="" disabled>
+                  Loading taluks...
+                </option>
               ) : talukas.length > 0 ? (
-                talukas.map((taluka) => <option key={taluka} value={taluka}>{taluka}</option>)
+                talukas.map((taluka) => (
+                  <option key={taluka} value={taluka}>
+                    {taluka}
+                  </option>
+                ))
               ) : (
-                <option value="" disabled>No taluks available</option>
+                <option value="" disabled>
+                  No taluks available
+                </option>
               )}
             </select>
           </div>
@@ -387,11 +465,19 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
             >
               <option value="">Select Village</option>
               {loading.villages ? (
-                <option value="" disabled>Loading villages...</option>
+                <option value="" disabled>
+                  Loading villages...
+                </option>
               ) : villages.length > 0 ? (
-                villages.map((village) => <option key={village} value={village}>{village}</option>)
+                villages.map((village) => (
+                  <option key={village} value={village}>
+                    {village}
+                  </option>
+                ))
               ) : (
-                <option value="" disabled>No villages available</option>
+                <option value="" disabled>
+                  No villages available
+                </option>
               )}
             </select>
           </div>
@@ -407,6 +493,7 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
               className="mt-1 text-sm"
               classNamePrefix="react-select"
             />
+
             {formData.cropNames.length > 0 && (
               <div className="mt-2 space-y-2">
                 {formData.cropNames.map((cropName: string) => {
@@ -425,6 +512,7 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
                             setPrices((prev) => prev.filter((p) => p.cropName !== cropName));
                           }}
                           className="hover:text-red-500"
+                          aria-label={`Remove ${cropName}`}
                         >
                           <X size={12} />
                         </button>
@@ -459,6 +547,8 @@ const CreateBuyerForm: React.FC<CreateBuyerFormProps> = ({ isOpen, onClose }) =>
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 };
 
 export default CreateBuyerForm;

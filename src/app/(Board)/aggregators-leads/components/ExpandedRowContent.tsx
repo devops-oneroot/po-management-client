@@ -159,9 +159,11 @@ export function ExpandedRowContent({
       </div>
 
       {/* Content */}
-      <div className="grid grid-cols-3 gap-4 text-sm">
+      <div className="w-full flex flex-wrap gap-4 text-sm">
+
         {/* Ready to Supply */}
-        <div className="bg-white rounded-lg p-3 shadow-xs border border-gray-100">
+        <div className="bg-white rounded-lg p-3 shadow-xs border border-gray-100 flex-1 min-w-[260px]">
+
           <div className="text-xs font-semibold text-gray-500 mb-2">
             Ready to Supply
           </div>
@@ -340,7 +342,8 @@ export function ExpandedRowContent({
         </div>
 
         {/* Qualifying / Business */}
-        <div className="bg-white rounded-lg p-3 shadow-xs border border-gray-100">
+        <div className="bg-white rounded-lg p-3 shadow-xs border border-gray-100 flex-1 min-w-[260px]">
+
           <div className="text-xs font-semibold text-gray-500 mb-2">
             Qualifying / Business
           </div>
@@ -676,7 +679,8 @@ export function ExpandedRowContent({
         </div>
 
         {/* Interaction & Notes */}
-        <div className="bg-white rounded-lg p-3 shadow-xs border border-gray-100">
+        <div className="bg-white rounded-lg p-3 shadow-xs border border-gray-100 flex-1 min-w-[260px]">
+
           <div className="text-xs font-semibold text-gray-500 mb-2">
             Interaction & Notes
           </div>
@@ -790,7 +794,8 @@ export function ExpandedRowContent({
               }
               className="w-full mb-2 px-2 py-1 text-[11px] border rounded"
             />
-            <div className="border rounded p-2 max-h-32 overflow-y-auto bg-gray-50">
+           <div className="border rounded p-2 bg-gray-50">
+
               {loadingCompanies ? (
                 <div className="text-[11px] text-gray-400 flex items-center gap-2">
                   <Spinner size={12} /> Loading companies...

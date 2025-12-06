@@ -1,5 +1,7 @@
+// src/app/(Board)/aggregators-leads/components/NewAggregatorModal.tsx
 "use client";
 import React, { useEffect, useState, useMemo } from "react";
+import ReactDOM from "react-dom";
 import { X, Search, Save } from "lucide-react";
 import { AggregatorData, QuantityUnit, LoadFrequency, Company } from "../types";
 import { Spinner } from "./Spinner";
@@ -10,6 +12,21 @@ import {
   BUYER_TYPES,
   CROPS,
 } from "../constants";
+import {
+  patchAggregatorLead,
+  fetchLeads as fetchLeadsApi,
+  updateBuyerType,
+} from "../services/api";
+import { mapRowToBackendPayload } from "../utils/mappers";
+
+/**
+ * NewAggregatorModal
+ *
+ * - Sanitizes payload before sending to backend (removes nulls/forbidden fields)
+ * - Normalizes date fields to YYYY-MM-DD
+ * - Logs server error body to console so you can inspect exact error
+ * - Wraps companies list in its own stacking context to avoid clipping/overlay issues
+ */
 
 interface NewAggregatorModalProps {
   show: boolean;
@@ -35,6 +52,7 @@ interface NewAggregatorModalProps {
   districts: string[];
   taluks: string[];
   villages: string[];
+  onSaved?: () => Promise<void> | void;
 }
 
 export function NewAggregatorModal({
@@ -54,6 +72,7 @@ export function NewAggregatorModal({
   districts,
   taluks,
   villages,
+  onSaved,
 }: NewAggregatorModalProps) {
   if (!show || !draft) return null;
 
@@ -66,33 +85,27 @@ export function NewAggregatorModal({
     villages: false,
   });
   const [companySearch, setCompanySearch] = useState("");
+  const [savingLocal, setSavingLocal] = useState(false);
 
   useEffect(() => {
-    if (draft?.__rawUserFromLookup) {
-      setEditingLocation(false);
-    }
-  }, [draft?.__rawUserFromLookup]);
+    if (draft.__rawUserFromLookup) setEditingLocation(false);
+  }, [draft.__rawUserFromLookup]);
 
+  // apply user object to modal draft (same mapping as page.tsx)
   const applyUserToDraft = (user: any) => {
     if (!user) return;
-
-    updateDraftField("userId", (user.id ?? draft?.userId ?? null) as any);
-    updateDraftField("name", (user.name ?? draft?.name ?? "") as any);
+    updateDraftField("userId", (user.id ?? draft.userId ?? null) as any);
+    updateDraftField("name", (user.name ?? draft.name ?? "") as any);
     updateDraftField(
       "number",
-      (user.mobileNumber ?? user.phone ?? draft?.number ?? "") as any
+      (user.mobileNumber ?? user.phone ?? draft.number ?? "") as any
     );
-
-    updateDraftField("__raw", { ...(draft?.__raw || {}), ...user } as any);
+    updateDraftField("__raw", { ...(draft.__raw || {}), ...user } as any);
     updateDraftField("__rawUserFromLookup", user as any);
-
-    updateDraftField("village", (user.village ?? draft?.village ?? "") as any);
-    updateDraftField("taluk", (user.taluk ?? draft?.taluk ?? "") as any);
-    updateDraftField(
-      "district",
-      (user.district ?? draft?.district ?? "") as any
-    );
-    updateDraftField("state", (user.state ?? draft?.state ?? "") as any);
+    updateDraftField("village", (user.village ?? draft.village ?? "") as any);
+    updateDraftField("taluk", (user.taluk ?? draft.taluk ?? "") as any);
+    updateDraftField("district", (user.district ?? draft.district ?? "") as any);
+    updateDraftField("state", (user.state ?? draft.state ?? "") as any);
 
     const capacityVal =
       user.loadingCapacity ??
@@ -112,9 +125,7 @@ export function NewAggregatorModal({
       user.loadingCapacityUnit ??
       user.loading_capacity_unit ??
       null;
-    if (capacityUnitVal) {
-      updateDraftField("capacityUnit", String(capacityUnitVal) as any);
-    }
+    if (capacityUnitVal) updateDraftField("capacityUnit", String(capacityUnitVal) as any);
 
     if (user.experience !== undefined && user.experience !== null) {
       updateDraftField("experience", String(user.experience) as any);
@@ -122,14 +133,13 @@ export function NewAggregatorModal({
       updateDraftField("experience", String(user.yearsExperience) as any);
     }
 
-    const freq =
-      user.loadingFrequency ?? user.frequency ?? user.loadFrequency ?? null;
+    const freq = user.loadingFrequency ?? user.frequency ?? user.loadFrequency ?? null;
     if (freq) updateDraftField("frequency", String(freq) as any);
   };
 
   const lookupUser = async () => {
     setLookupError(null);
-    if (!draft?.number) {
+    if (!draft.number) {
       setLookupError("Enter phone number first");
       return;
     }
@@ -189,7 +199,7 @@ export function NewAggregatorModal({
     updateDraftField("district", d || "");
     updateDraftField("taluk", "");
     updateDraftField("village", "");
-    if (d && draft?.state) {
+    if (d && draft.state) {
       try {
         setLocLoading((x) => ({ ...x, taluks: true }));
         await loadTaluks(draft.state, d);
@@ -202,7 +212,7 @@ export function NewAggregatorModal({
   const onSelectTaluk = async (t: string) => {
     updateDraftField("taluk", t || "");
     updateDraftField("village", "");
-    if (t && draft?.state && draft?.district) {
+    if (t && draft.state && draft.district) {
       try {
         setLocLoading((x) => ({ ...x, villages: true }));
         await loadVillages(draft.state, draft.district, t);
@@ -218,15 +228,236 @@ export function NewAggregatorModal({
     return availableCompanies.filter((c) => c.name.toLowerCase().includes(s));
   }, [availableCompanies, companySearch]);
 
-  return (
-    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+  // Build cleaned draft + payload (same mapping as before)
+  const buildCleanedDraftAndPayload = (d: AggregatorData) => {
+    const cleanedDraft: AggregatorData = {
+      ...d,
+      hasStock: d.hasStock === "" ? null : d.hasStock,
+      tAndC: d.tAndC === "" ? null : d.tAndC,
+      buyerType: d.buyerType === "" ? null : d.buyerType,
+      tag: d.tag === "" ? null : d.tag,
+      interestTo: d.interestTo === "" ? null : d.interestTo,
+      frequency: d.frequency === "" ? null : d.frequency,
+      capacityUnit: d.capacityUnit === "" ? null : d.capacityUnit,
+      currentStock: d.hasStock === "Yes" ? d.currentStock : null,
+      currentStockUnit: d.hasStock === "Yes" ? d.currentStockUnit : null,
+    };
+    const payload = mapRowToBackendPayload(cleanedDraft as any);
+    return { cleanedDraft, payload };
+  };
+
+  /**
+   * sanitizePayload:
+   * - removes null/undefined/empty-string fields
+   * - removes forbidden keys the backend likely doesn't expect
+   * - ensures arrays remain arrays
+   * - converts date-like fields to YYYY-MM-DD (no time)
+   */
+  const sanitizePayload = (p: Record<string, any>) => {
+    if (!p || typeof p !== "object") return p;
+    const forbidden = new Set([
+      "userId",
+      "__raw",
+      "__rawUserFromLookup",
+      "label",
+      "operationScore",
+      // add any other server-rejected fields here
+    ]);
+    const out: Record<string, any> = {};
+    const dateKeys = new Set([
+      "lastInteracted",
+      "lastInteractedAt",
+      "nextActionDueDate",
+      "readyToSupply",
+      "nextReadyDate",
+      // add more if API expects different names
+    ]);
+
+    const toISODateOnly = (val: any) => {
+      if (!val) return val;
+      // if already YYYY-MM-DD, return as-is
+      if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+      // If ISO-like string, extract date part
+      if (typeof val === "string") {
+        const m = val.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (m) return m[1];
+      }
+      // if Date object
+      if (val instanceof Date) {
+        const y = val.getFullYear();
+        const mm = String(val.getMonth() + 1).padStart(2, "0");
+        const dd = String(val.getDate()).padStart(2, "0");
+        return `${y}-${mm}-${dd}`;
+      }
+      return val;
+    };
+
+    for (const [k, v] of Object.entries(p)) {
+      if (forbidden.has(k)) continue;
+      if (v === null || v === undefined) continue;
+      if (typeof v === "string" && v.trim() === "") continue;
+
+      // ensure arrays are arrays (particularly interestsCompaniesIds, otherCrop)
+      if (Array.isArray(v)) {
+        out[k] = v;
+        continue;
+      }
+
+      // convert date-like fields to YYYY-MM-DD
+      if (dateKeys.has(k)) {
+        out[k] = toISODateOnly(v);
+        continue;
+      }
+
+      // otherwise copy as-is
+      out[k] = v;
+    }
+
+    return out;
+  };
+
+  // Find existing lead by phone (search param) - DO NOT use userId query
+  const tryFindExistingLead = async (d: AggregatorData) => {
+    try {
+      if (!d.number) return null;
+      const res = await fetchLeadsApi({ search: d.number });
+      const list = Array.isArray(res) ? res : res?.data ?? [];
+      if (Array.isArray(list) && list.length > 0) {
+        const exact = list.find((x: any) => String(x.number) === String(d.number));
+        return exact || list[0];
+      }
+    } catch (err) {
+      console.warn("Lead lookup failed:", err);
+    }
+    return null;
+  };
+
+  const handleSave = async () => {
+    if (!draft) return;
+    // local validation (same rules as before)
+    const errors: string[] = [];
+    if (!draft.name?.trim()) errors.push("Name is required");
+    if (!draft.number?.trim()) errors.push("Phone Number is required");
+    if (!draft.cropName) errors.push("Crop is required");
+    if (!draft.lastInteracted) errors.push("Last Interacted At is required");
+    if (!draft.nextAction?.trim()) errors.push("Next Action is required");
+    if (!draft.nextActionDueDate) errors.push("Next Action Due Date is required");
+    if (errors.length > 0) {
+      alert("Please fill mandatory fields:\n• " + errors.join("\n• "));
+      return;
+    }
+
+    setSavingLocal(true);
+    try {
+      // If draft has id => patch that record
+      if (draft.id) {
+        const { cleanedDraft, payload } = buildCleanedDraftAndPayload(draft);
+        const sanitized = sanitizePayload(payload ?? {});
+        console.log("PATCH payload (sanitized):", sanitized);
+
+        try {
+          await patchAggregatorLead(String(draft.id), sanitized);
+        } catch (err: any) {
+          console.error("PATCH error response body:", err?.response?.data ?? err?.data ?? err?.message);
+          throw err;
+        }
+
+        // mirror buyerType update
+        try {
+          if (cleanedDraft.userId && cleanedDraft.buyerType !== undefined && cleanedDraft.buyerType !== null) {
+            await updateBuyerType(cleanedDraft.userId as any, { buyerType: cleanedDraft.buyerType });
+          }
+        } catch (err) {
+          console.warn("updateBuyerType failed:", err);
+        }
+
+        if (onSaved) await onSaved();
+        cancelNewAggregator();
+        return;
+      }
+
+      // No id => try find by phone and patch that if found
+      const found = await tryFindExistingLead(draft);
+      if (found && (found.id || found._id || found.leadId)) {
+        const foundId = found.id ?? found._id ?? found.leadId;
+        const { cleanedDraft, payload } = buildCleanedDraftAndPayload(draft);
+        const sanitized = sanitizePayload(payload ?? {});
+        console.log("PATCH (found) payload (sanitized):", sanitized);
+
+        try {
+          await patchAggregatorLead(String(foundId), sanitized);
+        } catch (err: any) {
+          console.error("PATCH(found) error response body:", err?.response?.data ?? err?.data ?? err?.message);
+          throw err;
+        }
+
+        try {
+          if (cleanedDraft.userId && cleanedDraft.buyerType !== undefined && cleanedDraft.buyerType !== null) {
+            await updateBuyerType(cleanedDraft.userId as any, { buyerType: cleanedDraft.buyerType });
+          }
+        } catch (err) {
+          console.warn("updateBuyerType failed:", err);
+        }
+
+        if (onSaved) await onSaved();
+        cancelNewAggregator();
+        return;
+      }
+
+      // Nothing found -> call parent create flow (saveDraft)
+      if (saveDraft) {
+        try {
+          // Let parent's saveDraft handle create. But parent's create should also sanitize payload;
+          // if parent's create throws (duplicate or server error), catch and attempt recovery here.
+          await saveDraft();
+          if (onSaved) await onSaved();
+          return;
+        } catch (err: any) {
+          console.error("create via parent saveDraft error:", err?.response?.data ?? err?.data ?? err?.message);
+          const serverMsg = err?.response?.data?.message ?? err?.message ?? "";
+          // If server complains that aggregator lead already exists for user -> try lookup by phone and patch (recovery)
+          if (typeof serverMsg === "string" && serverMsg.includes("Aggregator lead already exists")) {
+            const found2 = await tryFindExistingLead(draft);
+            if (found2 && (found2.id || found2._id || found2.leadId)) {
+              const foundId = found2.id ?? found2._id ?? found2.leadId;
+              const { cleanedDraft, payload } = buildCleanedDraftAndPayload(draft);
+              const sanitized = sanitizePayload(payload ?? {});
+              try {
+                await patchAggregatorLead(String(foundId), sanitized);
+                if (onSaved) await onSaved();
+                cancelNewAggregator();
+                return;
+              } catch (err2: any) {
+                console.error("Recovery patch failed:", err2?.response?.data ?? err2?.data ?? err2?.message);
+                throw err2;
+              }
+            }
+          }
+          throw err;
+        }
+      }
+
+      alert("No existing aggregator found and create fallback not available.");
+    } catch (err: any) {
+      console.error("Save failed in modal:", err);
+      // show friendly message but encourage checking console/Network for full server error
+      alert("Failed to save aggregator. Check console/network tab for server response.");
+    } finally {
+      setSavingLocal(false);
+    }
+  };
+
+  // modal UI
+  const modal = (
+    <div
+  className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4"
+  style={{ zIndex: 2000 }}
+>
+
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Create Aggregator Lead</h2>
-          <button
-            onClick={cancelNewAggregator}
-            className="p-1 rounded hover:bg-gray-100"
-          >
+          <button onClick={cancelNewAggregator} className="p-1 rounded hover:bg-gray-100" aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -234,63 +465,33 @@ export function NewAggregatorModal({
         <div className="p-6 space-y-4">
           {/* Basic Info */}
           <div className="bg-gray-50 p-4 rounded">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Basic Information
-            </h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Basic Information</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs text-gray-500">Name *</label>
-                <input
-                  value={draft.name || ""}
-                  onChange={(e) => updateDraftField("name", e.target.value)}
-                  className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  placeholder="Enter name"
-                />
+                <input value={draft.name || ""} onChange={(e) => updateDraftField("name", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="Enter name" />
               </div>
+
               <div>
                 <label className="text-xs text-gray-500">Phone Number *</label>
                 <div className="flex gap-2 mt-1">
-                  <input
-                    value={draft.number || ""}
-                    onChange={(e) => updateDraftField("number", e.target.value)}
-                    className="flex-1 px-3 py-2 border rounded text-sm"
-                    placeholder="Enter phone number"
-                  />
-                  <button
-                    onClick={lookupUser}
-                    disabled={lookupLoading}
-                    className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
-                    title="Lookup user by phone"
-                  >
-                    {lookupLoading ? (
-                      <Spinner size={14} />
-                    ) : (
-                      <Search size={14} />
-                    )}
+                  <input value={draft.number || ""} onChange={(e) => updateDraftField("number", e.target.value)} className="flex-1 px-3 py-2 border rounded text-sm" placeholder="Enter phone number" />
+                  <button onClick={lookupUser} disabled={lookupLoading} className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2" title="Lookup user by phone">
+                    {lookupLoading ? <Spinner size={14} /> : <Search size={14} />}
                     <span>{lookupLoading ? "Looking..." : "Lookup"}</span>
                   </button>
                 </div>
-                {lookupError && (
-                  <div className="text-xs text-red-600 mt-1">{lookupError}</div>
-                )}
+                {lookupError && <div className="text-xs text-red-600 mt-1">{lookupError}</div>}
               </div>
             </div>
 
             {/* Location */}
             <div className="grid grid-cols-1 gap-2 mt-4">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-gray-700">
-                  Location (display only)
-                </div>
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setEditingLocation((s) => !s)}
-                    className="text-xs px-2 py-1 border rounded text-gray-600 hover:bg-gray-100"
-                  >
-                    {editingLocation ? "View" : "Edit"}
-                  </button>
-                </div>
+                <div className="text-sm font-semibold text-gray-700">Location (display only)</div>
+                <button type="button" onClick={() => setEditingLocation((s) => !s)} className="text-xs px-2 py-1 border rounded text-gray-600 hover:bg-gray-100">
+                  {editingLocation ? "View" : "Edit"}
+                </button>
               </div>
 
               {!editingLocation && draft.__rawUserFromLookup ? (
@@ -316,82 +517,36 @@ export function NewAggregatorModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-gray-500">State</label>
-                    <select
-                      value={draft.state || ""}
-                      onChange={(e) => onSelectState(e.target.value)}
-                      className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    >
+                    <select value={draft.state || ""} onChange={(e) => onSelectState(e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1">
                       <option value="">Select State</option>
-                      {states.map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
+                      {states.map((st) => <option key={st} value={st}>{st}</option>)}
                     </select>
-                    {locLoading.districts && (
-                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                        <Spinner size={12} /> Loading districts...
-                      </div>
-                    )}
+                    {locLoading.districts && <div className="text-xs text-gray-500 mt-1 flex items-center gap-2"><Spinner size={12} /> Loading districts...</div>}
                   </div>
 
                   <div>
                     <label className="text-xs text-gray-500">District</label>
-                    <select
-                      value={draft.district || ""}
-                      onChange={(e) => onSelectDistrict(e.target.value)}
-                      className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    >
+                    <select value={draft.district || ""} onChange={(e) => onSelectDistrict(e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1">
                       <option value="">Select District</option>
-                      {districts.map((dt) => (
-                        <option key={dt} value={dt}>
-                          {dt}
-                        </option>
-                      ))}
+                      {districts.map((dt) => <option key={dt} value={dt}>{dt}</option>)}
                     </select>
-                    {locLoading.taluks && (
-                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                        <Spinner size={12} /> Loading taluks...
-                      </div>
-                    )}
+                    {locLoading.taluks && <div className="text-xs text-gray-500 mt-1 flex items-center gap-2"><Spinner size={12} /> Loading taluks...</div>}
                   </div>
 
                   <div>
                     <label className="text-xs text-gray-500">Taluk</label>
-                    <select
-                      value={draft.taluk || ""}
-                      onChange={(e) => onSelectTaluk(e.target.value)}
-                      className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    >
+                    <select value={draft.taluk || ""} onChange={(e) => onSelectTaluk(e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1">
                       <option value="">Select Taluk</option>
-                      {taluks.map((ta) => (
-                        <option key={ta} value={ta}>
-                          {ta}
-                        </option>
-                      ))}
+                      {taluks.map((ta) => <option key={ta} value={ta}>{ta}</option>)}
                     </select>
-                    {locLoading.villages && (
-                      <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                        <Spinner size={12} /> Loading villages...
-                      </div>
-                    )}
+                    {locLoading.villages && <div className="text-xs text-gray-500 mt-1 flex items-center gap-2"><Spinner size={12} /> Loading villages...</div>}
                   </div>
 
                   <div>
                     <label className="text-xs text-gray-500">Village</label>
-                    <select
-                      value={draft.village || ""}
-                      onChange={(e) =>
-                        updateDraftField("village", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    >
+                    <select value={draft.village || ""} onChange={(e) => updateDraftField("village", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1">
                       <option value="">Select Village</option>
-                      {villages.map((v) => (
-                        <option key={v} value={v}>
-                          {v}
-                        </option>
-                      ))}
+                      {villages.map((v) => <option key={v} value={v}>{v}</option>)}
                     </select>
                   </div>
                 </div>
@@ -401,135 +556,53 @@ export function NewAggregatorModal({
 
           {/* Business Details */}
           <div className="bg-gray-50 p-4 rounded">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Business Details
-            </h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Business Details</h3>
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="text-xs text-gray-500">Crop *</label>
-                <select
-                  value={draft.cropName || ""}
-                  onChange={(e) => updateDraftField("cropName", e.target.value)}
-                  className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  required
-                >
+                <select value={draft.cropName || ""} onChange={(e) => updateDraftField("cropName", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" required>
                   <option value="">Select Crop</option>
-                  {CROPS.map((crop) => (
-                    <option key={crop} value={crop}>
-                      {crop}
-                    </option>
-                  ))}
+                  {CROPS.map((crop) => <option key={crop} value={crop}>{crop}</option>)}
                 </select>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-gray-500">Capacity</label>
-                  <input
-                    value={draft.capacity || ""}
-                    onChange={(e) =>
-                      updateDraftField("capacity", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="500"
-                  />
+                  <input value={draft.capacity || ""} onChange={(e) => updateDraftField("capacity", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="500" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Unit</label>
-                  <select
-                    value={draft.capacityUnit || ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "capacityUnit",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as QuantityUnit)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
+                  <select value={draft.capacityUnit || ""} onChange={(e) => updateDraftField("capacityUnit", e.target.value === "" ? null : (e.target.value as QuantityUnit))} className="w-full px-3 py-2 border rounded text-sm mt-1">
                     <option value="">Unit</option>
-                    {CAPACITY_UNITS.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
+                    {CAPACITY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Confidence score
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={draft.confidence || ""}
-                    onChange={(e) =>
-                      updateDraftField("confidence", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="100"
-                  />
+                  <label className="text-xs text-gray-500">Confidence score</label>
+                  <input type="number" min="0" max="100" value={draft.confidence || ""} onChange={(e) => updateDraftField("confidence", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="100" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Experience (years)
-                  </label>
-                  <input
-                    value={draft.experience || ""}
-                    onChange={(e) =>
-                      updateDraftField("experience", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="Enter years"
-                  />
+                  <label className="text-xs text-gray-500">Experience (years)</label>
+                  <input value={draft.experience || ""} onChange={(e) => updateDraftField("experience", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="Enter years" />
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Load Frequency
-                  </label>
-                  <select
-                    value={draft.frequency || ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "frequency",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as LoadFrequency)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
+                  <label className="text-xs text-gray-500">Load Frequency</label>
+                  <select value={draft.frequency || ""} onChange={(e) => updateDraftField("frequency", e.target.value === "" ? null : (e.target.value as LoadFrequency))} className="w-full px-3 py-2 border rounded text-sm mt-1">
                     <option value="">Select Frequency</option>
-                    {LOAD_FREQUENCIES.map((freq) => (
-                      <option key={freq.value} value={freq.value}>
-                        {freq.label}
-                      </option>
-                    ))}
+                    {LOAD_FREQUENCIES.map((freq) => <option key={freq.value} value={freq.value}>{freq.label}</option>)}
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-500">
-                    T & C Compliant?
-                  </label>
-                  <select
-                    value={draft.tAndC ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "tAndC",
-                        e.target.value === "" ? null : e.target.value
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
+                  <label className="text-xs text-gray-500">T & C Compliant?</label>
+                  <select value={draft.tAndC ?? ""} onChange={(e) => updateDraftField("tAndC", e.target.value === "" ? null : e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1">
                     <option value="">Select</option>
                     <option value="Yes">Yes - Compliant</option>
                     <option value="No">No - Not Compliant</option>
@@ -538,22 +611,9 @@ export function NewAggregatorModal({
 
                 <div>
                   <label className="text-xs text-gray-500">Buyer Type</label>
-                  <select
-                    value={draft.buyerType || ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "buyerType",
-                        e.target.value === "" ? null : e.target.value
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
+                  <select value={draft.buyerType || ""} onChange={(e) => updateDraftField("buyerType", e.target.value === "" ? null : e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1">
                     <option value="">Select Buyer Type</option>
-                    {BUYER_TYPES.map((bt) => (
-                      <option key={bt.value} value={bt.value}>
-                        {bt.label}
-                      </option>
-                    ))}
+                    {BUYER_TYPES.map((bt) => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
                   </select>
                 </div>
               </div>
@@ -561,18 +621,7 @@ export function NewAggregatorModal({
               <div className="grid grid-cols-3 gap-3 items-end">
                 <div>
                   <label className="text-xs text-gray-500">Has Stock?</label>
-                  <select
-                    value={draft.hasStock ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "hasStock",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as "Yes" | "No")
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
+                  <select value={draft.hasStock ?? ""} onChange={(e) => updateDraftField("hasStock", e.target.value === "" ? null : (e.target.value as "Yes" | "No"))} className="w-full px-3 py-2 border rounded text-sm mt-1">
                     <option value="">Select</option>
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
@@ -581,89 +630,27 @@ export function NewAggregatorModal({
 
                 <div>
                   <label className="text-xs text-gray-500">Current Stock</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={draft.currentStock ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "currentStock",
-                        e.target.value === "" ? null : Number(e.target.value)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="0"
-                    disabled={draft.hasStock !== "Yes"}
-                  />
+                  <input type="number" min={0} step={1} value={draft.currentStock ?? ""} onChange={(e) => updateDraftField("currentStock", e.target.value === "" ? null : Number(e.target.value))} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="0" disabled={draft.hasStock !== "Yes"} />
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Current Stock Unit
-                  </label>
-                  <select
-                    value={draft.currentStockUnit || ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "currentStockUnit",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as QuantityUnit)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    disabled={draft.hasStock !== "Yes"}
-                  >
+                  <label className="text-xs text-gray-500">Current Stock Unit</label>
+                  <select value={draft.currentStockUnit || ""} onChange={(e) => updateDraftField("currentStockUnit", e.target.value === "" ? null : (e.target.value as QuantityUnit))} className="w-full px-3 py-2 border rounded text-sm mt-1" disabled={draft.hasStock !== "Yes"}>
                     <option value="">Select Unit</option>
-                    {CAPACITY_UNITS.map((u) => (
-                      <option key={u} value={u}>
-                        {u}
-                      </option>
-                    ))}
+                    {CAPACITY_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Upfront Payment Need (%)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={draft.upfrontPaymentNeedPercentage ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "upfrontPaymentNeedPercentage",
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="50"
-                  />
+                  <label className="text-xs text-gray-500">Upfront Payment Need (%)</label>
+                  <input type="number" min="0" max="100" value={draft.upfrontPaymentNeedPercentage ?? ""} onChange={(e) => updateDraftField("upfrontPaymentNeedPercentage", e.target.value ? Number(e.target.value) : null)} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="50" />
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Interested to Work (%)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={draft.interestedToWorkPercentage ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "interestedToWorkPercentage",
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="75"
-                  />
+                  <label className="text-xs text-gray-500">Interested to Work (%)</label>
+                  <input type="number" min="0" max="100" value={draft.interestedToWorkPercentage ?? ""} onChange={(e) => updateDraftField("interestedToWorkPercentage", e.target.value ? Number(e.target.value) : null)} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="75" />
                 </div>
               </div>
 
@@ -671,60 +658,26 @@ export function NewAggregatorModal({
                 <label className="text-xs text-gray-500">Tag</label>
                 <div className="space-y-2 mt-1">
                   {(() => {
-                    const option = [
-                      "VLA",
-                      "Potential Partner",
-                      "Other",
-                    ].includes(draft.tag || "")
-                      ? draft.tag
-                      : draft.tag
-                      ? "Other"
-                      : "";
+                    const option = ["VLA", "Potential Partner", "Other"].includes(draft.tag || "") ? draft.tag : draft.tag ? "Other" : "";
                     return (
                       <>
-                        <select
-                          value={option || ""}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            if (v === "") {
-                              updateDraftField("tag", null);
-                            } else if (v === "Other") {
-                              if (
-                                !["VLA", "Potential Partner", "Other"].includes(
-                                  draft.tag || ""
-                                )
-                              ) {
-                                updateDraftField("tag", draft.tag || "");
-                              } else {
-                                updateDraftField("tag", "");
-                              }
-                            } else {
-                              updateDraftField("tag", v);
-                            }
-                          }}
-                          className="w-full px-2 py-1 border rounded text-sm"
-                        >
+                        <select value={option || ""} onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "") updateDraftField("tag", null);
+                          else if (v === "Other") {
+                            if (!["VLA", "Potential Partner", "Other"].includes(draft.tag || "")) updateDraftField("tag", draft.tag || "");
+                            else updateDraftField("tag", "");
+                          } else updateDraftField("tag", v);
+                        }} className="w-full px-2 py-1 border rounded text-sm">
                           <option value="">Select</option>
                           <option value="VLA">VLA</option>
-                          <option value="Potential Partner">
-                            Potential Partner
-                          </option>
-                          <option value="Interested in event">
-                            Interested in event
-                          </option>
+                          <option value="Potential Partner">Potential Partner</option>
+                          <option value="Interested in event">Interested in event</option>
                           <option value="Other">Other</option>
                         </select>
 
                         {option === "Other" && (
-                          <input
-                            type="text"
-                            placeholder="Enter custom tag"
-                            value={draft.tag || ""}
-                            onChange={(e) =>
-                              updateDraftField("tag", e.target.value || null)
-                            }
-                            className="w-full px-2 py-1 border rounded text-sm"
-                          />
+                          <input type="text" placeholder="Enter custom tag" value={draft.tag || ""} onChange={(e) => updateDraftField("tag", e.target.value || null)} className="w-full px-2 py-1 border rounded text-sm" />
                         )}
                       </>
                     );
@@ -736,24 +689,17 @@ export function NewAggregatorModal({
 
           {/* Additional Details */}
           <div className="bg-gray-50 p-4 rounded">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Additional Details
-            </h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Additional Details</h3>
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <div className="flex justify-between items-baseline">
-                  <label className="text-xs text-gray-500">
-                    Interested Companies
-                  </label>
-                  <div className="text-xs text-gray-400">
-                    {(draft.interestsCompaniesIds || []).length} selected
-                  </div>
+                  <label className="text-xs text-gray-500">Interested Companies</label>
+                  <div className="text-xs text-gray-400">{(draft.interestsCompaniesIds || []).length} selected</div>
                 </div>
 
                 {!isEditing ? (
                   <div className="mt-2 text-sm">
-                    {draft.interestsCompaniesIds &&
-                    draft.interestsCompaniesIds.length > 0 ? (
+                    {draft.interestsCompaniesIds && draft.interestsCompaniesIds.length > 0 ? (
                       <ul className="list-disc ml-5">
                         {draft.interestsCompaniesIds.map((id) => {
                           const c = availableCompanies.find((x) => x.id === id);
@@ -765,45 +711,22 @@ export function NewAggregatorModal({
                     )}
                   </div>
                 ) : (
-                  <div className="mt-2">
-                    <input
-                      type="text"
-                      placeholder="Search companies..."
-                      value={companySearch}
-                      onChange={(e) => setCompanySearch(e.target.value)}
-                      className="flex-1 px-3 py-2 border rounded text-sm mb-2 w-full"
-                    />
-
+                  // WRAPPER with its own stacking context to avoid clipping/overlay issues
+                  <div className="mt-2" style={{ position: "relative", zIndex: 900 }}>
+                    <input type="text" placeholder="Search companies..." value={companySearch} onChange={(e) => setCompanySearch(e.target.value)} className="flex-1 px-3 py-2 border rounded text-sm mb-2 w-full" />
                     <div className="border rounded p-2 max-h-40 overflow-y-auto bg-white">
                       {filteredCompanies.length === 0 ? (
-                        <div className="text-xs text-gray-400">
-                          No companies
-                        </div>
+                        <div className="text-xs text-gray-400">No companies</div>
                       ) : (
                         filteredCompanies.map((company) => (
-                          <label
-                            key={company.id}
-                            className="flex items-center gap-2 py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
-                          >
+                          <label key={company.id} className="flex items-center gap-2 py-1 px-2 hover:bg-gray-50 rounded cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={(
-                                draft.interestsCompaniesIds || []
-                              ).includes(company.id)}
+                              checked={(draft.interestsCompaniesIds || []).includes(company.id)}
                               onChange={(e) => {
-                                const currentIds =
-                                  draft.interestsCompaniesIds || [];
-                                if (e.target.checked) {
-                                  updateDraftField("interestsCompaniesIds", [
-                                    ...currentIds,
-                                    company.id,
-                                  ]);
-                                } else {
-                                  updateDraftField(
-                                    "interestsCompaniesIds",
-                                    currentIds.filter((id) => id !== company.id)
-                                  );
-                                }
+                                const currentIds = draft.interestsCompaniesIds || [];
+                                if (e.target.checked) updateDraftField("interestsCompaniesIds", [...currentIds, company.id]);
+                                else updateDraftField("interestsCompaniesIds", currentIds.filter((id) => id !== company.id));
                               }}
                               className="w-4 h-4 text-blue-600"
                             />
@@ -819,169 +742,72 @@ export function NewAggregatorModal({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500">Notes</label>
-                  <textarea
-                    value={draft.notes || ""}
-                    onChange={(e) => updateDraftField("notes", e.target.value)}
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    rows={3}
-                    placeholder="Add any notes..."
-                  />
+                  <textarea value={draft.notes || ""} onChange={(e) => updateDraftField("notes", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" rows={3} placeholder="Add any notes..." />
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Other Crops (comma separated)
-                  </label>
-                  <input
-                    value={(draft.otherCrops || []).join(", ")}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "otherCrops",
-                        e.target.value
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean)
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="Rice, Wheat, Corn"
-                  />
+                  <label className="text-xs text-gray-500">Other Crops (comma separated)</label>
+                  <input value={(draft.otherCrops || []).join(", ")} onChange={(e) => updateDraftField("otherCrops", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="Rice, Wheat, Corn" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Ready to Supply
-                  </label>
-                  <input
-                    type="date"
-                    value={draft.readyToSupply || ""}
-                    onChange={(e) =>
-                      updateDraftField("readyToSupply", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    {draft.readyToSupply
-                      ? toDisplayDateDDMMYYYY(draft.readyToSupply)
-                      : "-"}
-                  </div>
+                  <label className="text-xs text-gray-500">Ready to Supply</label>
+                  <input type="date" value={draft.readyToSupply || ""} onChange={(e) => updateDraftField("readyToSupply", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" />
+                  <div className="text-xs text-gray-500 mt-1">{draft.readyToSupply ? toDisplayDateDDMMYYYY(draft.readyToSupply) : "-"}</div>
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Last Interacted At *
-                  </label>
-                  <input
-                    type="date"
-                    value={draft.lastInteracted || ""}
-                    onChange={(e) =>
-                      updateDraftField("lastInteracted", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    {draft.lastInteracted
-                      ? toDisplayDateDDMMYYYY(draft.lastInteracted)
-                      : "-"}
-                  </div>
+                  <label className="text-xs text-gray-500">Last Interacted At *</label>
+                  <input type="date" value={draft.lastInteracted || ""} onChange={(e) => updateDraftField("lastInteracted", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" />
+                  <div className="text-xs text-gray-500 mt-1">{draft.lastInteracted ? toDisplayDateDDMMYYYY(draft.lastInteracted) : "-"}</div>
                 </div>
 
                 <div>
                   <label className="text-xs text-gray-500">Next Action *</label>
-                  <input
-                    type="text"
-                    value={draft.nextAction || ""}
-                    onChange={(e) =>
-                      updateDraftField("nextAction", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="Enter next action"
-                  />
+                  <input type="text" value={draft.nextAction || ""} onChange={(e) => updateDraftField("nextAction", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="Enter next action" />
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Next Action Due *
-                  </label>
-                  <input
-                    type="date"
-                    value={draft.nextActionDueDate || ""}
-                    onChange={(e) =>
-                      updateDraftField("nextActionDueDate", e.target.value)
-                    }
-                    min={new Date().toISOString().split("T")[0]}
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    {draft.nextActionDueDate
-                      ? toDisplayDateDDMMYYYY(draft.nextActionDueDate)
-                      : "-"}
-                  </div>
+                  <label className="text-xs text-gray-500">Next Action Due *</label>
+                  <input type="date" value={draft.nextActionDueDate || ""} onChange={(e) => updateDraftField("nextActionDueDate", e.target.value)} min={new Date().toISOString().split("T")[0]} className="w-full px-3 py-2 border rounded text-sm mt-1" />
+                  <div className="text-xs text-gray-500 mt-1">{draft.nextActionDueDate ? toDisplayDateDDMMYYYY(draft.nextActionDueDate) : "-"}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-gray-500">
-                    Is Interested To Work?
-                  </label>
-                  <select
-                    value={draft.interestTo ?? ""}
-                    onChange={(e) =>
-                      updateDraftField(
-                        "interestTo",
-                        e.target.value === ""
-                          ? null
-                          : (e.target.value as AggregatorData["interestTo"])
-                      )
-                    }
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                  >
+                  <label className="text-xs text-gray-500">Is Interested To Work?</label>
+                  <select value={draft.interestTo ?? ""} onChange={(e) => updateDraftField("interestTo", e.target.value === "" ? null : (e.target.value as AggregatorData["interestTo"]))} className="w-full px-3 py-2 border rounded text-sm mt-1">
                     <option value="">Select</option>
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
                   </select>
                 </div>
+
                 <div>
                   <label className="text-xs text-gray-500">Radius (km)</label>
-                  <input
-                    value={draft.radius ?? ""}
-                    onChange={(e) => updateDraftField("radius", e.target.value)}
-                    className="w-full px-3 py-2 border rounded text-sm mt-1"
-                    placeholder="Radius in km"
-                  />
+                  <input value={draft.radius ?? ""} onChange={(e) => updateDraftField("radius", e.target.value)} className="w-full px-3 py-2 border rounded text-sm mt-1" placeholder="Radius in km" />
                 </div>
               </div>
             </div>
           </div>
         </div>
 
+        {/* footer */}
         <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 flex justify-end gap-3">
-          <button
-            onClick={cancelNewAggregator}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={saveDraft}
-            disabled={savingLead}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {savingLead ? (
-              <>
-                <Spinner size={16} /> Saving...
-              </>
-            ) : (
-              <>
-                <Save size={16} /> Create / Save
-              </>
-            )}
+          <button onClick={cancelNewAggregator} className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Cancel</button>
+          <button onClick={handleSave} disabled={savingLocal || savingLead} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+            {savingLocal || savingLead ? (<><Spinner size={16} /> Updating...</>) : (<><Save size={16} /> Update</>)}
           </button>
         </div>
       </div>
     </div>
   );
+
+  if (typeof document !== "undefined") return ReactDOM.createPortal(modal, document.body);
+  return modal;
 }
+
+export default NewAggregatorModal;

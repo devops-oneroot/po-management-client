@@ -7,9 +7,18 @@ import React from "react";
 type Props = {
   className?: string; // allow customizing placement/spacing from parent
   buttonText?: string;
+  /**
+   * Called when a buyer is successfully created.
+   * Receives (phone: string, user?: any)
+   */
+  onCreated?: (phone: string, user?: any) => void;
 };
 
-const CreateBuyerButton: React.FC<Props> = ({ className = "", buttonText = "Create Buyer" }) => {
+const CreateBuyerButton: React.FC<Props> = ({
+  className = "",
+  buttonText = "Create Buyer",
+  onCreated,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -22,7 +31,16 @@ const CreateBuyerButton: React.FC<Props> = ({ className = "", buttonText = "Crea
         {buttonText}
       </button>
 
-      <CreateBuyerFormModal isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      <CreateBuyerFormModal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        onCreated={(phone, user) => {
+          // close buyer modal
+          setIsOpen(false);
+          // bubble up event to parent
+          onCreated?.(phone, user);
+        }}
+      />
     </>
   );
 };

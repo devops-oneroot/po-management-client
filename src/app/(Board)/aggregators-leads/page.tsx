@@ -754,7 +754,113 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
   ) {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
   }
-  function renderCellForKey(key: string, row: AggregatorData) {
+
+  /**
+   * Helper to apply user object fields into an aggregator draft.
+   * Similar mapping as NewAggregatorModal.applyUserToDraft.
+   */
+  const applyUserToDraftLocal = (user: any) => {
+    if (!user) return;
+    setDraft((d) => {
+      const base = d ?? createEmptyAggregatorDraft();
+      const capacityVal =
+        user.loadingCapacity ??
+        user.loading_capacity ??
+        user.capacity ??
+        user.loadingCapacityValue ??
+        user.loading_capacity_value ??
+        null;
+      const capacityUnitVal =
+        user.loadingCapacityMeasure ??
+        user.loading_capacity_measure ??
+        user.capacityUnit ??
+        user.loadingCapacityUnit ??
+        user.loading_capacity_unit ??
+        null;
+
+      const experienceVal =
+        user.experience ?? (user.yearsExperience ?? undefined) ?? undefined;
+
+      const freq =
+        user.loadingFrequency ?? user.frequency ?? user.loadFrequency ?? null;
+
+      return {
+        ...base,
+        userId: user.id ?? base.userId ?? null,
+        name: user.name ?? base.name ?? "",
+        number:
+          user.mobileNumber ?? user.phone ?? (base.number as string | null) ?? "",
+        __raw: { ...(base.__raw || {}), ...user },
+        __rawUserFromLookup: user,
+        village: user.village ?? base.village ?? "",
+        taluk: user.taluk ?? base.taluk ?? "",
+        district: user.district ?? base.district ?? "",
+        state: user.state ?? base.state ?? "",
+        capacity: capacityVal !== null && capacityVal !== undefined ? String(capacityVal) : base.capacity ?? null,
+        capacityUnit: capacityUnitVal ? String(capacityUnitVal) : base.capacityUnit ?? null,
+        experience: experienceVal !== undefined && experienceVal !== null ? String(experienceVal) : base.experience ?? null,
+        frequency: freq ? String(freq) : base.frequency ?? null,
+      } as AggregatorData;
+    });
+  };
+
+  // ========== NEW: handle buyer created from CreateBuyerForm ==========
+  const handleBuyerCreated = async (phone: string, user?: any) => {
+    try {
+      // start with an empty draft and prefill phone
+      const empty = createEmptyAggregatorDraft();
+      const prefill: AggregatorData = {
+        ...empty,
+        number: phone,
+      };
+
+      setDraft(prefill);
+      setSelectedRowId(null);
+      setIsEditing(true);
+      setShowNewAggregatorModal(true);
+
+      // If user object provided by createBuyer, apply immediately and load location lists
+      if (user && user.id) {
+        applyUserToDraftLocal(user);
+
+        // load location lists for selects if user has state/district/taluk
+        if (user.state) {
+          await loadDistrictsWrapper(user.state);
+          if (user.district) {
+            await loadTaluksWrapper(user.state, user.district);
+            if (user.taluk) {
+              await loadVillagesWrapper(user.state, user.district, user.taluk);
+            }
+          }
+        }
+        return;
+      }
+
+      // If no user was returned, attempt a lookup by phone to populate more fields
+      const lookedUp = await findUserByPhone(phone);
+      if (lookedUp && lookedUp.id) {
+        applyUserToDraftLocal(lookedUp);
+        if (lookedUp.state) {
+          await loadDistrictsWrapper(lookedUp.state);
+          if (lookedUp.district) {
+            await loadTaluksWrapper(lookedUp.state, lookedUp.district);
+            if (lookedUp.taluk) {
+              await loadVillagesWrapper(
+                lookedUp.state,
+                lookedUp.district,
+                lookedUp.taluk
+              );
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("handleBuyerCreated error:", err);
+      showToast("Failed to open aggregator form from created buyer", "error");
+    }
+  };
+
+  const renderCellForKey = (key: string, row: AggregatorData) => {
     // provide conservative fallbacks; extend this switch if you want custom formatting
     switch (key) {
       case "onboarded":
@@ -880,7 +986,7 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
         if (typeof v === "object") return JSON.stringify(v);
         return String(v);
     }
-  }
+  };
 
   // helper: whether any filters active
   const activeFiltersCount =
@@ -1006,7 +1112,7 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
             </div>
 
             {/* Create Buyer moved to top and reusing CreateBuyerButton component */}
-            <CreateBuyerButton className="!px-4 !py-2" />
+            <CreateBuyerButton className="!px-4 !py-2" onCreated={handleBuyerCreated} />
 
             <button
               onClick={createNewAggregator}
@@ -1298,9 +1404,7 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
                     className="inline-block w-2 h-2 rounded-full"
                     aria-hidden="true"
                     style={{
-                      background: showColumnSelector
-                        ? "#10B981"
-                        : "transparent",
+                      background: showColumnSelector ? "#10B981" : "transparent",
                       border: "1px solid #D1D5DB",
                     }}
                   />

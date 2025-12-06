@@ -1,24 +1,26 @@
+/* ---------- Animations ---------- */
+/* single canonical fadeIn */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-
-.animateFadeIn {
-  animation: fadeIn 0.3s ease-out;
-}
-/* small animation helper used in Column selector */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 .animateFadeIn {
   animation: fadeIn 180ms ease;
+}
+
+/* ---------- Table scroll / sticky helpers ---------- */
+/* container for the table; allow horizontal scrolling but let children overflow vertically */
+.tableScroll {
+  position: relative; /* required for sticky children */
+  overflow-x: auto;
+  overflow-y: visible; /* important so expanded <td> can render outside clipping box */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* subtle custom scrollbar for wide table (optional) */
@@ -33,28 +35,37 @@
   border-radius: 8px;
 }
 
-/* small helpers to match screenshot spacing */
+/* make sure table itself can shrink when inside .tableScroll */
+.tableScroll > table {
+  width: 100%;
+  min-width: 0; /* important to avoid forcing a huge minimum width */
+}
+
+/* ---------- Small UI helpers ---------- */
 .rounded-2xl {
   border-radius: 16px;
 }
 
-/* collapse helper and scrollbar */
-.animateFadeIn { animation: fadeIn 180ms ease; }
-.tableScroll::-webkit-scrollbar { height: 8px; }
-.tableScroll::-webkit-scrollbar-track { background: transparent; }
-.tableScroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 8px; }
-.rounded-2xl { border-radius: 16px; }
-
-/* small responsive tweak so collapsed filter card keeps compact height */
+/* responsive tweak */
 @media (max-width: 900px) {
   .rounded-2xl { border-radius: 12px; }
 }
-/* styles.module.css (or global css) */
-.tableScroll {
-  position: relative; /* required for sticky children */
-  overflow-x: auto;
+
+/* ---------- Expanded-row helpers ---------- */
+/* apply this class on the <td> that contains your ExpandedRowContent */
+.expandedRowCell {
+  overflow: visible !important; /* let expanded content show */
+  position: relative; /* for absolutely positioned children */
 }
 
-
-
-
+/* if you prefer to keep styles in CSS instead of adding tailwind classes
+   apply these to the panels inside ExpandedRowContent so they shrink correctly */
+.expandedPanel {
+  flex: 1 1 0%;
+  min-width: 0; /* CRITICAL on flex children so they can shrink */
+}
+.noInnerScroll {
+  /* use this on the companies box if you don't want an inner scrollbar */
+  max-height: none !important;
+  overflow: visible !important;
+}

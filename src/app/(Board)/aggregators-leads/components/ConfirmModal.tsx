@@ -20,7 +20,10 @@ export function ConfirmModal({
       : "bg-blue-600 hover:bg-blue-700";
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[90]">
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[90]"
+      style={{ zIndex: 2100 }}
+    >
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 animate-fadeIn">
         <h3 className="text-xl font-semibold mb-3">{title}</h3>
         <p className="text-gray-600 mb-6">{message}</p>
@@ -42,4 +45,3 @@ export function ConfirmModal({
     </div>
   );
 }
-
