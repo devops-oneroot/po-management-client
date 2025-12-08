@@ -10,8 +10,6 @@ import {
   MapPin,
   Loader2,
   Users,
-  Sprout,
-  StickyNote,
   MoreVertical,
   Edit2,
   Trash2,
@@ -153,14 +151,10 @@ const CompanyDashboard = () => {
                 <Building2 className="w-16 h-16 text-emerald-600" />
               </div>
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                {searchTerm
-                  ? "No companies found"
-                  : "No companies onboarded yet"}
+                {searchTerm ? "No companies found" : "No companies onboarded yet"}
               </h2>
               <p className="text-gray-600 mb-8">
-                {searchTerm
-                  ? "Try a different search term"
-                  : "Start adding your first partner"}
+                {searchTerm ? "Try a different search term" : "Start adding your first partner"}
               </p>
             </div>
           )}
@@ -169,9 +163,12 @@ const CompanyDashboard = () => {
           {!isLoading && total > 0 && (
             <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredCompanies.map((company) => (
-                <div
+                <Link
                   key={company.id}
+                  href={`/company/${company.id}`}
                   className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl border border-gray-100 transition-all duration-300 hover:-translate-y-2 overflow-hidden"
+                  // Ensure keyboard focus shows as a link
+                  tabIndex={0}
                 >
                   {/* Header with Logo */}
                   <div className="h-44 bg-gradient-to-br from-emerald-500 to-teal-600 relative">
@@ -201,17 +198,17 @@ const CompanyDashboard = () => {
                   <div className="p-6">
                     {/* Name + Menu */}
                     <div className="flex items-start justify-between mb-4">
-                      <h3 className="text-xl font-bold text-gray-900">
-                        {company.name}
-                      </h3>
+                      <h3 className="text-xl font-bold text-gray-900">{company.name}</h3>
+
+                      {/* stopPropagation so this button doesn't trigger the Link */}
                       <button
                         onClick={(e) => {
+                          e.stopPropagation();
                           e.preventDefault();
-                          setOpenMenuId(
-                            openMenuId === company.id ? null : company.id
-                          );
+                          setOpenMenuId(openMenuId === company.id ? null : company.id);
                         }}
                         className="p-2 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition"
+                        aria-label={`Open menu for ${company.name}`}
                       >
                         <MoreVertical className="w-5 h-5 text-gray-500" />
                       </button>
@@ -220,26 +217,19 @@ const CompanyDashboard = () => {
                     {/* Location */}
                     <div className="flex items-center text-gray-600 mb-5">
                       <MapPin className="w-4 h-4 mr-2" />
-                      <span className="text-sm">
-                        {company.village}, {company.district}
-                      </span>
+                      <span className="text-sm">{company.village}, {company.district}</span>
                     </div>
 
                     {/* Crops */}
                     {company.cropNames && company.cropNames.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-5">
                         {company.cropNames.slice(0, 3).map((crop) => (
-                          <span
-                            key={crop}
-                            className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full"
-                          >
+                          <span key={crop} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">
                             {crop}
                           </span>
                         ))}
                         {company.cropNames.length > 3 && (
-                          <span className="text-xs text-gray-500">
-                            +{company.cropNames.length - 3}
-                          </span>
+                          <span className="text-xs text-gray-500">+{company.cropNames.length - 3}</span>
                         )}
                       </div>
                     )}
@@ -247,20 +237,15 @@ const CompanyDashboard = () => {
                     {/* Contact & GST Footer */}
                     <div className="pt-5 border-t mt-2 border-gray-200 space-y-4 bg-gray-50 -m-6 p-6 rounded-b-2xl">
                       {/* Contact Person + Phone */}
-                      {(company.contactPersonName ||
-                        company.contactPersonNumber) && (
+                      {(company.contactPersonName || company.contactPersonNumber) && (
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                               <Users className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                              <p className="text-xs text-gray-600">
-                                Contact Person
-                              </p>
-                              <p className="font-bold text-gray-900">
-                                {company.contactPersonName || "—"}
-                              </p>
+                              <p className="text-xs text-gray-600">Contact Person</p>
+                              <p className="font-bold text-gray-900">{company.contactPersonName || "—"}</p>
                             </div>
                           </div>
 
@@ -269,9 +254,7 @@ const CompanyDashboard = () => {
                               <p className="text-xs text-gray-600 flex items-center gap-1">
                                 <Phone className="w-3.5 h-3.5" /> Phone
                               </p>
-                              <p className="font-mono text-lg font-black text-emerald-700">
-                                {company.contactPersonNumber}
-                              </p>
+                              <p className="font-mono text-lg font-black text-emerald-700">{company.contactPersonNumber}</p>
                             </div>
                           )}
                         </div>
@@ -285,12 +268,8 @@ const CompanyDashboard = () => {
                               GST
                             </div>
                             <div>
-                              <p className="text-xs text-amber-700 font-medium">
-                                GSTIN
-                              </p>
-                              <p className="font-mono text-xl font-black text-amber-900 tracking-widest">
-                                {company.gstNumber}
-                              </p>
+                              <p className="text-xs text-amber-700 font-medium">GSTIN</p>
+                              <p className="font-mono text-xl font-black text-amber-900 tracking-widest">{company.gstNumber}</p>
                             </div>
                           </div>
                           <CheckCircle2 className="w-8 h-8 text-green-600" />
@@ -309,9 +288,16 @@ const CompanyDashboard = () => {
 
                   {/* Dropdown Menu */}
                   {openMenuId === company.id && (
-                    <div className="absolute top-52 right-6 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50">
+                    <div
+                      className="absolute top-52 right-6 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50 pointer-events-auto"
+                      // prevent clicks from bubbling to the Link
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
                       <button
                         onClick={(e) => {
+                          e.stopPropagation();
                           e.preventDefault();
                           setEditingCompany(company);
                           setIsFormOpen(true);
@@ -323,12 +309,10 @@ const CompanyDashboard = () => {
                       </button>
                       <button
                         onClick={async (e) => {
+                          e.stopPropagation();
                           e.preventDefault();
                           if (confirm("Delete this company?")) {
-                            await fetch(
-                              `${process.env.NEXT_PUBLIC_API_URL}/po-companies/${company.id}`,
-                              { method: "DELETE" }
-                            );
+                            await fetch(`${process.env.NEXT_PUBLIC_API_URL}/po-companies/${company.id}`, { method: "DELETE" });
                             setReloadKey((k) => k + 1);
                           }
                           setOpenMenuId(null);
@@ -339,7 +323,7 @@ const CompanyDashboard = () => {
                       </button>
                     </div>
                   )}
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -350,6 +334,7 @@ const CompanyDashboard = () => {
       <button
         onClick={() => setIsFormOpen(true)}
         className="fixed bottom-8 right-8 w-16 h-16 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-40"
+        aria-label="Add new company"
       >
         <Plus className="w-8 h-8" />
       </button>
@@ -365,9 +350,7 @@ const CompanyDashboard = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {editingCompany ? "Edit Company" : "Onboard New Company"}
-              </h2>
+              <h2 className="text-2xl font-bold text-gray-900">{editingCompany ? "Edit Company" : "Onboard New Company"}</h2>
               <button
                 onClick={() => {
                   setIsFormOpen(false);
@@ -375,18 +358,8 @@ const CompanyDashboard = () => {
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
