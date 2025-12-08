@@ -1092,7 +1092,7 @@ const PurchaseOrdersPage = () => {
                           "QC_CHECK_DONE",
                           "UNLOADING_DONE",
                           "GRN_ISSUED",
-                          "REGECTED",
+                          "REJECTED",
                           "COMPLETED",
                           "CANCELLED",
                         ].map((s) => (
