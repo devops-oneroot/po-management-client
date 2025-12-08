@@ -159,6 +159,26 @@ const PurchaseOrdersPage = () => {
     fetchData();
   }, [activeTab, reloadKey]);
 
+  // const updateAssigneeStatus = async (assigneeId: string, status: string) => {
+  //   try {
+  //     const res = await fetch(
+  //       `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${assigneeId}`,
+  //       {
+  //         method: "PATCH",
+  //         headers: { "Content-Type": "application/json" },
+  //         body: JSON.stringify({ status }),
+  //       }
+  //     );
+
+  //     if (!res.ok) {
+  //       const err = await res.json();
+  //       throw new Error(err.message || "Failed to update assignee status");
+  //     }
+  //     setReloadKey((k) => k + 1);
+  //   } catch (err: any) {
+  //     alert("Failed to update Status: " + err.message);
+  //   }
+  // };
   const updateAssigneeStatus = async (assigneeId: string, status: string) => {
     try {
       const res = await fetch(
@@ -174,7 +194,16 @@ const PurchaseOrdersPage = () => {
         const err = await res.json();
         throw new Error(err.message || "Failed to update assignee status");
       }
-      setReloadKey((k) => k + 1);
+
+      // ✅ UPDATE LOCAL STATE ONLY (NO RELOAD)
+      setPoData((prev) =>
+        prev.map((po) => ({
+          ...po,
+          assignees: po.assignees.map((a) =>
+            a.id === assigneeId ? { ...a, status } : a
+          ),
+        }))
+      );
     } catch (err: any) {
       alert("Failed to update Status: " + err.message);
     }
@@ -323,14 +352,37 @@ const PurchaseOrdersPage = () => {
               }, 0);
               const remainingTons = po.poQuantity - assignedTons;
 
+              const getExpiryInfo = (expiryDate: string) => {
+                const today = new Date();
+                const expiry = new Date(expiryDate);
+
+                today.setHours(0, 0, 0, 0);
+                expiry.setHours(0, 0, 0, 0);
+
+                const diff = expiry.getTime() - today.getTime();
+                const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+                return {
+                  isExpired: daysLeft < 0,
+                  daysLeft,
+                };
+              };
+
+              const { isExpired, daysLeft } = getExpiryInfo(po.poExpiryDate);
+
               return (
                 <div
                   key={po.id}
                   className="bg-white rounded-xl shadow-xl border border-gray-200 overflow-visible"
                 >
                   {/* PO Header */}
-                  <div
+                  {/* <div
                     className="flex items-center justify-between p-4 bg-gray-400 border-b cursor-pointer"
+                    onClick={() => togglePO(po.id)}
+                  > */}
+                  <div
+                    className={`flex items-center justify-between p-4 border-b cursor-pointer
+      ${isExpired ? "bg-red-400" : "bg-gray-400"}`}
                     onClick={() => togglePO(po.id)}
                   >
                     <div className="flex items-center gap-4">
@@ -398,10 +450,31 @@ const PurchaseOrdersPage = () => {
                         {formatDate(po.poIssuedDate)}
                       </p>
                     </div>
-                    <div>
+                    {/* <div>
                       <p className="text-gray-500">PO Expiry</p>
                       <p className="font-medium">
                         {formatDate(po.poExpiryDate)}
+                      </p>
+                    </div> */}
+                    <div>
+                      <p className="text-gray-500">PO Expiry</p>
+
+                      <p
+                        className={`font-medium ${
+                          isExpired ? "text-red-600" : ""
+                        }`}
+                      >
+                        {formatDate(po.poExpiryDate)}
+                      </p>
+
+                      <p
+                        className={`text-xs font-semibold ${
+                          isExpired ? "text-red-600" : "text-green-600"
+                        }`}
+                      >
+                        {isExpired
+                          ? `Expired ${Math.abs(daysLeft)} day(s) ago`
+                          : `${daysLeft} day(s) left`}
                       </p>
                     </div>
                     <div>
@@ -554,7 +627,7 @@ const PurchaseOrdersPage = () => {
                                   )}
                                 </button>
 
-                                <div className="flex-1 grid grid-cols-10 gap-4 text-sm">
+                                <div className="flex-1 grid grid-cols-10 gap-1 text-sm">
                                   <div>
                                     <span className="text-gray-500">Name</span>
                                     <p className="font-semibold mt-1">
@@ -637,13 +710,19 @@ const PurchaseOrdersPage = () => {
                                     </label>
                                     <select
                                       value={assignee.status}
-                                      onChange={(e) =>
+                                      // onChange={(e) =>
+                                      //   updateAssigneeStatus(
+                                      //     assignee.id,
+                                      //     e.target.value
+                                      //   )
+                                      // }
+                                      onChange={(e) => {
+                                        e.stopPropagation();
                                         updateAssigneeStatus(
                                           assignee.id,
                                           e.target.value
-                                        )
-                                      }
-                                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                                        );
+                                      }}
                                     >
                                       {[
                                         "PO_ASSIGNED",
@@ -655,6 +734,7 @@ const PurchaseOrdersPage = () => {
                                         "UNLOADING_DONE",
                                         "GRN_ISSUED",
                                         "COMPLETED",
+                                        "REJECTED",
                                         "CANCELLED",
                                       ].map((s) => (
                                         <option key={s} value={s}>
@@ -1012,6 +1092,7 @@ const PurchaseOrdersPage = () => {
                           "QC_CHECK_DONE",
                           "UNLOADING_DONE",
                           "GRN_ISSUED",
+                          "REGECTED",
                           "COMPLETED",
                           "CANCELLED",
                         ].map((s) => (
