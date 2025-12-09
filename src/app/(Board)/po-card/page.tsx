@@ -248,7 +248,7 @@ const PurchaseOrdersPage = () => {
       const dispatch: Dispatch = {
         truckNo: assignee.truckNo || "—",
         salesInvoiceNo: assignee.salesInvoiceNo || "—",
-        dispatchDate: assignee.dispatchDate,
+        dispatchDate: assignee.dispatchDate || "",
         promisedDate: assignee.promisedDate,
         status: assignee.status === "COMPLETED" ? "Completed" : "In Progress",
 
@@ -262,7 +262,7 @@ const PurchaseOrdersPage = () => {
         driverDetails: !!assignee.driverName,
         paymentSlip: !!assignee.paymentSlipImages?.length,
         grnImages: !!assignee.grnImages?.length,
-
+        weighmentImages: !!assignee.weighmentImages?.length,
         weighment: !!assignee.weighmentImages?.length,
       };
 
@@ -339,10 +339,13 @@ const PurchaseOrdersPage = () => {
         ) : (
           <div className="space-y-6">
             {transformedPOs.map((po) => {
-              const assignedTons = po.assignees.reduce(
-                (sum, a) => sum + a.promisedQuantity,
-                0
-              );
+              // Calculate assigned tons - convert KILOGRAM to TON if needed
+              const assignedTons = po.assignees.reduce((sum, a) => {
+                const quantity = a.promisedQuantity || 0;
+                const measure = a.promisedQuantityMeasure || "KILOGRAM";
+                // Convert to tons: if KILOGRAM divide by 1000, if TON use as-is
+                return sum + (measure === "KILOGRAM" ? quantity / 1000 : quantity);
+              }, 0);
               const fulfilledTons = po.assignees.reduce((sum, a) => {
                 const unloaded = a.quantityUnloaded || 0;
                 const measure = a.quantityUnloadedMeasure || "KILOGRAM";
@@ -526,7 +529,10 @@ const PurchaseOrdersPage = () => {
                             className="flex justify-between gap-3 border-b last:border-b-0 py-1"
                           >
                             <span className="text-gray-600">
-                              {assignee.promisedQuantity} Tons
+                              {assignee.promisedQuantity}{" "}
+                              {assignee.promisedQuantityMeasure === "KILOGRAM"
+                                ? "KG"
+                                : "Tons"}
                             </span>
                             <span className="font-semibold text-blue-600">
                               {assignee.status}
@@ -548,7 +554,10 @@ const PurchaseOrdersPage = () => {
                               className="flex justify-between gap-3 border-b last:border-b-0 py-1"
                             >
                               <span className="text-gray-600">
-                                {assignee.promisedQuantity} Tons
+                                {assignee.promisedQuantity}{" "}
+                                {assignee.promisedQuantityMeasure === "KILOGRAM"
+                                  ? "KG"
+                                  : "Tons"}
                               </span>
                               <span className="font-semibold text-blue-600">
                                 {assignee.status}
@@ -592,11 +601,22 @@ const PurchaseOrdersPage = () => {
                     <div className="p-6 border-t">
                       <div className="space-y-3">
                         {po.assignees.map((assignee) => {
-                          const fulfilled =
-                            (assignee.quantityUnloaded || 0) / 1000;
-                          const rejected =
-                            (assignee.rejectedQuantity || 0) / 1000;
-                          const pending = assignee.promisedQuantity - fulfilled;
+                          // Convert fulfilled to tons
+                          const unloaded = assignee.quantityUnloaded || 0;
+                          const unloadedMeasure = assignee.quantityUnloadedMeasure || "KILOGRAM";
+                          const fulfilled = unloadedMeasure === "KILOGRAM" ? unloaded / 1000 : unloaded;
+                          
+                          // Convert rejected to tons
+                          const rejectedQty = assignee.rejectedQuantity || 0;
+                          const rejectedMeasure = assignee.rejectedQuantityMeasure || "KILOGRAM";
+                          const rejected = rejectedMeasure === "KILOGRAM" ? rejectedQty / 1000 : rejectedQty;
+                          
+                          // Convert promised quantity to tons for calculation
+                          const promisedQty = assignee.promisedQuantity || 0;
+                          const promisedMeasure = assignee.promisedQuantityMeasure || "KILOGRAM";
+                          const promisedInTons = promisedMeasure === "KILOGRAM" ? promisedQty / 1000 : promisedQty;
+                          
+                          const pending = promisedInTons - fulfilled;
                           const dispatch = assignee.dispatches?.[0];
                           const isExpanded = expandedAggregators.has(
                             assignee.id
@@ -655,7 +675,7 @@ const PurchaseOrdersPage = () => {
                                       sales No
                                     </span>
                                     <p className="font-semibold mt-1">
-                                      {dispatch.salesInvoiceNo}
+                                      {dispatch?.salesInvoiceNo || "—"}
                                     </p>
                                   </div>
                                   <div>
@@ -663,7 +683,7 @@ const PurchaseOrdersPage = () => {
                                       Vehicle No
                                     </span>
                                     <p className="font-semibold mt-1">
-                                      {dispatch.truckNo}
+                                      {dispatch?.truckNo || "—"}
                                     </p>
                                   </div>
                                   <div>
@@ -677,7 +697,10 @@ const PurchaseOrdersPage = () => {
                                       Assigned
                                     </span>
                                     <p className="font-semibold mt-1">
-                                      {assignee.promisedQuantity} Tons
+                                      {assignee.promisedQuantity}{" "}
+                                      {assignee.promisedQuantityMeasure === "KILOGRAM"
+                                        ? "KG"
+                                        : "Tons"}
                                     </p>
                                   </div>
                                   <div>
