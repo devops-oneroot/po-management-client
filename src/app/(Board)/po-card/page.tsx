@@ -990,7 +990,7 @@ const PurchaseOrdersPage = () => {
                       ),
                       rate: formData.get("rate") as string,
                       promisedDate: formData.get("promisedDate") as string,
-                      dispatchDate: formData.get("dispatchDate") as string,
+                      dispatchDate: (formData.get("dispatchDate") as string) || null,
                       status: formData.get("status") as string,
                       truckNo: (formData.get("truckNo") as string) || null,
                       driverName:
@@ -1057,6 +1057,7 @@ const PurchaseOrdersPage = () => {
                         step="0.01"
                         defaultValue={editingAssignee.promisedQuantity}
                         required
+                        onWheel={(e) => e.currentTarget.blur()}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
                       />
                     </div>
@@ -1091,8 +1092,7 @@ const PurchaseOrdersPage = () => {
                       <input
                         name="dispatchDate"
                         type="date"
-                        defaultValue={editingAssignee.dispatchDate}
-                        required
+                        defaultValue={editingAssignee.dispatchDate || ""}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
                       />
                     </div>
@@ -1199,6 +1199,7 @@ const PurchaseOrdersPage = () => {
                                     name as keyof Assignee
                                   ] as any) || ""
                                 }
+                                onWheel={(e) => e.currentTarget.blur()}
                                 className="flex-1 rounded-md border-gray-300 shadow-sm px-3 py-2 border"
                               />
                               <select
