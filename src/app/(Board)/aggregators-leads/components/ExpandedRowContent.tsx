@@ -65,6 +65,31 @@ export function ExpandedRowContent({
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [companiesError, setCompaniesError] = useState<string | null>(null);
 
+  const [cropSearch, setCropSearch] = useState("");
+  const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
+  const filteredCrops = React.useMemo(() => {
+    if (!cropSearch) return CROPS;
+    const s = cropSearch.toLowerCase();
+    return CROPS.filter((c) => c.toLowerCase().includes(s));
+  }, [cropSearch]);
+
+  useEffect(() => {
+    if (draft?.cropName) {
+      // Handle both array and string formats
+      if (Array.isArray(draft.cropName)) {
+        setSelectedCrops(draft.cropName);
+      } else if (typeof draft.cropName === "string") {
+        const crops = draft.cropName
+          .split(",")
+          .map((c) => c.trim())
+          .filter(Boolean);
+        setSelectedCrops(crops);
+      }
+    } else {
+      setSelectedCrops([]);
+    }
+  }, [draft?.cropName]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -160,10 +185,8 @@ export function ExpandedRowContent({
 
       {/* Content */}
       <div className="w-full flex flex-wrap gap-4 text-sm">
-
         {/* Ready to Supply */}
         <div className="bg-white rounded-lg p-3 shadow-xs border border-gray-100 flex-1 min-w-[260px]">
-
           <div className="text-xs font-semibold text-gray-500 mb-2">
             Ready to Supply
           </div>
@@ -212,23 +235,107 @@ export function ExpandedRowContent({
 
             <div className="col-span-2">
               <div className="text-[11px] font-semibold text-gray-500">
-                Crop
+                Crop(s)
               </div>
               {!isEditing ? (
-                <div className="font-medium">{draft.cropName || "-"}</div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {selectedCrops.length === 0 ? (
+                    <span className="text-[11px] text-gray-400">None</span>
+                  ) : (
+                    selectedCrops.map((crop, i) => (
+                      <span
+                        key={i}
+                        className="text-[11px] bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-medium"
+                      >
+                        {crop}
+                      </span>
+                    ))
+                  )}
+                </div>
               ) : (
-                <select
-                  value={draft.cropName || ""}
-                  onChange={(e) => updateDraftField("cropName", e.target.value)}
-                  className="w-full px-2 py-1 border rounded text-[11px]"
-                >
-                  <option value="">Select Crop</option>
-                  {CROPS.map((crop) => (
-                    <option key={crop} value={crop}>
-                      {crop}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1">
+                  <input
+                    type="text"
+                    placeholder="Search crops..."
+                    value={cropSearch}
+                    onChange={(e) => setCropSearch(e.target.value)}
+                    className="w-full px-2 py-1 border rounded text-[11px] mb-2"
+                  />
+                  <div className="border rounded p-2 max-h-32 overflow-y-auto bg-white">
+                    {filteredCrops.length === 0 ? (
+                      <div className="text-[11px] text-gray-400">
+                        No crops found
+                      </div>
+                    ) : (
+                      filteredCrops.map((crop) => {
+                        const isSelected = selectedCrops.includes(crop);
+
+                        return (
+                          <label
+                            key={crop}
+                            className="flex items-center gap-2 py-1 px-2 hover:bg-gray-50 rounded cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                let newSelected: string[];
+                                if (e.target.checked) {
+                                  // Add crop
+                                  newSelected = [...selectedCrops, crop];
+                                } else {
+                                  // Remove crop
+                                  newSelected = selectedCrops.filter(
+                                    (c) => c !== crop
+                                  );
+                                }
+                                setSelectedCrops(newSelected);
+                                // Update draft.cropName as array
+                                updateDraftField(
+                                  "cropName",
+                                  newSelected as any
+                                );
+                              }}
+                              className="w-3 h-3 text-blue-600"
+                            />
+                            <span className="text-[11px]">{crop}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Display selected crops as tags */}
+                  {selectedCrops.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {selectedCrops.map((crop) => (
+                        <span
+                          key={crop}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-[11px]"
+                        >
+                          {crop}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newSelected = selectedCrops.filter(
+                                (c) => c !== crop
+                              );
+                              setSelectedCrops(newSelected);
+                              updateDraftField("cropName", newSelected as any);
+                            }}
+                            className="ml-1 hover:bg-blue-200 rounded-full p-0.5"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-[11px] text-gray-500 mt-1">
+                    {selectedCrops.length} selected
+                  </div>
+                </div>
               )}
             </div>
 
@@ -343,7 +450,6 @@ export function ExpandedRowContent({
 
         {/* Qualifying / Business */}
         <div className="bg-white rounded-lg p-3 shadow-xs border border-gray-100 flex-1 min-w-[260px]">
-
           <div className="text-xs font-semibold text-gray-500 mb-2">
             Qualifying / Business
           </div>
@@ -680,7 +786,6 @@ export function ExpandedRowContent({
 
         {/* Interaction & Notes */}
         <div className="bg-white rounded-lg p-3 shadow-xs border border-gray-100 flex-1 min-w-[260px]">
-
           <div className="text-xs font-semibold text-gray-500 mb-2">
             Interaction & Notes
           </div>
@@ -794,8 +899,7 @@ export function ExpandedRowContent({
               }
               className="w-full mb-2 px-2 py-1 text-[11px] border rounded"
             />
-           <div className="border rounded p-2 bg-gray-50">
-
+            <div className="border rounded p-2 bg-gray-50">
               {loadingCompanies ? (
                 <div className="text-[11px] text-gray-400 flex items-center gap-2">
                   <Spinner size={12} /> Loading companies...

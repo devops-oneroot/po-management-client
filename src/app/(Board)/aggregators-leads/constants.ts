@@ -8,6 +8,9 @@ export const CROPS = [
   "Maize",
   "Sunflower",
   "Jowar",
+  "Rice",
+  "Soyabean",
+  "Chilly",
 ];
 
 export const CAPACITY_UNITS: QuantityUnit[] = [
