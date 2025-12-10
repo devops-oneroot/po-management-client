@@ -223,13 +223,15 @@ export async function loadVillages(
   }
 }
 
+// FIXED CODE
 export async function fetchLeads(params: Record<string, any>) {
   const qp = new URLSearchParams();
 
   Object.entries(params).forEach(([k, v]) => {
     if (v === undefined || v === null || v === "") return;
     if (Array.isArray(v)) {
-      v.forEach((x) => qp.append(k, String(x)));
+      // ✅ CORRECT: Append with [] notation for arrays
+      v.forEach((x) => qp.append(`${k}[]`, String(x)));
     } else {
       qp.append(k, String(v));
     }

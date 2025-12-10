@@ -112,7 +112,8 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
   // Filters (UI)
   const [searchName, setSearchName] = useState("");
   const [searchCompany, setSearchCompany] = useState("");
-  const [selectedCrop, setSelectedCrop] = useState("");
+  // Change from string to array
+  const [selectedCrop, setSelectedCrop] = useState<string[]>([]);
   const [selectedCapacity, setSelectedCapacity] = useState("");
   const [selectedScore, setSelectedScore] = useState("");
   const [selectedState, setSelectedState] = useState("");
@@ -138,6 +139,7 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
   const [selectedTag, setSelectedTag] = useState("");
   const [sortBy, setSortBy] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [showCropDropdown, setShowCropDropdown] = useState(false);
 
   // filter card collapsed state
   const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(false);
@@ -200,7 +202,9 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
     const params: Record<string, any> = { page, limit };
     if (searchName) params.search = searchName;
     if (searchCompany) params.companyName = searchCompany;
-    if (selectedCrop) params.cropName = selectedCrop;
+    if (selectedCrop.length > 0) {
+      params.cropName = selectedCrop; // ← Send array to backend
+    }
     if (selectedDistrict) params.district = selectedDistrict;
     if (selectedVillage) params.village = selectedVillage;
     if (selectedTaluk) params.taluk = selectedTaluk;
@@ -215,6 +219,7 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
     if (selectedOtherCrops.length > 0) params.otherCrop = selectedOtherCrops;
     if (selectedIsInterestedToWork)
       params.isInterestedToWork = selectedIsInterestedToWork === "true";
+    console.log("Final params:", params);
     return params;
   }
 
@@ -342,7 +347,7 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
   const clearAllFilters = () => {
     setSearchName("");
     setSearchCompany("");
-    setSelectedCrop("");
+    setSelectedCrop([]);
     setSelectedCapacity("");
     setSelectedScore("");
     setSelectedState("");
@@ -376,7 +381,7 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
     { key: "Taluk", clear: () => setSelectedTaluk("") },
     { key: "District", clear: () => setSelectedDistrict("") },
     { key: "Tag", clear: () => setSelectedTag("") },
-    { key: "Crop", clear: () => setSelectedCrop("") },
+    { key: "Crop", clear: () => setSelectedCrop([]) },
     { key: "Company", clear: () => setSearchCompany("") },
     { key: "Search", clear: () => setSearchName("") },
   ];
@@ -779,7 +784,7 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
         null;
 
       const experienceVal =
-        user.experience ?? (user.yearsExperience ?? undefined) ?? undefined;
+        user.experience ?? user.yearsExperience ?? undefined ?? undefined;
 
       const freq =
         user.loadingFrequency ?? user.frequency ?? user.loadFrequency ?? null;
@@ -789,16 +794,27 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
         userId: user.id ?? base.userId ?? null,
         name: user.name ?? base.name ?? "",
         number:
-          user.mobileNumber ?? user.phone ?? (base.number as string | null) ?? "",
+          user.mobileNumber ??
+          user.phone ??
+          (base.number as string | null) ??
+          "",
         __raw: { ...(base.__raw || {}), ...user },
         __rawUserFromLookup: user,
         village: user.village ?? base.village ?? "",
         taluk: user.taluk ?? base.taluk ?? "",
         district: user.district ?? base.district ?? "",
         state: user.state ?? base.state ?? "",
-        capacity: capacityVal !== null && capacityVal !== undefined ? String(capacityVal) : base.capacity ?? null,
-        capacityUnit: capacityUnitVal ? String(capacityUnitVal) : base.capacityUnit ?? null,
-        experience: experienceVal !== undefined && experienceVal !== null ? String(experienceVal) : base.experience ?? null,
+        capacity:
+          capacityVal !== null && capacityVal !== undefined
+            ? String(capacityVal)
+            : base.capacity ?? null,
+        capacityUnit: capacityUnitVal
+          ? String(capacityUnitVal)
+          : base.capacityUnit ?? null,
+        experience:
+          experienceVal !== undefined && experienceVal !== null
+            ? String(experienceVal)
+            : base.experience ?? null,
         frequency: freq ? String(freq) : base.frequency ?? null,
       } as AggregatorData;
     });
@@ -1112,7 +1128,10 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
             </div>
 
             {/* Create Buyer moved to top and reusing CreateBuyerButton component */}
-            <CreateBuyerButton className="!px-4 !py-2" onCreated={handleBuyerCreated} />
+            <CreateBuyerButton
+              className="!px-4 !py-2"
+              onCreated={handleBuyerCreated}
+            />
 
             <button
               onClick={createNewAggregator}
@@ -1196,18 +1215,65 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
                 ))}
               </select>
 
-              <select
-                value={selectedCrop}
-                onChange={(e) => setSelectedCrop(e.target.value)}
-                className="px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"
-              >
-                <option value="">All Crops</option>
-                {CROPS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  onClick={() => setShowCropDropdown(!showCropDropdown)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-left focus:outline-none focus:ring-2 focus:ring-emerald-200 bg-white flex items-center justify-between"
+                >
+                  <span
+                    className={
+                      selectedCrop.length === 0
+                        ? "text-gray-400"
+                        : "text-gray-900"
+                    }
+                  >
+                    {selectedCrop.length === 0
+                      ? "Select Crops"
+                      : `${selectedCrop.length} crop${
+                          selectedCrop.length > 1 ? "s" : ""
+                        } selected`}
+                  </span>
+                  <ChevronDown size={16} className="text-gray-400" />
+                </button>
+
+                {showCropDropdown && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                    <div className="p-2 border-b border-gray-100">
+                      <button
+                        onClick={() => setSelectedCrop([])}
+                        className="text-xs text-gray-500 hover:text-gray-700 underline"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                    <div className="p-2">
+                      {CROPS.map((crop) => (
+                        <label
+                          key={crop}
+                          className="flex items-center gap-2 py-2 px-2 cursor-pointer hover:bg-gray-50 rounded"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCrop.includes(crop)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              if (e.target.checked) {
+                                setSelectedCrop([...selectedCrop, crop]);
+                              } else {
+                                setSelectedCrop(
+                                  selectedCrop.filter((c) => c !== crop)
+                                );
+                              }
+                            }}
+                            className="w-4 h-4 text-emerald-600 rounded border-gray-300"
+                          />
+                          <span className="text-sm text-gray-700">{crop}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <select
                 value={selectedTag}
@@ -1404,7 +1470,9 @@ const AggregatorTable: React.FC<AggregatorTableProps> = ({
                     className="inline-block w-2 h-2 rounded-full"
                     aria-hidden="true"
                     style={{
-                      background: showColumnSelector ? "#10B981" : "transparent",
+                      background: showColumnSelector
+                        ? "#10B981"
+                        : "transparent",
                       border: "1px solid #D1D5DB",
                     }}
                   />
