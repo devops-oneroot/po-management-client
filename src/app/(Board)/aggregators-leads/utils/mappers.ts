@@ -82,9 +82,22 @@ export function mapRowToBackendPayload(row: AggregatorData) {
 
   // only include fields that exist on AggregatorLeads entity
   if (row.userId) payload.userId = row.userId;
+  if (row.cropName) {
+  if (Array.isArray(row.cropName)) {
+    payload.cropName = row.cropName;
+  } else if (typeof row.cropName === 'string') {
+    // Convert comma-separated string to array
+    payload.cropName = row.cropName
+      .split(',')
+      .map(c => c.trim())
+      .filter(Boolean);
+  } else {
+    payload.cropName = null;
+  }
+} else {
+  payload.cropName = null;
+}
 
-  // crop & label & notes
-  payload.cropName = row.cropName ?? null;
   payload.label = row.tag ?? null;
   payload.notes = row.notes ?? null;
 
