@@ -47,6 +47,8 @@ interface Assignee {
 
   driverName?: string | null;
   driverPhone?: string | null;
+  truckOwnerName?: string | null;
+  truckOwnerPhone?: string | null;
   salesInvoiceNo?: string | null;
   deliveryLocation?: string | null;
   grnDate?: string | null;
@@ -250,6 +252,8 @@ const PurchaseOrdersPage = () => {
         salesInvoiceNo: assignee.salesInvoiceNo || "—",
         dispatchDate: assignee.dispatchDate || "",
         promisedDate: assignee.promisedDate,
+        truckOwnerName: assignee.truckOwnerName || "—",
+        truckOwnerPhone: assignee.truckOwnerPhone || "—",
         status: assignee.status === "COMPLETED" ? "Completed" : "In Progress",
 
         acceptedQty: unloadedKg / 1000,
@@ -260,6 +264,7 @@ const PurchaseOrdersPage = () => {
         purchaseBill: !!assignee.salesInvoiceImages?.length,
         qualityReport: !!assignee.qualityReportImages?.length,
         driverDetails: !!assignee.driverName,
+
         paymentSlip: !!assignee.paymentSlipImages?.length,
         grnImages: !!assignee.grnImages?.length,
         weighmentImages: !!assignee.weighmentImages?.length,
@@ -344,7 +349,9 @@ const PurchaseOrdersPage = () => {
                 const quantity = a.promisedQuantity || 0;
                 const measure = a.promisedQuantityMeasure || "KILOGRAM";
                 // Convert to tons: if KILOGRAM divide by 1000, if TON use as-is
-                return sum + (measure === "KILOGRAM" ? quantity / 1000 : quantity);
+                return (
+                  sum + (measure === "KILOGRAM" ? quantity / 1000 : quantity)
+                );
               }, 0);
               const fulfilledTons = po.assignees.reduce((sum, a) => {
                 const unloaded = a.quantityUnloaded || 0;
@@ -603,19 +610,31 @@ const PurchaseOrdersPage = () => {
                         {po.assignees.map((assignee) => {
                           // Convert fulfilled to tons
                           const unloaded = assignee.quantityUnloaded || 0;
-                          const unloadedMeasure = assignee.quantityUnloadedMeasure || "KILOGRAM";
-                          const fulfilled = unloadedMeasure === "KILOGRAM" ? unloaded / 1000 : unloaded;
-                          
+                          const unloadedMeasure =
+                            assignee.quantityUnloadedMeasure || "KILOGRAM";
+                          const fulfilled =
+                            unloadedMeasure === "KILOGRAM"
+                              ? unloaded / 1000
+                              : unloaded;
+
                           // Convert rejected to tons
                           const rejectedQty = assignee.rejectedQuantity || 0;
-                          const rejectedMeasure = assignee.rejectedQuantityMeasure || "KILOGRAM";
-                          const rejected = rejectedMeasure === "KILOGRAM" ? rejectedQty / 1000 : rejectedQty;
-                          
+                          const rejectedMeasure =
+                            assignee.rejectedQuantityMeasure || "KILOGRAM";
+                          const rejected =
+                            rejectedMeasure === "KILOGRAM"
+                              ? rejectedQty / 1000
+                              : rejectedQty;
+
                           // Convert promised quantity to tons for calculation
                           const promisedQty = assignee.promisedQuantity || 0;
-                          const promisedMeasure = assignee.promisedQuantityMeasure || "KILOGRAM";
-                          const promisedInTons = promisedMeasure === "KILOGRAM" ? promisedQty / 1000 : promisedQty;
-                          
+                          const promisedMeasure =
+                            assignee.promisedQuantityMeasure || "KILOGRAM";
+                          const promisedInTons =
+                            promisedMeasure === "KILOGRAM"
+                              ? promisedQty / 1000
+                              : promisedQty;
+
                           const pending = promisedInTons - fulfilled;
                           const dispatch = assignee.dispatches?.[0];
                           const isExpanded = expandedAggregators.has(
@@ -698,7 +717,8 @@ const PurchaseOrdersPage = () => {
                                     </span>
                                     <p className="font-semibold mt-1">
                                       {assignee.promisedQuantity}{" "}
-                                      {assignee.promisedQuantityMeasure === "KILOGRAM"
+                                      {assignee.promisedQuantityMeasure ===
+                                      "KILOGRAM"
                                         ? "KG"
                                         : "Tons"}
                                     </p>
@@ -771,7 +791,7 @@ const PurchaseOrdersPage = () => {
 
                               {isExpanded && dispatch && (
                                 <div className="border-t border-gray-200 bg-gray-50 px-2 py-5">
-                                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-1 text-sm items-end">
+                                  <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-14 gap-2 text-sm items-end">
                                     <div className="text-center">
                                       <span className="text-gray-500">
                                         Edit
@@ -797,6 +817,25 @@ const PurchaseOrdersPage = () => {
                                         {dispatch.truckNo}
                                       </p>
                                     </div>
+
+                                    <div>
+                                      <span className="text-gray-500">
+                                        Truck Owner
+                                      </span>
+                                      <p className="font-semibold mt-1">
+                                        {dispatch.truckOwnerName}
+                                      </p>
+                                    </div>
+
+                                    <div>
+                                      <span className="text-gray-500">
+                                        Truck OwnerNumber
+                                      </span>
+                                      <p className="font-semibold mt-1">
+                                        {dispatch.truckOwnerPhone}
+                                      </p>
+                                    </div>
+
                                     <div>
                                       <span className="text-gray-500">
                                         Status
@@ -854,12 +893,13 @@ const PurchaseOrdersPage = () => {
                                           label: "Driver",
                                           key: "driverDetails",
                                         },
+
                                         {
                                           label: "Weighment",
                                           key: "weighmentImages",
                                         },
                                         {
-                                          label: "grn Image",
+                                          label: "grnImage",
                                           key: "grnImages",
                                         },
                                       ].map(({ label, key }) => {
@@ -990,13 +1030,19 @@ const PurchaseOrdersPage = () => {
                       ),
                       rate: formData.get("rate") as string,
                       promisedDate: formData.get("promisedDate") as string,
-                      dispatchDate: (formData.get("dispatchDate") as string) || null,
+                      dispatchDate:
+                        (formData.get("dispatchDate") as string) || null,
                       status: formData.get("status") as string,
                       truckNo: (formData.get("truckNo") as string) || null,
+                      truckOwnerName:
+                        (formData.get("truckOwnerName") as string) || null,
+                      truckOwnerPhone:
+                        (formData.get("truckOwnerPhone") as string) || null,
                       driverName:
                         (formData.get("driverName") as string) || null,
                       driverPhone:
                         (formData.get("driverPhone") as string) || null,
+
                       salesInvoiceNo:
                         (formData.get("salesInvoiceNo") as string) || null,
                       deliveryLocation:
@@ -1136,6 +1182,31 @@ const PurchaseOrdersPage = () => {
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
                       />
                     </div>
+
+                    {/* <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Truck Owner
+                      </label>
+                      <input
+                        name="truckOwnerName"
+                        type="text"
+                        defaultValue={editingAssignee.truckOwnerName || ""}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div> */}
+
+                    {/* <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Truck OwnerPhone
+                      </label>
+                      <input
+                        name="truckOwnerPhone"
+                        type="text"
+                        defaultValue={editingAssignee.truckOwnerPhone || ""}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div> */}
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         sales No
@@ -1218,6 +1289,28 @@ const PurchaseOrdersPage = () => {
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-semibold mb-4">
+                      Truck Owner Detail
+                    </h3>
+                    <div className="grid grid-cols-2 gap-6">
+                      <input
+                        name="truckOwnerName"
+                        type="text"
+                        placeholder="truckOwner Name"
+                        defaultValue={editingAssignee.truckOwnerName || ""}
+                        className="rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                      <input
+                        name="truckOwnerPhone"
+                        type="text"
+                        placeholder="truckOwner Phone"
+                        defaultValue={editingAssignee.truckOwnerPhone || ""}
+                        className="rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
                     </div>
                   </div>
 
