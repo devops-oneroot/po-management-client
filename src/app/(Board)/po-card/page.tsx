@@ -50,11 +50,14 @@ interface Assignee {
   truckOwnerName?: string | null;
   truckOwnerPhone?: string | null;
   salesInvoiceNo?: string | null;
+  transportArrangeBy?: string | null;
   deliveryLocation?: string | null;
   grnDate?: string | null;
   dispatches?: Dispatch[];
   weighmentImages?: string[] | null;
   grnImages?: string[] | null;
+  rcBookUrl?: string[] | null;
+
   paymentSlipImages?: string[] | null;
 
   qualityReportImages?: string[] | null;
@@ -69,12 +72,14 @@ interface Dispatch {
   truckNo: string | null;
   status: string;
   salesInvoiceNo: string;
+  transportArrangeBy: string;
   dispatchDate: string;
   promisedDate: string;
   acceptedQty: number;
   rejectedQty: number;
   eWayBill: boolean;
   grnImages: boolean;
+  rcBookUrl: boolean;
   weighmentImages: boolean;
   apmc: boolean;
   purchaseBill: boolean;
@@ -250,6 +255,7 @@ const PurchaseOrdersPage = () => {
       const dispatch: Dispatch = {
         truckNo: assignee.truckNo || "—",
         salesInvoiceNo: assignee.salesInvoiceNo || "—",
+        transportArrangeBy: assignee.transportArrangeBy || "-",
         dispatchDate: assignee.dispatchDate || "",
         promisedDate: assignee.promisedDate,
         truckOwnerName: assignee.truckOwnerName || "—",
@@ -267,6 +273,7 @@ const PurchaseOrdersPage = () => {
 
         paymentSlip: !!assignee.paymentSlipImages?.length,
         grnImages: !!assignee.grnImages?.length,
+        rcBookUrl: !!assignee.rcBookUrl?.length,
         weighmentImages: !!assignee.weighmentImages?.length,
         weighment: !!assignee.weighmentImages?.length,
       };
@@ -666,7 +673,7 @@ const PurchaseOrdersPage = () => {
                                   )}
                                 </button>
 
-                                <div className="flex-1 grid grid-cols-10 gap-1 text-sm">
+                                <div className="flex-1 grid grid-cols-11 gap-1 text-sm">
                                   <div>
                                     <span className="text-gray-500">Name</span>
                                     <p className="font-semibold mt-1">
@@ -697,6 +704,16 @@ const PurchaseOrdersPage = () => {
                                       {dispatch?.salesInvoiceNo || "—"}
                                     </p>
                                   </div>
+
+                                  <div>
+                                    <span className="text-gray-500">
+                                      Transport Arrange-by
+                                    </span>
+                                    <p className="font-semibold mt-1">
+                                      {dispatch?.transportArrangeBy || "—"}
+                                    </p>
+                                  </div>
+
                                   <div>
                                     <span className="text-gray-500">
                                       Vehicle No
@@ -836,14 +853,14 @@ const PurchaseOrdersPage = () => {
                                       </p>
                                     </div>
 
-                                    <div>
+                                    {/* <div>
                                       <span className="text-gray-500">
                                         Status
                                       </span>
                                       <p className="font-semibold mt-1">
                                         {dispatch.status}
                                       </p>
-                                    </div>
+                                    </div> */}
                                     <div>
                                       <span className="text-gray-500">
                                         Promised-Date
@@ -901,6 +918,10 @@ const PurchaseOrdersPage = () => {
                                         {
                                           label: "grnImage",
                                           key: "grnImages",
+                                        },
+                                        {
+                                          label: "rcBookUrl",
+                                          key: "rcBookUrl",
                                         },
                                       ].map(({ label, key }) => {
                                         const hasDoc =
@@ -1045,6 +1066,8 @@ const PurchaseOrdersPage = () => {
 
                       salesInvoiceNo:
                         (formData.get("salesInvoiceNo") as string) || null,
+                      transportArrangeBy:
+                        (formData.get("transportArrangeBy") as string) || null,
                       deliveryLocation:
                         (formData.get("deliveryLocation") as string) || null,
                       grnDate: (formData.get("grnDate") as string) || null,
@@ -1218,6 +1241,25 @@ const PurchaseOrdersPage = () => {
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        transportArrangeBy
+                      </label>
+
+                      <select
+                        name="transportArrangeBy"
+                        defaultValue={editingAssignee.transportArrangeBy || ""}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border bg-white"
+                      >
+                        <option value="" disabled>
+                          Select option
+                        </option>
+                        <option value="Oneroot">Oneroot</option>
+                        <option value="Trader">Trader</option>
+                      </select>
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Loading location

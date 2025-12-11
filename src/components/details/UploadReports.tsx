@@ -39,6 +39,7 @@ export default function UploadReports({
     { title: "Purchase Bill", key: "miscellaneousDocs" },
     { title: "Weighment Image", key: "weighmentImages" },
     { title: "grn Image", key: "grnImages" },
+    { title: "Rc Book", key: "rcBookUrl" },
   ];
 
   // State for uploaded files (local + saved)
@@ -136,8 +137,18 @@ export default function UploadReports({
         uploadedUrls.push(uploadRes.data.secure_url);
       }
 
-      const existing = (data[reportKey] ?? []) as string[];
-      const payload = { [reportKey]: [...existing, ...uploadedUrls] };
+      // const existing = (data[reportKey] ?? []) as string[];
+      // const payload = { [reportKey]: [...existing, ...uploadedUrls] };
+
+      let payload;
+
+      if (reportKey === "rcBookUrl") {
+        // Save single URL only, not array
+        payload = { rcBookUrl: uploadedUrls[0] };
+      } else {
+        const existing = (data[reportKey] ?? []) as string[];
+        payload = { [reportKey]: [...existing, ...uploadedUrls] };
+      }
 
       await axios.patch(
         `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${id}`,
@@ -212,7 +223,19 @@ export default function UploadReports({
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {reports.map((report) => {
-            const savedFiles = (data[report.key] ?? []) as string[];
+            // const savedFiles = (data[report.key] ?? []) as string[];
+            let savedFiles: string[] = [];
+
+            if (report.key === "rcBookUrl") {
+              if (typeof data[report.key] === "string") {
+                savedFiles = [data[report.key]]; // convert string → array
+              }
+            } else {
+              savedFiles = Array.isArray(data[report.key])
+                ? data[report.key]
+                : [];
+            }
+
             const localPreviews = uploadedFiles[report.key] ?? [];
             const allPreviews = [
               ...savedFiles,
@@ -241,9 +264,19 @@ export default function UploadReports({
                   ) : (
                     <ImageIcon className="w-6 h-6 text-slate-400" />
                   )}
-                  <input
+                  {/* <input
                     type="file"
                     multiple
+                    accept="image/*,application/pdf"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    ref={(el) => (fileInputRefs.current[report.key] = el)}
+                    onChange={(e) =>
+                      handleFileChange(report.key, e.target.files)
+                    }
+                  /> */}
+                  <input
+                    type="file"
+                    multiple={report.key !== "rcBookUrl"} // only allow multiple for other reports
                     accept="image/*,application/pdf"
                     className="absolute inset-0 opacity-0 cursor-pointer"
                     ref={(el) => (fileInputRefs.current[report.key] = el)}
@@ -257,7 +290,15 @@ export default function UploadReports({
                   onClick={() => fileInputRefs.current[report.key]?.click()}
                   className="mt-3 flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
                 >
-                  {allPreviews.length > 0 ? "Add More" : "Upload"}
+                  {/* {allPreviews.length > 0 ? "Add More" : "Upload"} */}
+                  {report.key === "rcBookUrl"
+                    ? allPreviews.length > 0
+                      ? "Replace"
+                      : "Upload"
+                    : allPreviews.length > 0
+                    ? "Add More"
+                    : "Upload"}
+
                   <Upload className="w-3 h-3" />
                 </button>
 
