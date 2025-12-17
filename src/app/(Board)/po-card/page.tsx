@@ -431,14 +431,19 @@ const PurchaseOrdersPage = () => {
               // Safe access to assignees (in case of empty PO)
               const assignees = po.assignees || [];
 
-              // Calculate totals safely
-              const assignedTons = assignees.reduce((sum, a) => {
-                const quantity = a.promisedQuantity || 0;
-                const measure = a.promisedQuantityMeasure || "KILOGRAM";
-                return (
-                  sum + (measure === "KILOGRAM" ? quantity / 1000 : quantity)
-                );
-              }, 0);
+              const assignedTons = (po.assignedBuyers || []).reduce(
+                (total, buyer) => {
+                  const qty = Number(buyer.promisedQuantity || 0);
+                  const measure = buyer.promisedQuantityMeasure;
+
+                  if (measure === "KILOGRAM") {
+                    return total + qty / 1000; // KG → TON
+                  }
+
+                  return total + qty; // already TON
+                },
+                0
+              );
 
               const fulfilledTons = assignees.reduce((sum, a) => {
                 const unloaded = a.quantityUnloaded || 0;
@@ -580,13 +585,6 @@ const PurchaseOrdersPage = () => {
                     </div>
 
                     <div>
-                      <p className="text-gray-500">Fulfilled</p>
-                      <p className="font-medium text-green-600">
-                        {fulfilledTons.toFixed(2)} Tons
-                      </p>
-                    </div>
-
-                    <div>
                       <p className="text-gray-500">Pending Assign</p>
                       <p
                         className={`font-medium ${
@@ -595,6 +593,13 @@ const PurchaseOrdersPage = () => {
                       >
                         {remainingTons.toFixed(2)} Tons
                         {remainingTons < 0 && " (Over)"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-gray-500">Fulfilled</p>
+                      <p className="font-medium text-green-600">
+                        {fulfilledTons.toFixed(2)} Tons
                       </p>
                     </div>
 
@@ -682,14 +687,14 @@ const PurchaseOrdersPage = () => {
                         ).map((group) => {
                           const { user, dispatches } = group;
 
-                          const buyerAssignedTons = dispatches.reduce(
-                            (sum, a) =>
-                              sum +
-                              (a.promisedQuantityMeasure === "KILOGRAM"
-                                ? (a.promisedQuantity || 0) / 1000
-                                : a.promisedQuantity || 0),
-                            0
-                          );
+                          const buyerAssignedTons =
+                            dispatches.length === 0
+                              ? 0
+                              : dispatches[0].promisedQuantityMeasure ===
+                                "KILOGRAM"
+                              ? dispatches[0].promisedQuantity / 1000
+                              : dispatches[0].promisedQuantity;
+
                           const buyerFulfilledTons = dispatches.reduce(
                             (sum, a) =>
                               sum +
