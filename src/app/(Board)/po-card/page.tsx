@@ -1514,7 +1514,7 @@ const PurchaseOrdersPage = () => {
           </div>
         )}
 
-        {/* ADD TRUCK MODAL - MUST BE HERE, OUTSIDE ALL LOOPS */}
+        {/* ADD TRUCK MODAL - FULLY CORRECTED WITH LOADING STATE & ALL FIELDS */}
         {showTruckForm && selectedBuyerForTruck && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1537,40 +1537,54 @@ const PurchaseOrdersPage = () => {
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    const formData = new FormData(e.currentTarget);
 
-                    const payload = {
-                      masterPOId: selectedBuyerForTruck.masterPOId,
-                      userId: selectedBuyerForTruck.userId,
-                      truckNo: (formData.get("truckNo") as string).trim(),
-                      driverName: (formData.get("driverName") as string).trim(),
-                      driverPhone: (
-                        formData.get("driverPhone") as string
-                      ).trim(),
-                      truckOwnerName: formData.get("truckOwnerName")
-                        ? (formData.get("truckOwnerName") as string).trim()
-                        : null,
-                      truckOwnerPhone: formData.get("truckOwnerPhone")
-                        ? (formData.get("truckOwnerPhone") as string).trim()
-                        : null,
-                      quantityLoaded: Number(formData.get("quantityLoaded")),
-                      quantityLoadedMeasure: formData.get(
-                        "quantityLoadedMeasure"
-                      ) as string,
-                      salesInvoiceNo: formData.get("salesInvoiceNo")
-                        ? (formData.get("salesInvoiceNo") as string).trim()
-                        : null,
-                      dispatchDate: formData.get("dispatchDate") as string,
-                      transportArrangeBy: formData.get(
-                        "transportArrangeBy"
-                      ) as string,
-                      status: "VEHICLE_ASSIGNED",
-                      additionalNotes: formData.get("additionalNotes")
-                        ? (formData.get("additionalNotes") as string).trim()
-                        : null,
-                    };
+                    // Prevent double submission
+                    const form = e.currentTarget;
+                    if (form.dataset.submitting === "true") return;
+                    form.dataset.submitting = "true";
+
+                    const submitButton = form.querySelector(
+                      'button[type="submit"]'
+                    ) as HTMLButtonElement;
+                    if (submitButton) submitButton.disabled = true;
 
                     try {
+                      const formData = new FormData(form);
+
+                      const payload = {
+                        masterPOId: selectedBuyerForTruck.masterPOId,
+                        userId: selectedBuyerForTruck.userId,
+                        truckNo:
+                          (formData.get("truckNo") as string)?.trim() || null,
+                        driverName:
+                          (formData.get("driverName") as string)?.trim() ||
+                          null,
+                        driverPhone:
+                          (formData.get("driverPhone") as string)?.trim() ||
+                          null,
+                        truckOwnerName: formData.get("truckOwnerName")
+                          ? (formData.get("truckOwnerName") as string).trim()
+                          : null,
+                        truckOwnerPhone: formData.get("truckOwnerPhone")
+                          ? (formData.get("truckOwnerPhone") as string).trim()
+                          : null,
+                        quantityLoaded: Number(formData.get("quantityLoaded")),
+                        quantityLoadedMeasure: formData.get(
+                          "quantityLoadedMeasure"
+                        ) as string,
+                        salesInvoiceNo: formData.get("salesInvoiceNo")
+                          ? (formData.get("salesInvoiceNo") as string).trim()
+                          : null,
+                        dispatchDate: formData.get("dispatchDate") as string,
+                        transportArrangeBy: formData.get(
+                          "transportArrangeBy"
+                        ) as string,
+                        status: "VEHICLE_ASSIGNED",
+                        additionalNotes: formData.get("additionalNotes")
+                          ? (formData.get("additionalNotes") as string).trim()
+                          : null,
+                      };
+
                       const res = await fetch(
                         `${process.env.NEXT_PUBLIC_API_URL}/master-po/truck/add`,
                         {
@@ -1592,13 +1606,18 @@ const PurchaseOrdersPage = () => {
                       }
                     } catch (err) {
                       console.error("Truck assign error:", err);
-                      alert("Network error – check console");
+                      alert("Network error – please try again");
+                    } finally {
+                      // Re-enable form and button
+                      form.dataset.submitting = "false";
+                      if (submitButton) submitButton.disabled = false;
                     }
                   }}
                   className="space-y-6"
+                  data-submitting="false"
                 >
-                  {/* === ALL YOUR FORM FIELDS BELOW === */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Truck No */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Truck No
@@ -1606,9 +1625,11 @@ const PurchaseOrdersPage = () => {
                       <input
                         name="truckNo"
                         type="text"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
+                    {/* Driver Name */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Driver Name
@@ -1616,9 +1637,11 @@ const PurchaseOrdersPage = () => {
                       <input
                         name="driverName"
                         type="text"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
+                    {/* Driver Phone */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Driver Phone
@@ -1626,9 +1649,11 @@ const PurchaseOrdersPage = () => {
                       <input
                         name="driverPhone"
                         type="text"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
+                    {/* Truck Owner Name */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Truck Owner Name
@@ -1636,9 +1661,11 @@ const PurchaseOrdersPage = () => {
                       <input
                         name="truckOwnerName"
                         type="text"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
+                    {/* Truck Owner Phone */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Truck Owner Phone
@@ -1646,9 +1673,11 @@ const PurchaseOrdersPage = () => {
                       <input
                         name="truckOwnerPhone"
                         type="text"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
+                    {/* Sales Invoice No */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         Sales Invoice No
@@ -1656,51 +1685,64 @@ const PurchaseOrdersPage = () => {
                       <input
                         name="salesInvoiceNo"
                         type="text"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
+                    {/* Dispatch Date */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        Dispatch Date
+                        Dispatch Date <span className="text-red-500">*</span>
                       </label>
                       <input
                         name="dispatchDate"
                         type="date"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        required
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
+                    {/* Transport Arranged By */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        Transport Arranged By
+                        Transport Arranged By{" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <select
                         name="transportArrangeBy"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        required
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       >
+                        <option value="">Select...</option>
                         <option value="Oneroot">Oneroot</option>
                         <option value="Trader">Trader</option>
                       </select>
                     </div>
+
+                    {/* Loaded Quantity */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        Loaded Quantity
+                        Loaded Quantity <span className="text-red-500">*</span>
                       </label>
                       <input
                         name="quantityLoaded"
                         type="number"
                         step="0.01"
                         required
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        min="0"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+
+                    {/* Measure */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        Measure
+                        Measure <span className="text-red-500">*</span>
                       </label>
                       <select
                         name="quantityLoadedMeasure"
                         required
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="KILOGRAM">Kilogram</option>
                         <option value="QUINTAL">Quintal</option>
@@ -1709,17 +1751,20 @@ const PurchaseOrdersPage = () => {
                     </div>
                   </div>
 
+                  {/* Additional Notes */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
                       Additional Notes (Optional)
                     </label>
                     <textarea
                       name="additionalNotes"
-                      rows={3}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      rows={4}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Any extra information about this dispatch..."
                     />
                   </div>
 
+                  {/* Buttons */}
                   <div className="flex justify-end gap-4 pt-6 border-t">
                     <button
                       type="button"
@@ -1727,15 +1772,18 @@ const PurchaseOrdersPage = () => {
                         setShowTruckForm(false);
                         setSelectedBuyerForTruck(null);
                       }}
-                      className="px-8 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                      className="px-8 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition"
                     >
                       Cancel
                     </button>
+
                     <button
                       type="submit"
-                      className="px-10 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
+                      disabled={false} // Will be controlled by JS
+                      className="px-10 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition flex items-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Assign Truck
+                      <span>Assign Truck</span>
+                      {/* Optional spinner can be added here later */}
                     </button>
                   </div>
                 </form>
