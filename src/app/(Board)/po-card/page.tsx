@@ -27,6 +27,7 @@ enum POStatus {
 
 interface Assignee {
   id: string;
+  buyerUserId: string;
   user: {
     name: string;
     mobileNumber: string;
@@ -108,9 +109,9 @@ interface MasterPO {
     district: string;
     state: string;
   };
-  assignees: Assignee[];
+  assignedBuyers?: Array<any>; // raw from API
+  assignees: Assignee[]; // transformed for UI
 }
-
 const PurchaseOrdersPage = () => {
   const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
   const [poData, setPoData] = useState<MasterPO[]>([]);
@@ -125,6 +126,12 @@ const PurchaseOrdersPage = () => {
   const [reloadKey, setReloadKey] = useState(0);
   const [editingAssignee, setEditingAssignee] = useState<Assignee | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [showTruckForm, setShowTruckForm] = useState(false);
+  const [selectedBuyerForTruck, setSelectedBuyerForTruck] = useState<{
+    masterPOId: string;
+    userId: string;
+    buyerName: string;
+  } | null>(null);
 
   const router = useRouter();
 
@@ -166,53 +173,44 @@ const PurchaseOrdersPage = () => {
     fetchData();
   }, [activeTab, reloadKey]);
 
-  // const updateAssigneeStatus = async (assigneeId: string, status: string) => {
-  //   try {
-  //     const res = await fetch(
-  //       `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${assigneeId}`,
-  //       {
-  //         method: "PATCH",
-  //         headers: { "Content-Type": "application/json" },
-  //         body: JSON.stringify({ status }),
-  //       }
-  //     );
-
-  //     if (!res.ok) {
-  //       const err = await res.json();
-  //       throw new Error(err.message || "Failed to update assignee status");
-  //     }
-  //     setReloadKey((k) => k + 1);
-  //   } catch (err: any) {
-  //     alert("Failed to update Status: " + err.message);
-  //   }
-  // };
-  const updateAssigneeStatus = async (assigneeId: string, status: string) => {
+  const updateAssigneeStatus = async (
+    assigneeId: string,
+    newStatus: string
+  ) => {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/master-po-assignees/${assigneeId}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({ status: newStatus }),
         }
       );
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.message || "Failed to update assignee status");
+        throw new Error(err.message || "Failed to update status");
       }
 
-      // ✅ UPDATE LOCAL STATE ONLY (NO RELOAD)
-      setPoData((prev) =>
-        prev.map((po) => ({
+      // UPDATE THE RAW assignedBuyers DATA SO TRANSFORMATION SEES THE CHANGE
+      setPoData((prevPOs) =>
+        prevPOs.map((po) => ({
           ...po,
-          assignees: po.assignees.map((a) =>
-            a.id === assigneeId ? { ...a, status } : a
-          ),
+          assignedBuyers: po.assignedBuyers?.map((assignedBuyer: any) => ({
+            ...assignedBuyer,
+            assignees: assignedBuyer.assignees.map((assignee: any) =>
+              assignee.id === assigneeId
+                ? { ...assignee, status: newStatus }
+                : assignee
+            ),
+          })),
         }))
       );
-    } catch (err: any) {
-      alert("Failed to update Status: " + err.message);
+
+      // Optional success feedback
+      // console.log("Status updated instantly!");
+    } catch (error: any) {
+      alert("Error updating status: " + error.message);
     }
   };
 
@@ -247,43 +245,122 @@ const PurchaseOrdersPage = () => {
     router.push(`/po/${id}`);
   };
 
-  const transformedPOs: MasterPO[] = poData.map((po) => {
-    const assigneesWithDispatches = po.assignees.map((assignee) => {
-      const unloadedKg = assignee.quantityUnloaded || 0;
-      const rejectedKg = assignee.rejectedQuantity || 0;
+  const transformedPOs = React.useMemo(() => {
+    return poData.map((po) => {
+      const rawAssignedBuyers = po.assignedBuyers || [];
 
-      const dispatch: Dispatch = {
-        truckNo: assignee.truckNo || "—",
-        salesInvoiceNo: assignee.salesInvoiceNo || "—",
-        transportArrangeBy: assignee.transportArrangeBy || "-",
-        dispatchDate: assignee.dispatchDate || "",
-        promisedDate: assignee.promisedDate,
-        truckOwnerName: assignee.truckOwnerName || "—",
-        truckOwnerPhone: assignee.truckOwnerPhone || "—",
-        status: assignee.status === "COMPLETED" ? "Completed" : "In Progress",
+      const assigneesWithDispatches = rawAssignedBuyers
+        .map((assignedBuyer: any) => {
+          const assigneeRecords = assignedBuyer.assignees || [];
 
-        acceptedQty: unloadedKg / 1000,
-        rejectedQty: rejectedKg / 1000,
-        eWayBill: !!assignee.eWayBillImages?.length,
-        apmc: !!assignee.apmcImages?.length,
+          // Case 1: No truck added yet → only show buyer with basic info, no truck row
+          if (assigneeRecords.length === 0) {
+            return {
+              id: assignedBuyer.id + "-placeholder", // unique ID
+              buyerUserId: assignedBuyer.userId,
+              user: {
+                name: assignedBuyer.user.name,
+                mobileNumber: assignedBuyer.user.mobileNumber,
+              },
+              promisedQuantity: assignedBuyer.promisedQuantity || 0,
+              promisedQuantityMeasure:
+                assignedBuyer.promisedQuantityMeasure || "TON",
+              promisedDate: assignedBuyer.promisedDate || "",
+              rate: assignedBuyer.rate || "0",
+              status: "PO_ASSIGNED",
+              // Mark as placeholder so UI knows not to show truck details
+              isPlaceholder: true,
+              dispatches: [],
+            };
+          }
 
-        purchaseBill: !!assignee.salesInvoiceImages?.length,
-        qualityReport: !!assignee.qualityReportImages?.length,
-        driverDetails: !!assignee.driverName,
+          // Case 2: Real trucks exist → map normally
+          return assigneeRecords.map((assignee: any) => {
+            const unloadedKg = assignee.quantityUnloaded || 0;
+            const rejectedKg = assignee.rejectedQuantity || 0;
 
-        paymentSlip: !!assignee.paymentSlipImages?.length,
-        grnImages: !!assignee.grnImages?.length,
-        rcBookUrl: !!assignee.rcBookUrl?.length,
-        weighmentImages: !!assignee.weighmentImages?.length,
-        weighment: !!assignee.weighmentImages?.length,
+            const dispatch: Dispatch = {
+              truckNo: assignee.truckNo || "—",
+              salesInvoiceNo: assignee.salesInvoiceNo || "—",
+              transportArrangeBy: assignee.transportArrangeBy || "-",
+              dispatchDate: assignee.dispatchDate || "",
+              promisedDate:
+                assignee.promisedDate || assignedBuyer.promisedDate || "",
+              status:
+                assignee.status === "COMPLETED" ? "Completed" : "In Progress",
+              acceptedQty: unloadedKg / 1000,
+              rejectedQty: rejectedKg / 1000,
+              eWayBill: !!assignee.eWayBillImages?.length,
+              apmc: !!assignee.apmcImages?.length,
+              purchaseBill: !!assignee.salesInvoiceImages?.length,
+              qualityReport: !!assignee.qualityReportImages?.length,
+              driverDetails: !!assignee.driverName,
+              paymentSlip: !!assignee.paymentSlipImages?.length,
+              grnImages: !!assignee.grnImages?.length,
+              rcBookUrl: !!assignee.rcBookUrl?.length,
+              weighmentImages: !!assignee.weighmentImages?.length,
+              weighment: !!assignee.weighmentImages?.length,
+            };
+
+            return {
+              id: assignee.id,
+              buyerUserId: assignedBuyer.userId,
+              user: {
+                name: assignedBuyer.user.name,
+                mobileNumber: assignedBuyer.user.mobileNumber,
+              },
+              promisedQuantity:
+                assignee.promisedQuantity ||
+                assignedBuyer.promisedQuantity ||
+                0,
+              promisedQuantityMeasure:
+                assignee.promisedQuantityMeasure ||
+                assignedBuyer.promisedQuantityMeasure ||
+                "TON",
+              promisedDate:
+                assignee.promisedDate || assignedBuyer.promisedDate || "",
+              rate: assignee.rate || assignedBuyer.rate || "0",
+              status: assignee.status || "VEHICLE_ASSIGNED",
+              quantityLoaded: assignee.quantityLoaded,
+              quantityLoadedMeasure: assignee.quantityLoadedMeasure,
+              quantityUnloaded: assignee.quantityUnloaded,
+              quantityUnloadedMeasure: assignee.quantityUnloadedMeasure,
+              rejectedQuantity: assignee.rejectedQuantity,
+              rejectedQuantityMeasure: assignee.rejectedQuantityMeasure,
+              truckNo: assignee.truckNo,
+              dispatchDate: assignee.dispatchDate,
+              driverName: assignee.driverName,
+              driverPhone: assignee.driverPhone,
+              truckOwnerName: assignee.truckOwnerName,
+              truckOwnerPhone: assignee.truckOwnerPhone,
+              salesInvoiceNo: assignee.salesInvoiceNo,
+              transportArrangeBy: assignee.transportArrangeBy,
+              deliveryLocation: assignee.deliveryLocation,
+              grnDate: assignee.grnDate,
+              dispatches: [dispatch],
+              isPlaceholder: false,
+              // images
+              weighmentImages: assignee.weighmentImages,
+              grnImages: assignee.grnImages,
+              rcBookUrl: assignee.rcBookUrl,
+              paymentSlipImages: assignee.paymentSlipImages,
+              qualityReportImages: assignee.qualityReportImages,
+              eWayBillImages: assignee.eWayBillImages,
+              apmcImages: assignee.apmcImages,
+              salesInvoiceImages: assignee.salesInvoiceImages,
+              debitInvoiceImages: assignee.debitInvoiceImages,
+              miscellaneousDocs: assignee.miscellaneousDocs,
+            };
+          });
+        })
+        .flat();
+
+      return {
+        ...po,
+        assignees: assigneesWithDispatches,
       };
-
-      return { ...assignee, dispatches: [dispatch] };
     });
-
-    return { ...po, assignees: assigneesWithDispatches };
-  });
-
+  }, [poData]);
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-8xl mx-auto space-y-6">
@@ -351,38 +428,36 @@ const PurchaseOrdersPage = () => {
         ) : (
           <div className="space-y-6">
             {transformedPOs.map((po) => {
-              // Calculate assigned tons - convert KILOGRAM to TON if needed
-              const assignedTons = po.assignees.reduce((sum, a) => {
+              // Safe access to assignees (in case of empty PO)
+              const assignees = po.assignees || [];
+
+              // Calculate totals safely
+              const assignedTons = assignees.reduce((sum, a) => {
                 const quantity = a.promisedQuantity || 0;
                 const measure = a.promisedQuantityMeasure || "KILOGRAM";
-                // Convert to tons: if KILOGRAM divide by 1000, if TON use as-is
                 return (
                   sum + (measure === "KILOGRAM" ? quantity / 1000 : quantity)
                 );
               }, 0);
-              const fulfilledTons = po.assignees.reduce((sum, a) => {
+
+              const fulfilledTons = assignees.reduce((sum, a) => {
                 const unloaded = a.quantityUnloaded || 0;
                 const measure = a.quantityUnloadedMeasure || "KILOGRAM";
                 return (
                   sum + (measure === "KILOGRAM" ? unloaded / 1000 : unloaded)
                 );
               }, 0);
+
               const remainingTons = po.poQuantity - assignedTons;
 
               const getExpiryInfo = (expiryDate: string) => {
                 const today = new Date();
                 const expiry = new Date(expiryDate);
-
                 today.setHours(0, 0, 0, 0);
                 expiry.setHours(0, 0, 0, 0);
-
                 const diff = expiry.getTime() - today.getTime();
                 const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-                return {
-                  isExpired: daysLeft < 0,
-                  daysLeft,
-                };
+                return { isExpired: daysLeft < 0, daysLeft };
               };
 
               const { isExpired, daysLeft } = getExpiryInfo(po.poExpiryDate);
@@ -393,13 +468,9 @@ const PurchaseOrdersPage = () => {
                   className="bg-white rounded-xl shadow-xl border border-gray-200 overflow-visible"
                 >
                   {/* PO Header */}
-                  {/* <div
-                    className="flex items-center justify-between p-4 bg-gray-400 border-b cursor-pointer"
-                    onClick={() => togglePO(po.id)}
-                  > */}
                   <div
                     className={`flex items-center justify-between p-4 border-b cursor-pointer
-      ${isExpired ? "bg-red-400" : "bg-gray-400"}`}
+          ${isExpired ? "bg-red-400" : "bg-gray-400"}`}
                     onClick={() => togglePO(po.id)}
                   >
                     <div className="flex items-center gap-4">
@@ -426,7 +497,7 @@ const PurchaseOrdersPage = () => {
                       <span className="text-sm bg-gray-200 px-3 py-1 rounded-full ml-4">
                         PO-NO {po.poNumber}
                       </span>
-                      {/* Assign Buyer Button - Only on Active Tab */}
+
                       {activeTab === "active" && (
                         <button
                           onClick={(e) => {
@@ -467,15 +538,9 @@ const PurchaseOrdersPage = () => {
                         {formatDate(po.poIssuedDate)}
                       </p>
                     </div>
-                    {/* <div>
-                      <p className="text-gray-500">PO Expiry</p>
-                      <p className="font-medium">
-                        {formatDate(po.poExpiryDate)}
-                      </p>
-                    </div> */}
+
                     <div>
                       <p className="text-gray-500">PO Expiry</p>
-
                       <p
                         className={`font-medium ${
                           isExpired ? "text-red-600" : ""
@@ -483,7 +548,6 @@ const PurchaseOrdersPage = () => {
                       >
                         {formatDate(po.poExpiryDate)}
                       </p>
-
                       <p
                         className={`text-xs font-semibold ${
                           isExpired ? "text-red-600" : "text-green-600"
@@ -494,6 +558,7 @@ const PurchaseOrdersPage = () => {
                           : `${daysLeft} day(s) left`}
                       </p>
                     </div>
+
                     <div>
                       <p className="text-gray-500">Our Price</p>
                       <p className="font-medium flex items-center">
@@ -501,22 +566,26 @@ const PurchaseOrdersPage = () => {
                         {po.poPrice}
                       </p>
                     </div>
+
                     <div>
                       <p className="text-gray-500">Tons</p>
                       <p className="font-medium">{po.poQuantity} Tons</p>
                     </div>
+
                     <div>
-                      <p className="text-gray-500">Assigned</p>
+                      <p className="text-gray-500">Assigned-Agg</p>
                       <p className="font-medium">
                         {assignedTons.toFixed(2)} Tons
                       </p>
                     </div>
+
                     <div>
                       <p className="text-gray-500">Fulfilled</p>
                       <p className="font-medium text-green-600">
                         {fulfilledTons.toFixed(2)} Tons
                       </p>
                     </div>
+
                     <div>
                       <p className="text-gray-500">Pending Assign</p>
                       <p
@@ -528,32 +597,12 @@ const PurchaseOrdersPage = () => {
                         {remainingTons < 0 && " (Over)"}
                       </p>
                     </div>
+
                     <div className="relative group cursor-pointer">
                       <p className="text-gray-500">Awaiting-fullfillment</p>
                       <p className="font-medium text-orange-600">
                         {(po.poQuantity - fulfilledTons).toFixed(2)} Tons
                       </p>
-                      {/* <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white border border-gray-200 shadow-lg rounded-lg p-3 text-xs opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-20">
-                        <p className="font-semibold mb-2 text-gray-700 text-center">
-                          Assignee Status
-                        </p>
-                        {po.assignees.map((assignee) => (
-                          <div
-                            key={assignee.id}
-                            className="flex justify-between gap-3 border-b last:border-b-0 py-1"
-                          >
-                            <span className="text-gray-600">
-                              {assignee.promisedQuantity}{" "}
-                              {assignee.promisedQuantityMeasure === "KILOGRAM"
-                                ? "KG"
-                                : "Tons"}
-                            </span>
-                            <span className="font-semibold text-blue-600">
-                              {assignee.status}
-                            </span>
-                          </div>
-                        ))}
-                      </div> */}
 
                       <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white border border-gray-200 shadow-lg rounded-lg p-3 text-xs opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-20">
                         <p className="font-semibold mb-2 text-gray-700 text-center">
@@ -568,8 +617,8 @@ const PurchaseOrdersPage = () => {
                               className="flex justify-between gap-3 border-b last:border-b-0 py-1"
                             >
                               <span className="text-gray-600">
-                                {assignee.promisedQuantity}{" "}
-                                {assignee.promisedQuantityMeasure === "KILOGRAM"
+                                {assignee.quantityLoaded}{" "}
+                                {assignee.quantityLoadedMeasure === "KILOGRAM"
                                   ? "KG"
                                   : "Tons"}
                               </span>
@@ -580,6 +629,7 @@ const PurchaseOrdersPage = () => {
                           ))}
                       </div>
                     </div>
+
                     <div>
                       <p className="text-gray-500">Po-Status</p>
                       <select
@@ -596,6 +646,7 @@ const PurchaseOrdersPage = () => {
                         ))}
                       </select>
                     </div>
+
                     <div className="px-10">
                       <p className="text-gray-500">View</p>
                       <button
@@ -603,357 +654,434 @@ const PurchaseOrdersPage = () => {
                           e.stopPropagation();
                           handleCardClick(po.id);
                         }}
-                        className="text-green-600 hover:underline flex"
+                        className="text-green-600 hover:underline flex items-center gap-1"
                       >
-                        click <ArrowRight />
+                        click <ArrowRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
 
                   {/* Assignees Section */}
-                  {expandedPO === po.id && (
+                  {expandedPO === po.id && assignees.length > 0 && (
                     <div className="p-6 border-t">
-                      <div className="space-y-3">
-                        {po.assignees.map((assignee) => {
-                          // Convert fulfilled to tons
-                          const unloaded = assignee.quantityUnloaded || 0;
-                          const unloadedMeasure =
-                            assignee.quantityUnloadedMeasure || "KILOGRAM";
-                          const fulfilled =
-                            unloadedMeasure === "KILOGRAM"
-                              ? unloaded / 1000
-                              : unloaded;
+                      <div className="space-y-6">
+                        {/* Group by buyer */}
+                        {Object.values(
+                          assignees.reduce((groups, assignee) => {
+                            const key = assignee.buyerUserId;
+                            if (!groups[key]) {
+                              groups[key] = {
+                                buyerUserId: key,
+                                user: assignee.user,
+                                dispatches: [],
+                              };
+                            }
+                            groups[key].dispatches.push(assignee);
+                            return groups;
+                          }, {} as Record<string, { buyerUserId: string; user: Assignee["user"]; dispatches: Assignee[] }>)
+                        ).map((group) => {
+                          const { user, dispatches } = group;
 
-                          // Convert rejected to tons
-                          const rejectedQty = assignee.rejectedQuantity || 0;
-                          const rejectedMeasure =
-                            assignee.rejectedQuantityMeasure || "KILOGRAM";
-                          const rejected =
-                            rejectedMeasure === "KILOGRAM"
-                              ? rejectedQty / 1000
-                              : rejectedQty;
+                          const buyerAssignedTons = dispatches.reduce(
+                            (sum, a) =>
+                              sum +
+                              (a.promisedQuantityMeasure === "KILOGRAM"
+                                ? (a.promisedQuantity || 0) / 1000
+                                : a.promisedQuantity || 0),
+                            0
+                          );
+                          const buyerFulfilledTons = dispatches.reduce(
+                            (sum, a) =>
+                              sum +
+                              (a.quantityUnloadedMeasure === "KILOGRAM"
+                                ? (a.quantityUnloaded || 0) / 1000
+                                : a.quantityUnloaded || 0),
+                            0
+                          );
+                          const buyerRejectedTons = dispatches.reduce(
+                            (sum, a) =>
+                              sum +
+                              (a.rejectedQuantityMeasure === "KILOGRAM"
+                                ? (a.rejectedQuantity || 0) / 1000
+                                : a.rejectedQuantity || 0),
+                            0
+                          );
+                          const buyerPendingTons =
+                            buyerAssignedTons - buyerFulfilledTons;
 
-                          // Convert promised quantity to tons for calculation
-                          const promisedQty = assignee.promisedQuantity || 0;
-                          const promisedMeasure =
-                            assignee.promisedQuantityMeasure || "KILOGRAM";
-                          const promisedInTons =
-                            promisedMeasure === "KILOGRAM"
-                              ? promisedQty / 1000
-                              : promisedQty;
+                          const isBuyerExpanded = expandedAggregators.has(
+                            group.buyerUserId
+                          );
 
-                          const pending = promisedInTons - fulfilled;
-                          const dispatch = assignee.dispatches?.[0];
-                          const isExpanded = expandedAggregators.has(
-                            assignee.id
+                          const buyerSuppliedTons = dispatches.reduce(
+                            (sum, a) => {
+                              const qty = Number(a.quantityLoaded ?? 0);
+                              const measure =
+                                a.quantityLoadedMeasure || "KILOGRAM";
+                              return (
+                                sum +
+                                (measure === "KILOGRAM" ? qty / 1000 : qty)
+                              );
+                            },
+                            0
                           );
 
                           return (
                             <div
-                              key={assignee.id}
-                              className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all"
+                              key={group.buyerUserId}
+                              className="bg-white border border-gray-300 rounded-xl overflow-hidden shadow-md"
                             >
+                              {/* Buyer Header */}
                               <div
-                                className={`p-4 flex items-center gap-4  cursor-pointer hover:bg-gray-300 transition ${
-                                  isExpanded ? "bg-gray-300" : ""
-                                }`}
-                                onClick={() => toggleAggregator(assignee.id)}
+                                className="bg-gradient-to-r from-indigo-50 to-blue-50 p-5 border-b border-gray-200 cursor-pointer hover:bg-indigo-100 transition"
+                                onClick={() =>
+                                  toggleAggregator(group.buyerUserId)
+                                }
                               >
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleAggregator(assignee.id);
-                                  }}
-                                  className="p-1 hover:bg-gray-200 rounded"
-                                >
-                                  {isExpanded ? (
-                                    <ChevronUp className="w-5 h-5" />
-                                  ) : (
-                                    <ChevronDown className="w-5 h-5" />
-                                  )}
-                                </button>
-
-                                <div className="flex-1 grid grid-cols-11 gap-1 text-sm">
-                                  <div>
-                                    <span className="text-gray-500">Name</span>
-                                    <p className="font-semibold mt-1">
-                                      {assignee.user.name}
-                                    </p>
-                                  </div>
-                                  <div
-                                    className="text-blue-600 hover:underline cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleAssigneeClick(
-                                        assignee.user.mobileNumber
-                                      );
-                                    }}
-                                  >
-                                    <span className="text-gray-500">
-                                      Mobile
-                                    </span>
-                                    <p className="font-semibold mt-1">
-                                      {assignee.user.mobileNumber}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">
-                                      sales No
-                                    </span>
-                                    <p className="font-semibold mt-1">
-                                      {dispatch?.salesInvoiceNo || "—"}
-                                    </p>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-4">
+                                    <div className="bg-indigo-200 rounded-full w-14 h-14 flex items-center justify-center text-indigo-800 font-bold text-2xl">
+                                      {user.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <h3 className="text-xl font-bold text-gray-800">
+                                        {user.name}
+                                      </h3>
+                                      <p
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleAssigneeClick(
+                                            user.mobileNumber
+                                          );
+                                        }}
+                                        className="text-indigo-600 hover:underline font-medium"
+                                      >
+                                        {user.mobileNumber}
+                                      </p>
+                                    </div>
                                   </div>
 
-                                  <div>
-                                    <span className="text-gray-500">
-                                      Transport Arrange-by
-                                    </span>
-                                    <p className="font-semibold mt-1">
-                                      {dispatch?.transportArrangeBy || "—"}
-                                    </p>
-                                  </div>
+                                  <div className="flex items-center gap-8">
+                                    <div className="grid grid-cols-6 gap-6 text-sm">
+                                      <div>
+                                        <span className="text-gray-500">
+                                          Rate
+                                        </span>
+                                        <p className="font-semibold text-green-700">
+                                          ₹{dispatches[0].rate || "-"}
+                                        </p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-gray-600 font-medium">
+                                          Assigned
+                                        </p>
+                                        <p className="text-lg font-bold text-blue-700">
+                                          {buyerAssignedTons.toFixed(2)} Tons
+                                        </p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-gray-600 font-medium">
+                                          Supplied
+                                        </p>
+                                        <p className="text-lg font-bold text-black">
+                                          {buyerSuppliedTons.toFixed(2)} Tons
+                                        </p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-gray-600 font-medium">
+                                          Fulfilled
+                                        </p>
+                                        <p className="text-lg font-bold text-green-600">
+                                          {buyerFulfilledTons.toFixed(2)} Tons
+                                        </p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-gray-600 font-medium">
+                                          Rejected
+                                        </p>
+                                        <p className="text-lg font-bold text-red-600">
+                                          {buyerRejectedTons.toFixed(2)} Tons
+                                        </p>
+                                      </div>
+                                      <div className="text-center">
+                                        <p className="text-gray-600 font-medium">
+                                          Pending
+                                        </p>
+                                        <p className="text-lg font-bold text-orange-600">
+                                          {buyerPendingTons.toFixed(2)} Tons
+                                        </p>
+                                      </div>
+                                    </div>
 
-                                  <div>
-                                    <span className="text-gray-500">
-                                      Vehicle No
-                                    </span>
-                                    <p className="font-semibold mt-1">
-                                      {dispatch?.truckNo || "—"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">Rate</span>
-                                    <p className="font-semibold mt-1">
-                                      ₹{assignee.rate}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">
-                                      Assigned
-                                    </span>
-                                    <p className="font-semibold mt-1">
-                                      {assignee.promisedQuantity}{" "}
-                                      {assignee.promisedQuantityMeasure ===
-                                      "KILOGRAM"
-                                        ? "KG"
-                                        : "Tons"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">
-                                      Fulfilled
-                                    </span>
-                                    <p className="font-semibold mt-1">
-                                      {fulfilled.toFixed(2)} Tons
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">
-                                      Rejected
-                                    </span>
-                                    <p className="font-semibold mt-1">
-                                      {rejected.toFixed(2)} Tons
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <span className="text-gray-500">
-                                      Pending
-                                    </span>
-                                    <p className="font-bold mt-1 text-orange-600">
-                                      {pending.toFixed(2)} Tons
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="block text2sm font-medium text-gray-700">
-                                      Status
-                                    </label>
-                                    <select
-                                      value={assignee.status}
-                                      // onChange={(e) =>
-                                      //   updateAssigneeStatus(
-                                      //     assignee.id,
-                                      //     e.target.value
-                                      //   )
-                                      // }
-                                      onChange={(e) => {
-                                        e.stopPropagation();
-                                        updateAssigneeStatus(
-                                          assignee.id,
-                                          e.target.value
-                                        );
-                                      }}
-                                    >
-                                      {[
-                                        "PO_ASSIGNED",
-                                        "VEHICLE_ASSIGNED",
-                                        "WEIGHMENT_DONE",
-                                        "TRUCK_ENROUTE",
-                                        "GATE_PASS_ISSUED",
-                                        "QC_CHECK_DONE",
-                                        "UNLOADING_DONE",
-                                        "GRN_ISSUED",
-                                        "COMPLETED",
-                                        "REJECTED",
-                                        "CANCELLED",
-                                      ].map((s) => (
-                                        <option key={s} value={s}>
-                                          {s.replace(/_/g, " ")}
-                                        </option>
-                                      ))}
-                                    </select>
+                                    <div className="flex items-center gap-4">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedBuyerForTruck({
+                                            masterPOId: po.id,
+                                            userId: group.buyerUserId,
+                                            buyerName: user.name,
+                                          });
+                                          setShowTruckForm(true);
+                                        }}
+                                        className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 transition"
+                                      >
+                                        <Plus className="w-5 h-5" />
+                                        Add Truck
+                                      </button>
+
+                                      <button className="p-2 hover:bg-indigo-200 rounded-lg transition">
+                                        {isBuyerExpanded ? (
+                                          <ChevronUp className="w-6 h-6" />
+                                        ) : (
+                                          <ChevronDown className="w-6 h-6" />
+                                        )}
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
 
-                              {isExpanded && dispatch && (
-                                <div className="border-t border-gray-200 bg-gray-50 px-2 py-5">
-                                  <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-14 gap-2 text-sm items-end">
-                                    <div className="text-center">
-                                      <span className="text-gray-500">
-                                        Edit
-                                      </span>
-                                      <p className="mt-1">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setEditingAssignee(assignee);
-                                            setShowEditForm(true);
-                                          }}
-                                          className="text-blue-600 hover:underline font-medium text-base"
+                              {/* Trucks List */}
+                              {isBuyerExpanded && (
+                                <div className="divide-y divide-gray-200">
+                                  {dispatches.map((assignee) => {
+                                    // If it's just a placeholder (no truck yet), show clean message
+                                    if (assignee.isPlaceholder) {
+                                      return (
+                                        <div
+                                          key={assignee.id}
+                                          className="p-8 text-center text-gray-500 bg-gray-50 rounded-lg"
                                         >
-                                          <Edit2 />
-                                        </button>
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <span className="text-gray-500">
-                                        Vehicle No
-                                      </span>
-                                      <p className="font-semibold mt-1">
-                                        {dispatch.truckNo}
-                                      </p>
-                                    </div>
+                                          <p className="text-lg font-medium">
+                                            No truck assigned yet
+                                          </p>
+                                          <p className="text-sm mt-2">
+                                            Click "Add Truck" to assign the
+                                            first dispatch
+                                          </p>
+                                        </div>
+                                      );
+                                    }
 
-                                    <div>
-                                      <span className="text-gray-500">
-                                        Truck Owner
-                                      </span>
-                                      <p className="font-semibold mt-1">
-                                        {dispatch.truckOwnerName}
-                                      </p>
-                                    </div>
+                                    // Real truck exists → show full details
+                                    const dispatch = assignee.dispatches?.[0];
+                                    const fulfilled =
+                                      (assignee.quantityUnloaded || 0) /
+                                      (assignee.quantityUnloadedMeasure ===
+                                      "KILOGRAM"
+                                        ? 1000
+                                        : 1);
+                                    const rejected =
+                                      (assignee.rejectedQuantity || 0) /
+                                      (assignee.rejectedQuantityMeasure ===
+                                      "KILOGRAM"
+                                        ? 1000
+                                        : 1);
+                                    const promised =
+                                      (assignee.promisedQuantity || 0) /
+                                      (assignee.promisedQuantityMeasure ===
+                                      "KILOGRAM"
+                                        ? 1000
+                                        : 1);
+                                    const pending = promised - fulfilled;
 
-                                    <div>
-                                      <span className="text-gray-500">
-                                        Truck OwnerNumber
-                                      </span>
-                                      <p className="font-semibold mt-1">
-                                        {dispatch.truckOwnerPhone}
-                                      </p>
-                                    </div>
-
-                                    {/* <div>
-                                      <span className="text-gray-500">
-                                        Status
-                                      </span>
-                                      <p className="font-semibold mt-1">
-                                        {dispatch.status}
-                                      </p>
-                                    </div> */}
-                                    <div>
-                                      <span className="text-gray-500">
-                                        Promised-Date
-                                      </span>
-                                      <p className="font-medium mt-1">
-                                        {formatDate(dispatch.promisedDate)}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <span className="text-gray-500">
-                                        Dispatch-date
-                                      </span>
-                                      <p className="font-medium mt-1">
-                                        {formatDate(dispatch.dispatchDate)}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <span className="text-gray-500">
-                                        Accepted
-                                      </span>
-                                      <p className="text-green-600 font-medium mt-1">
-                                        {dispatch.acceptedQty.toFixed(2)} Ton
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <span className="text-gray-500">
-                                        Rejected
-                                      </span>
-                                      <p className="text-red-600 font-medium mt-1">
-                                        {dispatch.rejectedQty.toFixed(2)} Ton
-                                      </p>
-                                    </div>
-                                    <div className="flex gap-4">
-                                      {[
-                                        { label: "E-Way", key: "eWayBill" },
-                                        { label: "APMC", key: "apmc" },
-                                        { label: "Sales", key: "purchaseBill" },
-                                        {
-                                          label: "Payment",
-                                          key: "paymentSlip",
-                                        },
-                                        {
-                                          label: "Quality",
-                                          key: "qualityReport",
-                                        },
-                                        {
-                                          label: "Driver",
-                                          key: "driverDetails",
-                                        },
-
-                                        {
-                                          label: "Weighment",
-                                          key: "weighmentImages",
-                                        },
-                                        {
-                                          label: "grnImage",
-                                          key: "grnImages",
-                                        },
-                                        {
-                                          label: "rcBookUrl",
-                                          key: "rcBookUrl",
-                                        },
-                                      ].map(({ label, key }) => {
-                                        const hasDoc =
-                                          dispatch[key as keyof Dispatch];
-                                        return (
-                                          <div
-                                            key={key}
-                                            className="text-center"
-                                          >
-                                            <p className="text-xs text-gray-500 mb-1">
-                                              {label}
-                                            </p>
-                                            <span
-                                              className={`inline-block px-4 py-1.5 rounded-full text-xs font-bold ${
-                                                hasDoc
-                                                  ? "bg-green-100 text-green-800"
-                                                  : "bg-red-100 text-red-800"
-                                              }`}
-                                            >
-                                              {hasDoc ? "Yes" : "No"}
+                                    return (
+                                      <div
+                                        key={assignee.id}
+                                        className="p-5 hover:bg-gray-50"
+                                      >
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 text-sm">
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Truck No
                                             </span>
+                                            <p className="font-semibold">
+                                              {dispatch?.truckNo || "—"}
+                                            </p>
                                           </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Driver
+                                            </span>
+                                            <p className="font-semibold">
+                                              {assignee.driverName || "—"}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Sales Invoice
+                                            </span>
+                                            <p className="font-semibold">
+                                              {dispatch?.salesInvoiceNo || "—"}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Transport By
+                                            </span>
+                                            <p className="font-semibold">
+                                              {dispatch?.transportArrangeBy ||
+                                                "—"}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Dispatch
+                                            </span>
+                                            <p className="font-semibold text-green-700">
+                                              {assignee.dispatchDate}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Assigned
+                                            </span>
+                                            <p className="font-semibold">
+                                              {assignee.quantityLoaded || 0}{" "}
+                                              {assignee.quantityLoadedMeasure ===
+                                              "KILOGRAM"
+                                                ? "KG"
+                                                : "Tons"}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Fulfilled
+                                            </span>
+                                            <p className="font-semibold text-green-600">
+                                              {fulfilled.toFixed(2)} Tons
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Rejected
+                                            </span>
+                                            <p className="font-semibold text-red-600">
+                                              {rejected.toFixed(2)} Tons
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Pending
+                                            </span>
+                                            <p className="font-bold text-orange-600">
+                                              {pending.toFixed(2)} Tons
+                                            </p>
+                                          </div>
+                                          <div className="col-span-3 flex items-center gap-4">
+                                            <select
+                                              value={assignee.status}
+                                              onChange={(e) =>
+                                                updateAssigneeStatus(
+                                                  assignee.id,
+                                                  e.target.value
+                                                )
+                                              }
+                                              className="flex-1 px-3 py-2 text-xs rounded border border-gray-300 bg-white"
+                                            >
+                                              {[
+                                                "PO_ASSIGNED",
+                                                "VEHICLE_ASSIGNED",
+                                                "WEIGHMENT_DONE",
+                                                "TRUCK_ENROUTE",
+                                                "GATE_PASS_ISSUED",
+                                                "QC_CHECK_DONE",
+                                                "UNLOADING_DONE",
+                                                "GRN_ISSUED",
+                                                "COMPLETED",
+                                                "REJECTED",
+                                                "CANCELLED",
+                                              ].map((s) => (
+                                                <option key={s} value={s}>
+                                                  {s.replace(/_/g, " ")}
+                                                </option>
+                                              ))}
+                                            </select>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingAssignee(assignee);
+                                                setShowEditForm(true);
+                                              }}
+                                              className="p-2.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
+                                            >
+                                              <Edit2 className="w-5 h-5" />
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        {dispatch && (
+                                          <div className="mt-4 pt-4 border-t border-gray-100">
+                                            <div className="flex flex-wrap gap-3">
+                                              {[
+                                                {
+                                                  label: "E-Way",
+                                                  has: dispatch.eWayBill,
+                                                },
+                                                {
+                                                  label: "APMC",
+                                                  has: dispatch.apmc,
+                                                },
+                                                {
+                                                  label: "Sales Bill",
+                                                  has: dispatch.purchaseBill,
+                                                },
+                                                {
+                                                  label: "Payment",
+                                                  has: dispatch.paymentSlip,
+                                                },
+                                                {
+                                                  label: "Quality",
+                                                  has: dispatch.qualityReport,
+                                                },
+                                                {
+                                                  label: "Driver",
+                                                  has: dispatch.driverDetails,
+                                                },
+                                                {
+                                                  label: "Weighment",
+                                                  has: dispatch.weighmentImages,
+                                                },
+                                                {
+                                                  label: "GRN",
+                                                  has: dispatch.grnImages,
+                                                },
+                                                {
+                                                  label: "RC Book",
+                                                  has: dispatch.rcBookUrl,
+                                                },
+                                              ].map(({ label, has }) => (
+                                                <span
+                                                  key={label}
+                                                  className={`px-4 py-2 rounded-full text-xs font-semibold ${
+                                                    has
+                                                      ? "bg-green-100 text-green-800"
+                                                      : "bg-red-100 text-red-800"
+                                                  }`}
+                                                >
+                                                  {label}: {has ? "Yes" : "No"}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
                           );
                         })}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Show message if no assignees */}
+                  {expandedPO === po.id && assignees.length === 0 && (
+                    <div className="p-6 border-t text-center text-gray-500">
+                      No buyers assigned yet.
                     </div>
                   )}
                 </div>
@@ -1206,30 +1334,6 @@ const PurchaseOrdersPage = () => {
                       />
                     </div>
 
-                    {/* <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Truck Owner
-                      </label>
-                      <input
-                        name="truckOwnerName"
-                        type="text"
-                        defaultValue={editingAssignee.truckOwnerName || ""}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
-                      />
-                    </div> */}
-
-                    {/* <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Truck OwnerPhone
-                      </label>
-                      <input
-                        name="truckOwnerPhone"
-                        type="text"
-                        defaultValue={editingAssignee.truckOwnerPhone || ""}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
-                      />
-                    </div> */}
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
                         sales No
@@ -1402,6 +1506,236 @@ const PurchaseOrdersPage = () => {
                       className="px-10 py-3 bg-black text-white rounded-lg hover:bg-gray-800 font-medium transition"
                     >
                       Save Changes
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ADD TRUCK MODAL - MUST BE HERE, OUTSIDE ALL LOOPS */}
+        {showTruckForm && selectedBuyerForTruck && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
+                <h2 className="text-2xl font-bold">
+                  Assign Truck for {selectedBuyerForTruck.buyerName}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowTruckForm(false);
+                    setSelectedBuyerForTruck(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+
+                    const payload = {
+                      masterPOId: selectedBuyerForTruck.masterPOId,
+                      userId: selectedBuyerForTruck.userId,
+                      truckNo: (formData.get("truckNo") as string).trim(),
+                      driverName: (formData.get("driverName") as string).trim(),
+                      driverPhone: (
+                        formData.get("driverPhone") as string
+                      ).trim(),
+                      truckOwnerName: formData.get("truckOwnerName")
+                        ? (formData.get("truckOwnerName") as string).trim()
+                        : null,
+                      truckOwnerPhone: formData.get("truckOwnerPhone")
+                        ? (formData.get("truckOwnerPhone") as string).trim()
+                        : null,
+                      quantityLoaded: Number(formData.get("quantityLoaded")),
+                      quantityLoadedMeasure: formData.get(
+                        "quantityLoadedMeasure"
+                      ) as string,
+                      salesInvoiceNo: formData.get("salesInvoiceNo")
+                        ? (formData.get("salesInvoiceNo") as string).trim()
+                        : null,
+                      dispatchDate: formData.get("dispatchDate") as string,
+                      transportArrangeBy: formData.get(
+                        "transportArrangeBy"
+                      ) as string,
+                      status: "VEHICLE_ASSIGNED",
+                      additionalNotes: formData.get("additionalNotes")
+                        ? (formData.get("additionalNotes") as string).trim()
+                        : null,
+                    };
+
+                    try {
+                      const res = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL}/master-po/truck/add`,
+                        {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(payload),
+                        }
+                      );
+
+                      const data = await res.json();
+
+                      if (res.ok) {
+                        alert("Truck assigned successfully!");
+                        setShowTruckForm(false);
+                        setSelectedBuyerForTruck(null);
+                        setReloadKey((k) => k + 1);
+                      } else {
+                        alert("Failed: " + (data.message || "Unknown error"));
+                      }
+                    } catch (err) {
+                      console.error("Truck assign error:", err);
+                      alert("Network error – check console");
+                    }
+                  }}
+                  className="space-y-6"
+                >
+                  {/* === ALL YOUR FORM FIELDS BELOW === */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Truck No
+                      </label>
+                      <input
+                        name="truckNo"
+                        type="text"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Driver Name
+                      </label>
+                      <input
+                        name="driverName"
+                        type="text"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Driver Phone
+                      </label>
+                      <input
+                        name="driverPhone"
+                        type="text"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Truck Owner Name
+                      </label>
+                      <input
+                        name="truckOwnerName"
+                        type="text"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Truck Owner Phone
+                      </label>
+                      <input
+                        name="truckOwnerPhone"
+                        type="text"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Sales Invoice No
+                      </label>
+                      <input
+                        name="salesInvoiceNo"
+                        type="text"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Dispatch Date
+                      </label>
+                      <input
+                        name="dispatchDate"
+                        type="date"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Transport Arranged By
+                      </label>
+                      <select
+                        name="transportArrangeBy"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      >
+                        <option value="Oneroot">Oneroot</option>
+                        <option value="Trader">Trader</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Loaded Quantity
+                      </label>
+                      <input
+                        name="quantityLoaded"
+                        type="number"
+                        step="0.01"
+                        required
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Measure
+                      </label>
+                      <select
+                        name="quantityLoadedMeasure"
+                        required
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                      >
+                        <option value="KILOGRAM">Kilogram</option>
+                        <option value="QUINTAL">Quintal</option>
+                        <option value="TON">Ton</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Additional Notes (Optional)
+                    </label>
+                    <textarea
+                      name="additionalNotes"
+                      rows={3}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-4 py-2 border"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-4 pt-6 border-t">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowTruckForm(false);
+                        setSelectedBuyerForTruck(null);
+                      }}
+                      className="px-8 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-10 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
+                    >
+                      Assign Truck
                     </button>
                   </div>
                 </form>
