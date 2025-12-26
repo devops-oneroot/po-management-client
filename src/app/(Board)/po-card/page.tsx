@@ -130,6 +130,7 @@ const PurchaseOrdersPage = () => {
   const [selectedBuyerForTruck, setSelectedBuyerForTruck] = useState<{
     masterPOId: string;
     userId: string;
+    assignedBuyerId: string;
     buyerName: string;
   } | null>(null);
 
@@ -257,6 +258,7 @@ const PurchaseOrdersPage = () => {
           if (assigneeRecords.length === 0) {
             return {
               id: assignedBuyer.id + "-placeholder", // unique ID
+              assignedBuyerId: assignedBuyer.id,
               buyerUserId: assignedBuyer.userId,
               user: {
                 name: assignedBuyer.user.name,
@@ -304,6 +306,7 @@ const PurchaseOrdersPage = () => {
 
             return {
               id: assignee.id,
+              assignedBuyerId: assignedBuyer.id,
               buyerUserId: assignedBuyer.userId,
               user: {
                 name: assignedBuyer.user.name,
@@ -670,20 +673,44 @@ const PurchaseOrdersPage = () => {
                   {expandedPO === po.id && assignees.length > 0 && (
                     <div className="p-6 border-t">
                       <div className="space-y-6">
-                        {/* Group by buyer */}
+                        {/* Group by assignedBuyer ID instead of userId */}
                         {Object.values(
-                          assignees.reduce((groups, assignee) => {
-                            const key = assignee.buyerUserId;
-                            if (!groups[key]) {
-                              groups[key] = {
-                                buyerUserId: key,
-                                user: assignee.user,
-                                dispatches: [],
-                              };
-                            }
-                            groups[key].dispatches.push(assignee);
-                            return groups;
-                          }, {} as Record<string, { buyerUserId: string; user: Assignee["user"]; dispatches: Assignee[] }>)
+                          assignees.reduce(
+                            (groups, assignee) => {
+                              // We'll add the assignedBuyerId to each assignee during transformation
+                              const key =
+                                assignee.assignedBuyerId ||
+                                assignee.buyerUserId; // fallback if missing
+                              if (!groups[key]) {
+                                groups[key] = {
+                                  assignedBuyerId: key,
+                                  user: assignee.user,
+                                  userId: assignee.buyerUserId,
+                                  dispatches: [],
+                                  // Preserve original assignment details
+                                  promisedQuantity: assignee.promisedQuantity,
+                                  promisedQuantityMeasure:
+                                    assignee.promisedQuantityMeasure,
+                                  promisedDate: assignee.promisedDate,
+                                  rate: assignee.rate,
+                                };
+                              }
+                              groups[key].dispatches.push(assignee);
+                              return groups;
+                            },
+                            {} as Record<
+                              string,
+                              {
+                                assignedBuyerId: string;
+                                user: Assignee["user"];
+                                dispatches: Assignee[];
+                                promisedQuantity: number;
+                                promisedQuantityMeasure: string;
+                                promisedDate: string;
+                                rate: string;
+                              }
+                            >
+                          )
                         ).map((group) => {
                           const { user, dispatches } = group;
 
@@ -714,8 +741,11 @@ const PurchaseOrdersPage = () => {
                           const buyerPendingTons =
                             buyerAssignedTons - buyerFulfilledTons;
 
+                          // const isBuyerExpanded = expandedAggregators.has(
+                          //   group.buyerUserId
+                          // );
                           const isBuyerExpanded = expandedAggregators.has(
-                            group.buyerUserId
+                            group.assignedBuyerId
                           );
 
                           const buyerSuppliedTons = dispatches.reduce(
@@ -733,14 +763,14 @@ const PurchaseOrdersPage = () => {
 
                           return (
                             <div
-                              key={group.buyerUserId}
+                              key={group.assignedBuyerId}
                               className="bg-white border border-gray-300 rounded-xl overflow-hidden shadow-md"
                             >
                               {/* Buyer Header */}
                               <div
                                 className="bg-gradient-to-r from-indigo-50 to-blue-50 p-5 border-b border-gray-200 cursor-pointer hover:bg-indigo-100 transition"
                                 onClick={() =>
-                                  toggleAggregator(group.buyerUserId)
+                                  toggleAggregator(group.assignedBuyerId)
                                 }
                               >
                                 <div className="flex items-center justify-between">
@@ -824,7 +854,10 @@ const PurchaseOrdersPage = () => {
                                           e.stopPropagation();
                                           setSelectedBuyerForTruck({
                                             masterPOId: po.id,
-                                            userId: group.buyerUserId,
+
+                                            userId: group.userId,
+                                            assignedBuyerId:
+                                              group.assignedBuyerId,
                                             buyerName: user.name,
                                           });
                                           setShowTruckForm(true);
@@ -966,14 +999,26 @@ const PurchaseOrdersPage = () => {
                                               {rejected.toFixed(2)} Tons
                                             </p>
                                           </div>
+
                                           <div>
                                             <span className="text-gray-500">
                                               Pending
                                             </span>
                                             <p className="font-bold text-orange-600">
-                                              {pending.toFixed(2)} Tons
+                                              {(
+                                                fulfilled -
+                                                (assignee.quantityLoadedMeasure ===
+                                                "KILOGRAM"
+                                                  ? (assignee.quantityLoaded ||
+                                                      0) / 1000 // KG → Tons
+                                                  : assignee.quantityLoaded ||
+                                                    0)
+                                              ) // already Tons
+                                                .toFixed(2)}{" "}
+                                              Tons
                                             </p>
                                           </div>
+
                                           <div className="col-span-3 flex items-center gap-4">
                                             <select
                                               value={assignee.status}
@@ -1557,6 +1602,7 @@ const PurchaseOrdersPage = () => {
                       const formData = new FormData(form);
 
                       const payload = {
+                        id: selectedBuyerForTruck.assignedBuyerId,
                         masterPOId: selectedBuyerForTruck.masterPOId,
                         userId: selectedBuyerForTruck.userId,
                         truckNo:
